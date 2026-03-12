@@ -38,8 +38,8 @@ export declare class DriverOpsService {
         routeId: string;
         vehicleId: string;
         driverId: string;
-        startTime: Date;
         endTime: Date | null;
+        startTime: Date;
     })[]>;
     updateTripStatus(tenantId: string, driverId: string, tripId: string, updateTripStatusDto: UpdateTripStatusDto): Promise<{
         status: import("@prisma/client").$Enums.TripStatus;
@@ -51,8 +51,8 @@ export declare class DriverOpsService {
         routeId: string;
         vehicleId: string;
         driverId: string;
-        startTime: Date;
         endTime: Date | null;
+        startTime: Date;
     }>;
     logLocation(tenantId: string, driverId: string, tripId: string, locationDto: LocationDto): Promise<{
         success: boolean;
@@ -65,9 +65,9 @@ export declare class DriverOpsService {
         deletedAt: Date | null;
         tenantId: string;
         driverId: string;
+        description: string;
         tripId: string;
         amount: import("@prisma/client-runtime-utils").Decimal;
-        description: string;
         category: string;
     }>;
 }

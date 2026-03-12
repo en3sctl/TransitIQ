@@ -52,8 +52,8 @@ export declare class BookingService {
         routeId: string;
         vehicleId: string;
         driverId: string;
-        startTime: Date;
         endTime: Date | null;
+        startTime: Date;
     }[]>;
     createReservation(createDto: CreateReservationDto & {
         tenantId: string;

@@ -52,8 +52,8 @@ export declare class BookingController {
         routeId: string;
         vehicleId: string;
         driverId: string;
-        startTime: Date;
         endTime: Date | null;
+        startTime: Date;
     }[]>;
     createReservation(req: any, createDto: CreateReservationDto): Promise<{
         status: import("@prisma/client").$Enums.ReservationStatus;

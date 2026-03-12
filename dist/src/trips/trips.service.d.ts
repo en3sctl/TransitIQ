@@ -1,43 +1,10 @@
+import { OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-export declare class TripsService {
+export declare class TripsService implements OnModuleInit {
     private prisma;
     constructor(prisma: PrismaService);
-    findOne(tenantId: string, id: string): Promise<{
-        vehicle: {
-            plateNumber: string;
-            capacity: number;
-            fuelConsumptionPer100km: number;
-            status: string;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            tenantId: string;
-        };
-        route: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            tenantId: string;
-            title: string;
-            startLocation: string;
-            endLocation: string;
-            basePrice: import("@prisma/client-runtime-utils").Decimal;
-            taxRate: import("@prisma/client-runtime-utils").Decimal;
-            totalDistanceKm: number;
-        };
-    } & {
-        status: import("@prisma/client").$Enums.TripStatus;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        tenantId: string;
-        routeId: string;
-        vehicleId: string;
-        driverId: string;
-        startTime: Date;
-        endTime: Date | null;
-    }>;
+    onModuleInit(): Promise<void>;
+    findAll(tenantId: string): Promise<any>;
+    create(tenantId: string, dto: any): Promise<any>;
+    findOne(tenantId: string, id: string): Promise<any>;
 }
