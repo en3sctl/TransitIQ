@@ -1,0 +1,161 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  DRIVER
+  PASSENGER
+}
+
+enum TripStatus {
+  PENDING
+  ON_THE_WAY
+  COMPLETED
+  CANCELLED
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model Tenant {
+  id        String    @id @default(uuid())
+  name      String
+  domain    String?   @unique
+  slug      String    @unique
+  status    String    @default("ACTIVE")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  users        User[]
+  vehicles     Vehicle[]
+  routes       Route[]
+  trips        Trip[]
+  reservations Reservation[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  tenantId     String
+  name         String
+  email        String
+  passwordHash String    @map("password_hash")
+  role         Role      @default(PASSENGER)
+  phoneNumber  String?   @map("phone_number")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  driverTrips  Trip[]        @relation("DriverTrips")
+  reservations Reservation[]
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model Vehicle {
+  id                    String    @id @default(uuid())
+  tenantId              String
+  plateNumber           String    @map("plate_number")
+  capacity              Int
+  fuelConsumptionPer100km Float    @map("fuel_consumption_per_100km")
+  status                String    @default("ACTIVE")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  trips  Trip[]
+
+  @@unique([tenantId, plateNumber])
+  @@map("vehicles")
+}
+
+model Route {
+  id              String    @id @default(uuid())
+  tenantId        String
+  title           String
+  startLocation   String    @map("start_location")
+  endLocation     String    @map("end_location")
+  totalDistanceKm Float     @map("total_distance_km")
+  basePrice       Decimal   @map("base_price")
+  taxRate         Decimal   @map("tax_rate")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  trips  Trip[]
+
+  @@map("routes")
+}
+
+model Trip {
+  id        String     @id @default(uuid())
+  tenantId  String
+  routeId   String
+  vehicleId String
+  driverId  String
+  startTime DateTime   @map("start_time")
+  endTime   DateTime?  @map("end_time")
+  status    TripStatus @default(PENDING)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  route   Route   @relation(fields: [routeId], references: [id])
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+  driver  User    @relation("DriverTrips", fields: [driverId], references: [id])
+
+  reservations Reservation[]
+
+  @@map("trips")
+}
+
+model Reservation {
+  id            String            @id @default(uuid())
+  tenantId      String
+  tripId        String
+  passengerId   String
+  seatNumber    Int               @map("seat_number")
+  status        ReservationStatus @default(PENDING)
+  paymentStatus PaymentStatus     @default(PENDING) @map("payment_status")
+  totalAmount   Decimal           @map("total_amount")
+  pnrCode       String            @unique @map("pnr_code")
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deletedAt     DateTime?
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+  trip      Trip   @relation(fields: [tripId], references: [id])
+  passenger User   @relation(fields: [passengerId], references: [id])
+
+  @@map("reservations")
+}
