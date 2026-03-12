@@ -2,6 +2,9 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Request } from '@nes
 import { VehiclesService } from './vehicles.service';
 import { CreateVehicleDto, UpdateVehicleDto } from './dto/vehicle.dto';
 
+import { ApiTags } from '@nestjs/swagger';
+
+@ApiTags('Vehicles')
 @Controller('vehicles')
 export class VehiclesController {
   constructor(private readonly vehiclesService: VehiclesService) {}

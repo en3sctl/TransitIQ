@@ -2,6 +2,9 @@ import { Controller, Get, Post, Patch, Body, Param, Request } from '@nestjs/comm
 import { DriverOpsService } from './driver-ops.service';
 import { CreateExpenseDto, UpdateTripStatusDto, LocationDto } from './dto/driver-ops.dto';
 
+import { ApiTags } from '@nestjs/swagger';
+
+@ApiTags('Driver Operations')
 @Controller('driver-ops')
 export class DriverOpsController {
   constructor(private readonly driverOpsService: DriverOpsService) {}

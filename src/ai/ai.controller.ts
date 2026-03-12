@@ -1,6 +1,9 @@
 import { Controller, Post, Body, Get, Query, Request } from '@nestjs/common';
 import { AiService } from './ai.service';
 
+import { ApiTags } from '@nestjs/swagger';
+
+@ApiTags('AI Features')
 @Controller('ai')
 export class AiController {
   constructor(private readonly aiService: AiService) {}

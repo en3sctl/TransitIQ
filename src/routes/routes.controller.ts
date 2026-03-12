@@ -2,6 +2,9 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Request } from '@nes
 import { RoutesService } from './routes.service';
 import { CreateRouteDto, UpdateRouteDto } from './dto/route.dto';
 
+import { ApiTags } from '@nestjs/swagger';
+
+@ApiTags('Routes')
 @Controller('routes')
 export class RoutesController {
   constructor(private readonly routesService: RoutesService) {}
