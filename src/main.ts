@@ -8,6 +8,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.enableCors({ origin: 'http://localhost:3001', credentials: true });
+
   const config = new DocumentBuilder()
     .setTitle('TransitIQ SaaS API')
     .setDescription('Multi-tenant SaaS API for travel/transportation companies')

@@ -40,6 +40,7 @@ const app_module_1 = require("./app.module");
 const swagger_1 = require("@nestjs/swagger");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    app.enableCors({ origin: 'http://localhost:3001', credentials: true });
     const config = new swagger_1.DocumentBuilder()
         .setTitle('TransitIQ SaaS API')
         .setDescription('Multi-tenant SaaS API for travel/transportation companies')
