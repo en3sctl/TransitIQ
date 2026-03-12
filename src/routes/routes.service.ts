@@ -22,7 +22,7 @@ export class RoutesService {
     const finalPrice = this.pricingService.calculateFinalPrice(basePrice, taxRate);
     console.log(`Calculated Final Price: ${finalPrice}`);
 
-    return this.prisma.route.create({
+    return (this.prisma as any).route.create({
       data: {
         ...createRouteDto,
         totalDistanceKm,
@@ -32,7 +32,7 @@ export class RoutesService {
   }
 
   async findAll(tenantId: string) {
-    return this.prisma.route.findMany({
+    return (this.prisma as any).route.findMany({
       where: {
         tenantId,
         deletedAt: null,
@@ -41,7 +41,7 @@ export class RoutesService {
   }
 
   async findOne(tenantId: string, id: string) {
-    const route = await this.prisma.route.findFirst({
+    const route = await (this.prisma as any).route.findFirst({
       where: {
         id,
         tenantId,
@@ -59,7 +59,7 @@ export class RoutesService {
   async update(tenantId: string, id: string, updateRouteDto: UpdateRouteDto) {
     await this.findOne(tenantId, id);
 
-    return this.prisma.route.update({
+    return (this.prisma as any).route.update({
       where: { id },
       data: updateRouteDto,
     });
@@ -68,7 +68,7 @@ export class RoutesService {
   async remove(tenantId: string, id: string) {
     await this.findOne(tenantId, id);
 
-    return this.prisma.route.update({
+    return (this.prisma as any).route.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
