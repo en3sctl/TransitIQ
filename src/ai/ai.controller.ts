@@ -13,7 +13,7 @@ export class AiController {
     @Request() req: any,
     @Body() body: { routeId: string; vehicleId: string },
   ) {
-    const tenantId = req.user?.tenantId || 'dummy-tenant-id';
+    const tenantId = req.user.tenantId;
     return this.aiService.suggestTicketPrice(tenantId, body.routeId, body.vehicleId);
   }
 
@@ -22,7 +22,7 @@ export class AiController {
     @Request() req: any,
     @Query('tripId') tripId: string,
   ) {
-    const tenantId = req.user?.tenantId || 'dummy-tenant-id';
+    const tenantId = req.user.tenantId;
     return this.aiService.optimizeRouteForPickups(tenantId, tripId);
   }
 }

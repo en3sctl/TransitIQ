@@ -11,31 +11,31 @@ export class RoutesController {
 
   @Post()
   create(@Request() req: any, @Body() createRouteDto: CreateRouteDto) {
-    const tenantId = req.user?.tenantId || 'dummy-tenant-id';
+    const tenantId = req.user.tenantId;
     return this.routesService.create(tenantId, createRouteDto);
   }
 
   @Get()
   findAll(@Request() req: any) {
-    const tenantId = req.user?.tenantId || 'dummy-tenant-id';
+    const tenantId = req.user.tenantId;
     return this.routesService.findAll(tenantId);
   }
 
   @Get(':id')
   findOne(@Request() req: any, @Param('id') id: string) {
-    const tenantId = req.user?.tenantId || 'dummy-tenant-id';
+    const tenantId = req.user.tenantId;
     return this.routesService.findOne(tenantId, id);
   }
 
   @Patch(':id')
   update(@Request() req: any, @Param('id') id: string, @Body() updateRouteDto: UpdateRouteDto) {
-    const tenantId = req.user?.tenantId || 'dummy-tenant-id';
+    const tenantId = req.user.tenantId;
     return this.routesService.update(tenantId, id, updateRouteDto);
   }
 
   @Delete(':id')
   remove(@Request() req: any, @Param('id') id: string) {
-    const tenantId = req.user?.tenantId || 'dummy-tenant-id';
+    const tenantId = req.user.tenantId;
     return this.routesService.remove(tenantId, id);
   }
 }

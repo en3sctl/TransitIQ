@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, Param, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Param, Request } from '@nestjs/common';
 import { BookingService } from './booking.service';
 import { SearchTripsDto, CreateReservationDto } from './dto/booking.dto';
 
@@ -15,14 +15,19 @@ export class BookingController {
   }
 
   @Post('reservations')
-  createReservation(@Body() createDto: CreateReservationDto) {
-    // In a real app, tenantId and passengerId might be taken from JWT if authenticated
-    // or passed in body for public bookings.
-    return this.bookingService.createReservation(createDto);
+  createReservation(@Request() req: any, @Body() createDto: CreateReservationDto) {
+    const tenantId = req.user.tenantId;
+    const passengerId = req.user.id;
+    return this.bookingService.createReservation({
+      ...(createDto as any),
+      tenantId,
+      passengerId,
+    });
   }
 
   @Post('reservations/:id/pay')
-  pay(@Param('id') id: string, @Body('tenantId') tenantId: string) {
+  pay(@Request() req: any, @Param('id') id: string) {
+    const tenantId = req.user.tenantId;
     return this.bookingService.payReservation(tenantId, id);
   }
 }

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CommonModule } from './common/common.module';
@@ -11,9 +11,27 @@ import { AiModule } from './ai/ai.module';
 import { DriverOpsModule } from './driver-ops/driver-ops.module';
 import { BookingModule } from './booking/booking.module';
 
+import { ConfigModule } from '@nestjs/config';
+import { MockAuthMiddleware } from './common/middleware/mock-auth.middleware';
+
 @Module({
-  imports: [CommonModule, VehiclesModule, UsersModule, RoutesModule, SharedModule, TripsModule, AiModule, DriverOpsModule, BookingModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    CommonModule,
+    VehiclesModule,
+    UsersModule,
+    RoutesModule,
+    SharedModule,
+    TripsModule,
+    AiModule,
+    DriverOpsModule,
+    BookingModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(MockAuthMiddleware).forRoutes('*');
+  }
+}

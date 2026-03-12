@@ -21,15 +21,7 @@ export class SearchTripsDto {
 export class CreateReservationDto {
   @IsUUID()
   @IsNotEmpty()
-  tenantId: string;
-
-  @IsUUID()
-  @IsNotEmpty()
   tripId: string;
-
-  @IsUUID()
-  @IsNotEmpty()
-  passengerId: string;
 
   @IsInt()
   @Min(1)

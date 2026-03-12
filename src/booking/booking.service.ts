@@ -57,13 +57,13 @@ export class BookingService {
   /**
    * Create a reservation for a passenger.
    */
-  async createReservation(createDto: CreateReservationDto) {
+  async createReservation(createDto: CreateReservationDto & { tenantId: string; passengerId: string }) {
     const { tenantId, tripId, passengerId, seatNumber } = createDto;
 
     // 1. Verify trip exists and has capacity
     const trip = await this.prisma.trip.findFirst({
       where: { id: tripId, tenantId, deletedAt: null },
-      include: { vehicle: true },
+      include: { vehicle: true, route: true },
     });
 
     if (!trip) {

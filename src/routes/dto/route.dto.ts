@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Min, IsOptional } from 'class-validator';
 
 export class CreateRouteDto {
   @IsString()
@@ -45,4 +45,3 @@ export class UpdateRouteDto {
   @Min(0)
   taxRate?: number;
 }
-import { IsOptional } from 'class-validator';

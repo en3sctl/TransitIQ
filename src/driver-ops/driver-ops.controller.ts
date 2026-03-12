@@ -11,8 +11,8 @@ export class DriverOpsController {
 
   @Get('trips/today')
   getTodayTrips(@Request() req: any) {
-    const tenantId = req.user?.tenantId || 'dummy-tenant-id';
-    const driverId = req.user?.id || 'dummy-driver-id';
+    const tenantId = req.user.tenantId;
+    const driverId = req.user.id;
     return this.driverOpsService.getTodayTrips(tenantId, driverId);
   }
 
@@ -22,8 +22,8 @@ export class DriverOpsController {
     @Param('tripId') tripId: string,
     @Body() updateTripStatusDto: UpdateTripStatusDto,
   ) {
-    const tenantId = req.user?.tenantId || 'dummy-tenant-id';
-    const driverId = req.user?.id || 'dummy-driver-id';
+    const tenantId = req.user.tenantId;
+    const driverId = req.user.id;
     return this.driverOpsService.updateTripStatus(tenantId, driverId, tripId, updateTripStatusDto);
   }
 
@@ -33,8 +33,8 @@ export class DriverOpsController {
     @Param('tripId') tripId: string,
     @Body() locationDto: LocationDto,
   ) {
-    const tenantId = req.user?.tenantId || 'dummy-tenant-id';
-    const driverId = req.user?.id || 'dummy-driver-id';
+    const tenantId = req.user.tenantId;
+    const driverId = req.user.id;
     return this.driverOpsService.logLocation(tenantId, driverId, tripId, locationDto);
   }
 
@@ -44,8 +44,8 @@ export class DriverOpsController {
     @Param('tripId') tripId: string,
     @Body() createExpenseDto: CreateExpenseDto,
   ) {
-    const tenantId = req.user?.tenantId || 'dummy-tenant-id';
-    const driverId = req.user?.id || 'dummy-driver-id';
+    const tenantId = req.user.tenantId;
+    const driverId = req.user.id;
     return this.driverOpsService.createExpense(tenantId, driverId, tripId, createExpenseDto);
   }
 }
