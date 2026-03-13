@@ -10,13 +10,14 @@ import { TripsModule } from './trips/trips.module';
 import { AiModule } from './ai/ai.module';
 import { DriverOpsModule } from './driver-ops/driver-ops.module';
 import { BookingModule } from './booking/booking.module';
+import { AuthModule } from './auth/auth.module';
 
 import { ConfigModule } from '@nestjs/config';
-import { MockAuthMiddleware } from './common/middleware/mock-auth.middleware';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    AuthModule,
     CommonModule,
     VehiclesModule,
     UsersModule,
@@ -30,8 +31,4 @@ import { MockAuthMiddleware } from './common/middleware/mock-auth.middleware';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(MockAuthMiddleware).forRoutes('*');
-  }
-}
+export class AppModule {}

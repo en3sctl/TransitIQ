@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Request, UseGuards } from '@nestjs/common';
 import { RoutesService } from './routes.service';
 import { CreateRouteDto, UpdateRouteDto } from './dto/route.dto';
-
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('Routes')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('routes')
 export class RoutesController {
   constructor(private readonly routesService: RoutesService) {}
