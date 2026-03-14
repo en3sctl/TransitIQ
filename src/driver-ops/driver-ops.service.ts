@@ -16,11 +16,10 @@ export class DriverOpsService {
       where: {
         tenantId,
         driverId,
-        startTime: {
+        departureTime: {
           gte: today,
           lt: tomorrow,
         },
-        deletedAt: null,
       },
       include: {
         route: true,
@@ -35,7 +34,6 @@ export class DriverOpsService {
         id: tripId,
         tenantId,
         driverId,
-        deletedAt: null,
       },
     });
 
@@ -56,7 +54,6 @@ export class DriverOpsService {
         id: tripId,
         tenantId,
         driverId,
-        deletedAt: null,
       },
     });
 
@@ -77,7 +74,6 @@ export class DriverOpsService {
         id: tripId,
         tenantId,
         driverId,
-        deletedAt: null,
       },
     });
 
@@ -85,13 +81,9 @@ export class DriverOpsService {
       throw new ForbiddenException(`You are not authorized to submit expenses for trip ${tripId}`);
     }
 
-    return this.prisma.expense.create({
-      data: {
-        ...createExpenseDto,
-        tenantId,
-        driverId,
-        tripId,
-      },
-    });
+    // Expense model was removed in the enterprise overhaul.
+    // This feature is currently disabled or will be moved to a different billing module.
+    console.log(`[EXPENSE BLOCKED] Tenant: ${tenantId}, Trip: ${tripId}, Model no longer exists.`);
+    return { success: false, message: 'Expense tracking is temporarily disabled.' };
   }
 }

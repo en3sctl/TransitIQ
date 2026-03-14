@@ -1,89 +1,110 @@
 import { PrismaService } from '../common/prisma/prisma.service';
-import { SearchTripsDto, CreateReservationDto } from './dto/booking.dto';
+import { SearchTripsDto } from './dto/booking.dto';
 export declare class BookingService {
     private prisma;
     constructor(prisma: PrismaService);
     searchTrips(searchDto: SearchTripsDto): Promise<{
         availableSeats: number;
         vehicle: {
-            plateNumber: string;
             capacity: number;
-            fuelConsumptionPer100km: number;
-            status: string;
+            status: import("@prisma/client").$Enums.VehicleStatus;
             id: string;
+            make: string | null;
+            model: string | null;
+            year: number | null;
+            registrationPlate: string;
+            chassisNumber: string | null;
+            engineNumber: string | null;
+            muayeneTarihi: Date | null;
+            sigortaTarihi: Date | null;
+            currentMileage: number;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             tenantId: string;
         };
         route: {
+            originStation: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                tenantId: string;
+                name: string;
+                city: string;
+                locationLat: import("@prisma/client-runtime-utils").Decimal | null;
+                locationLng: import("@prisma/client-runtime-utils").Decimal | null;
+            };
+            destinationStation: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                tenantId: string;
+                name: string;
+                city: string;
+                locationLat: import("@prisma/client-runtime-utils").Decimal | null;
+                locationLng: import("@prisma/client-runtime-utils").Decimal | null;
+            };
+        } & {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
             tenantId: string;
             title: string;
-            startLocation: string;
-            endLocation: string;
             basePrice: import("@prisma/client-runtime-utils").Decimal;
             taxRate: import("@prisma/client-runtime-utils").Decimal;
+            originStationId: string;
+            destinationStationId: string;
             totalDistanceKm: number;
         };
-        reservations: {
-            status: import("@prisma/client").$Enums.ReservationStatus;
+        bookings: {
+            status: import("@prisma/client").$Enums.BookingStatus;
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
             tenantId: string;
             tripId: string;
-            seatNumber: number;
-            passengerId: string;
-            paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
-            totalAmount: import("@prisma/client-runtime-utils").Decimal;
+            seatId: string;
+            userId: string;
+            pricePaid: import("@prisma/client-runtime-utils").Decimal;
+            bookingTime: Date;
             pnrCode: string;
         }[];
         status: import("@prisma/client").$Enums.TripStatus;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        deletedAt: Date | null;
         tenantId: string;
         routeId: string;
         vehicleId: string;
         driverId: string;
-        endTime: Date | null;
-        startTime: Date;
+        departureTime: Date;
+        assistantDriverId: string | null;
+        hostessId: string | null;
+        estimatedArrival: Date | null;
+        actualArrival: Date | null;
+        notes: string | null;
     }[]>;
-    createReservation(createDto: CreateReservationDto & {
+    createReservation(createDto: any & {
         tenantId: string;
-        passengerId: string;
+        userId: string;
     }): Promise<{
-        status: import("@prisma/client").$Enums.ReservationStatus;
+        status: import("@prisma/client").$Enums.BookingStatus;
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
         tenantId: string;
         tripId: string;
-        seatNumber: number;
-        passengerId: string;
-        paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
-        totalAmount: import("@prisma/client-runtime-utils").Decimal;
+        seatId: string;
+        userId: string;
+        pricePaid: import("@prisma/client-runtime-utils").Decimal;
+        bookingTime: Date;
         pnrCode: string;
     }>;
-    payReservation(tenantId: string, reservationId: string): Promise<{
-        status: import("@prisma/client").$Enums.ReservationStatus;
+    cancelBooking(tenantId: string, bookingId: string): Promise<{
+        status: import("@prisma/client").$Enums.BookingStatus;
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
         tenantId: string;
         tripId: string;
-        seatNumber: number;
-        passengerId: string;
-        paymentStatus: import("@prisma/client").$Enums.PaymentStatus;
-        totalAmount: import("@prisma/client-runtime-utils").Decimal;
+        seatId: string;
+        userId: string;
+        pricePaid: import("@prisma/client-runtime-utils").Decimal;
+        bookingTime: Date;
         pnrCode: string;
     }>;
     private generatePnrCode;

@@ -17,17 +17,17 @@ export class BookingController {
   @Post('reservations')
   createReservation(@Request() req: any, @Body() createDto: CreateReservationDto) {
     const tenantId = req.user.tenantId;
-    const passengerId = req.user.id;
+    const userId = req.user.id;
     return this.bookingService.createReservation({
       ...(createDto as any),
       tenantId,
-      passengerId,
+      userId,
     });
   }
 
-  @Post('reservations/:id/pay')
-  pay(@Request() req: any, @Param('id') id: string) {
+  @Post('bookings/:id/cancel')
+  cancel(@Request() req: any, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
-    return this.bookingService.payReservation(tenantId, id);
+    return this.bookingService.cancelBooking(tenantId, id);
   }
 }

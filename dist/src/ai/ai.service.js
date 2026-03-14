@@ -29,7 +29,7 @@ let AiService = AiService_1 = class AiService {
         const route = await this.routesService.findOne(tenantId, routeId);
         const vehicle = await this.vehiclesService.findOne(tenantId, vehicleId);
         const distance = route.totalDistanceKm;
-        const consumption = vehicle.fuelConsumptionPer100km;
+        const consumption = 10;
         this.logger.log(`Generating AI price suggestion for Route: ${routeId}, Vehicle: ${vehicleId}`);
         const prompt = `
       Route Distance: ${distance} km

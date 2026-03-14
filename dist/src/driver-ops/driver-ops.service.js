@@ -26,11 +26,10 @@ let DriverOpsService = class DriverOpsService {
             where: {
                 tenantId,
                 driverId,
-                startTime: {
+                departureTime: {
                     gte: today,
                     lt: tomorrow,
                 },
-                deletedAt: null,
             },
             include: {
                 route: true,
@@ -44,7 +43,6 @@ let DriverOpsService = class DriverOpsService {
                 id: tripId,
                 tenantId,
                 driverId,
-                deletedAt: null,
             },
         });
         if (!trip) {
@@ -61,7 +59,6 @@ let DriverOpsService = class DriverOpsService {
                 id: tripId,
                 tenantId,
                 driverId,
-                deletedAt: null,
             },
         });
         if (!trip) {
@@ -76,20 +73,13 @@ let DriverOpsService = class DriverOpsService {
                 id: tripId,
                 tenantId,
                 driverId,
-                deletedAt: null,
             },
         });
         if (!trip) {
             throw new common_1.ForbiddenException(`You are not authorized to submit expenses for trip ${tripId}`);
         }
-        return this.prisma.expense.create({
-            data: {
-                ...createExpenseDto,
-                tenantId,
-                driverId,
-                tripId,
-            },
-        });
+        console.log(`[EXPENSE BLOCKED] Tenant: ${tenantId}, Trip: ${tripId}, Model no longer exists.`);
+        return { success: false, message: 'Expense tracking is temporarily disabled.' };
     }
 };
 exports.DriverOpsService = DriverOpsService;

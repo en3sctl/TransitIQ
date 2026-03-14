@@ -27,29 +27,36 @@ let BookingService = class BookingService {
         const trips = await this.prisma.trip.findMany({
             where: {
                 tenantId,
-                status: client_1.TripStatus.PENDING,
-                startTime: {
+                status: client_1.TripStatus.PLANNED,
+                departureTime: {
                     gte: searchDate,
                     lt: nextDay,
                 },
                 route: {
-                    startLocation: { contains: startLocation, mode: 'insensitive' },
-                    endLocation: { contains: endLocation, mode: 'insensitive' },
+                    OR: [
+                        { originStation: { name: { contains: startLocation, mode: 'insensitive' } } },
+                        { destinationStation: { name: { contains: endLocation, mode: 'insensitive' } } },
+                        { stops: { some: { station: { name: { contains: startLocation, mode: 'insensitive' } } } } }
+                    ]
                 },
-                deletedAt: null,
             },
             include: {
-                route: true,
+                route: {
+                    include: {
+                        originStation: true,
+                        destinationStation: true,
+                    }
+                },
                 vehicle: true,
-                reservations: {
+                bookings: {
                     where: {
-                        status: { in: [client_1.ReservationStatus.PENDING, client_1.ReservationStatus.CONFIRMED] },
+                        status: { in: [client_1.BookingStatus.CONFIRMED] },
                     },
                 },
             },
         });
         return trips.map(trip => {
-            const takenSeats = trip.reservations.length;
+            const takenSeats = trip.bookings.length;
             const availableSeats = trip.vehicle.capacity - takenSeats;
             return {
                 ...trip,
@@ -58,53 +65,48 @@ let BookingService = class BookingService {
         }).filter(trip => trip.availableSeats > 0);
     }
     async createReservation(createDto) {
-        const { tenantId, tripId, passengerId, seatNumber } = createDto;
+        const { tenantId, tripId, userId, seatId } = createDto;
         const trip = await this.prisma.trip.findFirst({
-            where: { id: tripId, tenantId, deletedAt: null },
+            where: { id: tripId, tenantId },
             include: { vehicle: true, route: true },
         });
         if (!trip) {
             throw new common_1.NotFoundException('Trip not found');
         }
-        const existingReservation = await this.prisma.reservation.findFirst({
+        const existingBooking = await this.prisma.booking.findFirst({
             where: {
                 tripId,
-                seatNumber,
-                status: { in: [client_1.ReservationStatus.PENDING, client_1.ReservationStatus.CONFIRMED] },
+                seatId,
+                status: { in: [client_1.BookingStatus.CONFIRMED] },
             },
         });
-        if (existingReservation) {
-            throw new common_1.ConflictException(`Seat number ${seatNumber} is already occupied`);
+        if (existingBooking) {
+            throw new common_1.ConflictException(`Seat is already occupied`);
         }
         const pnrCode = this.generatePnrCode();
-        return this.prisma.reservation.create({
+        return this.prisma.booking.create({
             data: {
                 tenantId,
                 tripId,
-                passengerId,
-                seatNumber,
+                userId,
+                seatId,
                 pnrCode,
-                status: client_1.ReservationStatus.PENDING,
-                paymentStatus: client_1.PaymentStatus.PENDING,
-                totalAmount: trip.route.basePrice,
+                status: client_1.BookingStatus.CONFIRMED,
+                pricePaid: trip.route.basePrice,
             },
         });
     }
-    async payReservation(tenantId, reservationId) {
-        const reservation = await this.prisma.reservation.findFirst({
-            where: { id: reservationId, tenantId, deletedAt: null },
+    async cancelBooking(tenantId, bookingId) {
+        const booking = await this.prisma.booking.findFirst({
+            where: { id: bookingId, tenantId },
         });
-        if (!reservation) {
-            throw new common_1.NotFoundException('Reservation not found');
+        if (!booking) {
+            throw new common_1.NotFoundException('Booking not found');
         }
-        if (reservation.paymentStatus === client_1.PaymentStatus.PAID) {
-            throw new common_1.BadRequestException('Reservation is already paid');
-        }
-        return this.prisma.reservation.update({
-            where: { id: reservationId },
+        return this.prisma.booking.update({
+            where: { id: bookingId },
             data: {
-                paymentStatus: client_1.PaymentStatus.PAID,
-                status: client_1.ReservationStatus.CONFIRMED,
+                status: client_1.BookingStatus.CANCELLED,
             },
         });
     }

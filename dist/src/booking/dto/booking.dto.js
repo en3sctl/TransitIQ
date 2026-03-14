@@ -40,7 +40,7 @@ __decorate([
 ], SearchTripsDto.prototype, "date", void 0);
 class CreateReservationDto {
     tripId;
-    seatNumber;
+    seatId;
 }
 exports.CreateReservationDto = CreateReservationDto;
 __decorate([
@@ -49,8 +49,8 @@ __decorate([
     __metadata("design:type", String)
 ], CreateReservationDto.prototype, "tripId", void 0);
 __decorate([
-    (0, class_validator_1.IsInt)(),
-    (0, class_validator_1.Min)(1),
-    __metadata("design:type", Number)
-], CreateReservationDto.prototype, "seatNumber", void 0);
+    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateReservationDto.prototype, "seatId", void 0);
 //# sourceMappingURL=booking.dto.js.map

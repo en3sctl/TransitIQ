@@ -6,5 +6,5 @@ export declare class SearchTripsDto {
 }
 export declare class CreateReservationDto {
     tripId: string;
-    seatNumber: number;
+    seatId: string;
 }

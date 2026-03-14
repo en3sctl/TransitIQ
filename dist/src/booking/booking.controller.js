@@ -27,16 +27,16 @@ let BookingController = class BookingController {
     }
     createReservation(req, createDto) {
         const tenantId = req.user.tenantId;
-        const passengerId = req.user.id;
+        const userId = req.user.id;
         return this.bookingService.createReservation({
             ...createDto,
             tenantId,
-            passengerId,
+            userId,
         });
     }
-    pay(req, id) {
+    cancel(req, id) {
         const tenantId = req.user.tenantId;
-        return this.bookingService.payReservation(tenantId, id);
+        return this.bookingService.cancelBooking(tenantId, id);
     }
 };
 exports.BookingController = BookingController;
@@ -56,13 +56,13 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], BookingController.prototype, "createReservation", null);
 __decorate([
-    (0, common_1.Post)('reservations/:id/pay'),
+    (0, common_1.Post)('bookings/:id/cancel'),
     __param(0, (0, common_1.Request)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
-], BookingController.prototype, "pay", null);
+], BookingController.prototype, "cancel", null);
 exports.BookingController = BookingController = __decorate([
     (0, swagger_1.ApiTags)('Booking'),
     (0, common_1.Controller)('booking'),

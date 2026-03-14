@@ -23,7 +23,7 @@ export class CreateReservationDto {
   @IsNotEmpty()
   tripId: string;
 
-  @IsInt()
-  @Min(1)
-  seatNumber: number;
+  @IsUUID()
+  @IsNotEmpty()
+  seatId: string;
 }

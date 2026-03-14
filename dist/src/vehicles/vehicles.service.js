@@ -18,9 +18,11 @@ let VehiclesService = class VehiclesService {
         this.prisma = prisma;
     }
     async create(tenantId, createVehicleDto) {
+        const { plateNumber, ...rest } = createVehicleDto;
         return this.prisma.vehicle.create({
             data: {
-                ...createVehicleDto,
+                ...rest,
+                registrationPlate: plateNumber,
                 tenantId,
             },
         });
@@ -48,9 +50,14 @@ let VehiclesService = class VehiclesService {
     }
     async update(tenantId, id, updateVehicleDto) {
         await this.findOne(tenantId, id);
+        const { plateNumber, status, ...rest } = updateVehicleDto;
         return this.prisma.vehicle.update({
             where: { id },
-            data: updateVehicleDto,
+            data: {
+                ...rest,
+                ...(plateNumber && { registrationPlate: plateNumber }),
+                ...(status && { status: status }),
+            },
         });
     }
     async remove(tenantId, id) {

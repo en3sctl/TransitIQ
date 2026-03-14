@@ -5,11 +5,18 @@ export declare class DriverOpsService {
     constructor(prisma: PrismaService);
     getTodayTrips(tenantId: string, driverId: string): Promise<({
         vehicle: {
-            plateNumber: string;
             capacity: number;
-            fuelConsumptionPer100km: number;
-            status: string;
+            status: import("@prisma/client").$Enums.VehicleStatus;
             id: string;
+            make: string | null;
+            model: string | null;
+            year: number | null;
+            registrationPlate: string;
+            chassisNumber: string | null;
+            engineNumber: string | null;
+            muayeneTarihi: Date | null;
+            sigortaTarihi: Date | null;
+            currentMileage: number;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
@@ -19,13 +26,12 @@ export declare class DriverOpsService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
             tenantId: string;
             title: string;
-            startLocation: string;
-            endLocation: string;
             basePrice: import("@prisma/client-runtime-utils").Decimal;
             taxRate: import("@prisma/client-runtime-utils").Decimal;
+            originStationId: string;
+            destinationStationId: string;
             totalDistanceKm: number;
         };
     } & {
@@ -33,41 +39,39 @@ export declare class DriverOpsService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        deletedAt: Date | null;
         tenantId: string;
         routeId: string;
         vehicleId: string;
         driverId: string;
-        endTime: Date | null;
-        startTime: Date;
+        departureTime: Date;
+        assistantDriverId: string | null;
+        hostessId: string | null;
+        estimatedArrival: Date | null;
+        actualArrival: Date | null;
+        notes: string | null;
     })[]>;
     updateTripStatus(tenantId: string, driverId: string, tripId: string, updateTripStatusDto: UpdateTripStatusDto): Promise<{
         status: import("@prisma/client").$Enums.TripStatus;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        deletedAt: Date | null;
         tenantId: string;
         routeId: string;
         vehicleId: string;
         driverId: string;
-        endTime: Date | null;
-        startTime: Date;
+        departureTime: Date;
+        assistantDriverId: string | null;
+        hostessId: string | null;
+        estimatedArrival: Date | null;
+        actualArrival: Date | null;
+        notes: string | null;
     }>;
     logLocation(tenantId: string, driverId: string, tripId: string, locationDto: LocationDto): Promise<{
         success: boolean;
         timestamp: Date;
     }>;
     createExpense(tenantId: string, driverId: string, tripId: string, createExpenseDto: CreateExpenseDto): Promise<{
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        tenantId: string;
-        driverId: string;
-        description: string;
-        tripId: string;
-        amount: import("@prisma/client-runtime-utils").Decimal;
-        category: string;
+        success: boolean;
+        message: string;
     }>;
 }
