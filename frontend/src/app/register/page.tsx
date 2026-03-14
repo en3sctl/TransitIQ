@@ -168,7 +168,7 @@ export default function RegisterPage() {
                         value={formData.companyName}
                         onChange={e => setFormData({...formData, companyName: e.target.value})}
                         required
-                        className="peer w-full px-5 py-5 pt-7 rounded-[22px] border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 focus:ring-8 focus:ring-indigo-500/5 transition-all bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-medium shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700"
+                        className="peer w-full px-5 py-5 pt-7 rounded-[22px] border border-zinc-200 focus:border-indigo-500 outline-none focus:ring-8 focus:ring-indigo-500/5 transition-all bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white dark:border-zinc-800 dark:placeholder-zinc-500 dark:focus:border-indigo-500 autofill:shadow-[inset_0_0_0_1000px_white] dark:autofill:shadow-[inset_0_0_0_1000px_#18181b] dark:[&:-webkit-autofill]:text-white font-medium shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700"
                       />
                       <label 
                         htmlFor="companyName" 
@@ -185,7 +185,7 @@ export default function RegisterPage() {
                         value={formData.companyDomain}
                         onChange={e => setFormData({...formData, companyDomain: e.target.value})}
                         required
-                        className="peer w-full px-5 py-5 pt-7 rounded-[22px] border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 focus:ring-8 focus:ring-indigo-500/5 transition-all bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-medium shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700"
+                        className="peer w-full px-5 py-5 pt-7 rounded-[22px] border border-zinc-200 focus:border-indigo-500 outline-none focus:ring-8 focus:ring-indigo-500/5 transition-all bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white dark:border-zinc-800 dark:placeholder-zinc-500 dark:focus:border-indigo-500 autofill:shadow-[inset_0_0_0_1000px_white] dark:autofill:shadow-[inset_0_0_0_1000px_#18181b] dark:[&:-webkit-autofill]:text-white font-medium shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700"
                       />
                       <label 
                         htmlFor="companyDomain" 
@@ -203,7 +203,7 @@ export default function RegisterPage() {
                       value={formData.fullName}
                       onChange={e => setFormData({...formData, fullName: e.target.value})}
                       required
-                      className="peer w-full px-5 py-5 pt-7 rounded-[22px] border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 focus:ring-8 focus:ring-indigo-500/5 transition-all bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-medium shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700"
+                      className="peer w-full px-5 py-5 pt-7 rounded-[22px] border border-zinc-200 focus:border-indigo-500 outline-none focus:ring-8 focus:ring-indigo-500/5 transition-all bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white dark:border-zinc-800 dark:placeholder-zinc-500 dark:focus:border-indigo-500 autofill:shadow-[inset_0_0_0_1000px_white] dark:autofill:shadow-[inset_0_0_0_1000px_#18181b] dark:[&:-webkit-autofill]:text-white font-medium shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700"
                     />
                     <label 
                       htmlFor="fullName" 
@@ -221,7 +221,7 @@ export default function RegisterPage() {
                       value={formData.email}
                       onChange={e => setFormData({...formData, email: e.target.value})}
                       required
-                      className="peer w-full px-5 py-5 pt-7 rounded-[22px] border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 focus:ring-8 focus:ring-indigo-500/5 transition-all bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-medium shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700"
+                      className="peer w-full px-5 py-5 pt-7 rounded-[22px] border border-zinc-200 focus:border-indigo-500 outline-none focus:ring-8 focus:ring-indigo-500/5 transition-all bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white dark:border-zinc-800 dark:placeholder-zinc-500 dark:focus:border-indigo-500 autofill:shadow-[inset_0_0_0_1000px_white] dark:autofill:shadow-[inset_0_0_0_1000px_#18181b] dark:[&:-webkit-autofill]:text-white font-medium shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700"
                     />
                     <label 
                       htmlFor="email" 
@@ -240,7 +240,7 @@ export default function RegisterPage() {
                         value={formData.password}
                         onChange={e => setFormData({...formData, password: e.target.value})}
                         required
-                        className="peer w-full px-5 py-5 pt-7 pr-14 rounded-[22px] border border-zinc-200 dark:border-zinc-800 outline-none focus:border-indigo-500 focus:ring-8 focus:ring-indigo-500/5 transition-all bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-medium shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700"
+                        className="peer w-full px-5 py-5 pt-7 pr-14 rounded-[22px] border border-zinc-200 focus:border-indigo-500 outline-none focus:ring-8 focus:ring-indigo-500/5 transition-all bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white dark:border-zinc-800 dark:placeholder-zinc-500 dark:focus:border-indigo-500 autofill:shadow-[inset_0_0_0_1000px_white] dark:autofill:shadow-[inset_0_0_0_1000px_#18181b] dark:[&:-webkit-autofill]:text-white font-medium shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700"
                       />
                       <label 
                         htmlFor="password" 

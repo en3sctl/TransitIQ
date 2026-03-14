@@ -1,7 +1,7 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { SearchTripsDto, CreateReservationDto } from './dto/booking.dto';
-import { ReservationStatus, PaymentStatus, TripStatus } from '@prisma/client';
+import { SearchTripsDto } from './dto/booking.dto';
+import { BookingStatus, TripStatus } from '@prisma/client';
 
 @Injectable()
 export class BookingService {
@@ -21,23 +21,30 @@ export class BookingService {
     const trips = await this.prisma.trip.findMany({
       where: {
         tenantId,
-        status: TripStatus.PENDING,
-        startTime: {
+        status: TripStatus.PLANNED,
+        departureTime: {
           gte: searchDate,
           lt: nextDay,
         },
         route: {
-          startLocation: { contains: startLocation, mode: 'insensitive' },
-          endLocation: { contains: endLocation, mode: 'insensitive' },
+          OR: [
+            { originStation: { name: { contains: startLocation, mode: 'insensitive' } } },
+            { destinationStation: { name: { contains: endLocation, mode: 'insensitive' } } },
+            { stops: { some: { station: { name: { contains: startLocation, mode: 'insensitive' } } } } }
+          ]
         },
-        deletedAt: null,
       },
       include: {
-        route: true,
+        route: {
+          include: {
+            originStation: true,
+            destinationStation: true,
+          }
+        },
         vehicle: true,
-        reservations: {
+        bookings: {
           where: {
-            status: { in: [ReservationStatus.PENDING, ReservationStatus.CONFIRMED] },
+            status: { in: [BookingStatus.CONFIRMED] },
           },
         },
       },
@@ -45,7 +52,7 @@ export class BookingService {
 
     // Calculate available seats and filter
     return trips.map(trip => {
-      const takenSeats = trip.reservations.length;
+      const takenSeats = trip.bookings.length;
       const availableSeats = trip.vehicle.capacity - takenSeats;
       return {
         ...trip,
@@ -54,15 +61,12 @@ export class BookingService {
     }).filter(trip => trip.availableSeats > 0);
   }
 
-  /**
-   * Create a reservation for a passenger.
-   */
-  async createReservation(createDto: CreateReservationDto & { tenantId: string; passengerId: string }) {
-    const { tenantId, tripId, passengerId, seatNumber } = createDto;
+  async createReservation(createDto: any & { tenantId: string; userId: string }) {
+    const { tenantId, tripId, userId, seatId } = createDto;
 
     // 1. Verify trip exists and has capacity
     const trip = await this.prisma.trip.findFirst({
-      where: { id: tripId, tenantId, deletedAt: null },
+      where: { id: tripId, tenantId },
       include: { vehicle: true, route: true },
     });
 
@@ -71,57 +75,51 @@ export class BookingService {
     }
 
     // 2. Check if seat is already taken
-    const existingReservation = await this.prisma.reservation.findFirst({
+    const existingBooking = await this.prisma.booking.findFirst({
       where: {
         tripId,
-        seatNumber,
-        status: { in: [ReservationStatus.PENDING, ReservationStatus.CONFIRMED] },
+        seatId,
+        status: { in: [BookingStatus.CONFIRMED] },
       },
     });
 
-    if (existingReservation) {
-      throw new ConflictException(`Seat number ${seatNumber} is already occupied`);
+    if (existingBooking) {
+      throw new ConflictException(`Seat is already occupied`);
     }
 
     // 3. Generate PNR Code
     const pnrCode = this.generatePnrCode();
 
-    // 4. Create Reservation
-    return this.prisma.reservation.create({
+    // 4. Create Booking
+    return this.prisma.booking.create({
       data: {
         tenantId,
         tripId,
-        passengerId,
-        seatNumber,
+        userId,
+        seatId,
         pnrCode,
-        status: ReservationStatus.PENDING,
-        paymentStatus: PaymentStatus.PENDING,
-        totalAmount: trip.route.basePrice, // Simplification: using route base price
+        status: BookingStatus.CONFIRMED,
+        pricePaid: trip.route.basePrice,
       },
     });
   }
 
   /**
-   * Simulate a payment and confirm reservation.
+   * Cancel a booking.
    */
-  async payReservation(tenantId: string, reservationId: string) {
-    const reservation = await this.prisma.reservation.findFirst({
-      where: { id: reservationId, tenantId, deletedAt: null },
+  async cancelBooking(tenantId: string, bookingId: string) {
+    const booking = await this.prisma.booking.findFirst({
+      where: { id: bookingId, tenantId },
     });
 
-    if (!reservation) {
-      throw new NotFoundException('Reservation not found');
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
     }
 
-    if (reservation.paymentStatus === PaymentStatus.PAID) {
-      throw new BadRequestException('Reservation is already paid');
-    }
-
-    return this.prisma.reservation.update({
-      where: { id: reservationId },
+    return this.prisma.booking.update({
+      where: { id: bookingId },
       data: {
-        paymentStatus: PaymentStatus.PAID,
-        status: ReservationStatus.CONFIRMED,
+        status: BookingStatus.CANCELLED,
       },
     });
   }

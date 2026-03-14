@@ -22,7 +22,7 @@ export class AiService {
     const vehicle = await this.vehiclesService.findOne(tenantId, vehicleId);
 
     const distance = route.totalDistanceKm;
-    const consumption = vehicle.fuelConsumptionPer100km;
+    const consumption = 10; // Mocked: fuelConsumptionPer100km removed from schema
 
     this.logger.log(`Generating AI price suggestion for Route: ${routeId}, Vehicle: ${vehicleId}`);
 

@@ -1,15 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateVehicleDto, UpdateVehicleDto } from './dto/vehicle.dto';
+import { VehicleStatus } from '@prisma/client';
 
 @Injectable()
 export class VehiclesService {
   constructor(private prisma: PrismaService) {}
 
   async create(tenantId: string, createVehicleDto: CreateVehicleDto) {
+    const { plateNumber, ...rest } = createVehicleDto as any;
     return this.prisma.vehicle.create({
       data: {
-        ...createVehicleDto,
+        ...rest,
+        registrationPlate: plateNumber,
         tenantId,
       },
     });
@@ -44,9 +47,14 @@ export class VehiclesService {
     // Ensure vehicle belongs to tenant before update
     await this.findOne(tenantId, id);
 
+    const { plateNumber, status, ...rest } = updateVehicleDto as any;
     return this.prisma.vehicle.update({
       where: { id },
-      data: updateVehicleDto,
+      data: {
+        ...rest,
+        ...(plateNumber && { registrationPlate: plateNumber }),
+        ...(status && { status: status as VehicleStatus }),
+      },
     });
   }
 
