@@ -68,7 +68,7 @@ let AuthService = class AuthService {
             throw new common_1.ConflictException('Email already registered');
         }
         const hashedPassword = await bcrypt.hash(dto.password, 10);
-        const slug = dto.companyName.toLowerCase().replace(/ /g, '-');
+        const slug = dto.companyDomain.toLowerCase();
         const tenant = await this.prisma.tenant.create({
             data: {
                 name: dto.companyName,
@@ -91,13 +91,21 @@ let AuthService = class AuthService {
         return this.generateToken(user);
     }
     async login(dto) {
+        console.log(`[Auth] Login attempt for email: ${dto.email}`);
         const user = await this.prisma.user.findFirst({
-            where: { email: dto.email },
+            where: { email: dto.email.toLowerCase() },
             include: { tenant: true },
         });
-        if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
+        if (!user) {
+            console.warn(`[Auth] User not found: ${dto.email}`);
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
+        const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
+        if (!isPasswordValid) {
+            console.warn(`[Auth] Invalid password for: ${dto.email}`);
+            throw new common_1.UnauthorizedException('Invalid credentials');
+        }
+        console.log(`[Auth] Login successful for: ${dto.email}`);
         return this.generateToken(user);
     }
     generateToken(user) {

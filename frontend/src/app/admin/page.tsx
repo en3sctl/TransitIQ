@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import ProtectedRoute from "@/components/protected-route";
+import Sidebar from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Table,
   TableBody,
@@ -24,7 +26,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -47,18 +48,16 @@ import { Label } from "@/components/ui/label";
 import { 
   Bus, 
   Plus, 
-  LayoutDashboard, 
-  Users, 
-  Map, 
-  Settings, 
-  LogOut, 
-  Loader2,
   RefreshCw,
   Route as RouteIcon,
   CalendarDays,
   TrendingUp,
   Activity,
-  ShieldCheck
+  ArrowUpRight,
+  Search,
+  CheckCircle2,
+  ChevronRight,
+  Loader2
 } from "lucide-react";
 
 interface Vehicle {
@@ -94,7 +93,7 @@ export default function AdminDashboard() {
 }
 
 function AdminDashboardContent() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   
   // Data State
@@ -104,7 +103,6 @@ function AdminDashboardContent() {
   
   // Loading & Error State
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -124,10 +122,8 @@ function AdminDashboardContent() {
       setVehicles(vRes.data);
       setRoutes(rRes.data);
       setTrips(tRes.data);
-      setError(null);
     } catch (err: any) {
       console.error("Error fetching data:", err);
-      setError("Failed to sync with backend. Check connectivity.");
     } finally {
       setLoading(false);
     }
@@ -197,111 +193,56 @@ function AdminDashboardContent() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#050505] text-neutral-50 font-sans selection:bg-indigo-500/30">
-      {/* Premium Sidebar */}
-      <aside className="w-80 border-r border-neutral-900 hidden lg:flex flex-col p-8 sticky top-0 h-screen bg-black/40 backdrop-blur-xl">
-        <div className="flex items-center gap-4 mb-12 px-2">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center font-black text-white shadow-2xl shadow-indigo-600/40 rotate-3 hover:rotate-0 transition-transform cursor-pointer">T</div>
-          <div className="flex flex-col">
-            <span className="text-2xl font-black tracking-tighter leading-none">Transit<span className="text-indigo-500">IQ</span></span>
-            <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mt-1">Enterprise SaaS</span>
+    <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans selection:bg-indigo-100 dark:selection:bg-indigo-900 text-zinc-900 dark:text-zinc-100 transition-colors duration-500">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Top Navbar */}
+        <header className="h-20 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between px-10 sticky top-0 z-20 transition-colors duration-500">
+          <div className="flex items-center gap-2">
+            <span className="text-zinc-400 text-sm font-bold flex items-center gap-2">
+               Panel <ChevronRight size={14} /> 
+               <span className="text-zinc-900 dark:text-zinc-100 capitalize">{activeTab}</span>
+            </span>
           </div>
-        </div>
 
-        <div className="flex-1 space-y-2">
-          <p className="px-4 text-[10px] font-black text-neutral-600 uppercase tracking-[0.2em] mb-4">Main Navigation</p>
-          {[
-            { id: "overview", icon: LayoutDashboard, label: 'Dashboard' },
-            { id: "vehicles", icon: Bus, label: 'Fleet Assets' },
-            { id: "routes", icon: RouteIcon, label: 'Network' },
-            { id: "trips", icon: CalendarDays, label: 'Schedules' },
-            { id: "drivers", icon: Users, label: 'Personnel' },
-            { id: "settings", icon: Settings, label: 'Preferences' },
-          ].map((item) => (
-            <button 
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full group flex items-center justify-between px-5 py-4 rounded-[20px] text-sm font-bold transition-all duration-300 ${
-                activeTab === item.id 
-                  ? 'bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 shadow-[0_0_40px_-15px_rgba(79,70,229,0.3)]' 
-                  : 'text-neutral-500 hover:bg-neutral-900/50 hover:text-neutral-200 border border-transparent'
-              }`}
-            >
-              <div className="flex items-center gap-4">
-                <item.icon className={`w-5 h-5 transition-all duration-300 ${activeTab === item.id ? 'scale-110' : 'group-hover:scale-110'}`} />
-                {item.label}
-              </div>
-              {activeTab === item.id && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_10px_#6366f1]" />}
-            </button>
-          ))}
-        </div>
-
-        <div className="pt-8 border-t border-neutral-900 mt-auto">
-          <div className="bg-neutral-900/40 border border-neutral-800/50 p-4 rounded-3xl mb-6 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold">
-              {user?.name?.[0].toUpperCase()}
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-sm font-black truncate">{user?.name}</span>
-              <span className="text-[10px] text-neutral-500 font-bold truncate tracking-tight">{user?.email}</span>
-            </div>
-          </div>
-          <button 
-            onClick={logout}
-            className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-sm font-bold text-neutral-500 hover:bg-red-500/10 hover:text-red-400 transition-all group"
-          >
-            <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            Logout System
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-950/20 via-transparent to-transparent">
-        <div className="p-12 max-w-7xl mx-auto">
-          {/* Top Bar / Identity */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                 <div className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 flex items-center gap-2">
-                   <ShieldCheck className="w-3 h-3" /> Secure Tenant: {user?.tenantId}
-                 </div>
-              </div>
-              <h2 className="text-5xl font-black tracking-tighter leading-tight bg-gradient-to-br from-white via-white to-neutral-700 bg-clip-text text-transparent">
-                {activeTab === 'overview' ? 'Command Center' : 
-                 activeTab === 'vehicles' ? 'Asset Fleet' : 
-                 activeTab === 'routes' ? 'Global Network' : 'Operations Flow'}
-              </h2>
-              <p className="text-neutral-500 text-lg font-medium max-w-xl">
-                Precision management for the future of transportation.
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-4 bg-neutral-900/40 backdrop-blur-md p-2 rounded-[28px] border border-neutral-800/50">
-              <Button 
+          <div className="flex items-center gap-4">
+             <div className="relative hidden md:block group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-zinc-600 dark:group-focus-within:text-zinc-300 transition-colors" size={16} />
+                <input 
+                  type="text" 
+                  placeholder="Hızlı arama..." 
+                  className="bg-zinc-100 dark:bg-zinc-900 border-none rounded-full py-2 pl-10 pr-4 text-xs font-semibold focus:ring-2 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-zinc-800 transition-all w-64 outline-none border border-transparent focus:border-zinc-200 dark:focus:border-zinc-700 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600"
+                />
+             </div>
+             
+             <Button 
                 variant="ghost" 
                 size="icon" 
-                className="w-12 h-12 rounded-2xl hover:bg-neutral-800 transition-all text-neutral-400 hover:text-white"
+                className="w-10 h-10 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all text-zinc-500 dark:text-zinc-400"
                 onClick={fetchData}
                 disabled={loading}
               >
-                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin text-indigo-400' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
               </Button>
+
+              <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-800 mx-2" />
 
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="bg-white text-black hover:bg-neutral-200 rounded-[20px] h-12 px-8 font-black shadow-2xl shadow-white/5 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                    <Plus className="mr-3 h-5 w-5 stroke-[3]" /> 
-                    {activeTab === 'vehicles' ? 'New Asset' : activeTab === 'routes' ? 'New Route' : 'New Schedule'}
+                  <Button className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white rounded-xl h-10 px-5 text-xs font-black shadow-sm transition-all active:scale-[0.98]">
+                    <Plus className="mr-2 h-4 w-4 stroke-[3]" /> 
+                    {activeTab === 'vehicles' ? 'Araç Ekle' : activeTab === 'routes' ? 'Rota Oluştur' : 'Sefer Ata'}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-neutral-900 border-neutral-800 text-neutral-50 rounded-[40px] sm:max-w-[540px] p-10 shadow-[0_0_100px_-20px_rgba(0,0,0,1)] ring-1 ring-white/5">
+                <DialogContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-[32px] sm:max-w-lg p-10 shadow-2xl overflow-hidden ring-1 ring-zinc-950/5">
                   <DialogHeader className="mb-8 p-1">
                     <DialogTitle className="text-3xl font-black tracking-tighter">
-                      {activeTab === 'vehicles' ? 'Asset Registration' : activeTab === 'routes' ? 'Network expansion' : 'Resource Deployment'}
+                      {activeTab === 'vehicles' ? 'Yeni Araç Kaydı' : activeTab === 'routes' ? 'Rota Genişletme' : 'Kaynak Dağıtımı'}
                     </DialogTitle>
-                    <DialogDescription className="text-neutral-400 font-medium text-base">
-                      Configure parameters for {activeTab === 'vehicles' ? 'fleet addition' : 'operational growth'}.
+                    <DialogDescription className="text-zinc-500 dark:text-zinc-400 font-medium text-base mt-2">
+                      Sistem için gerekli parametreleri aşağıda yapılandırın.
                     </DialogDescription>
                   </DialogHeader>
 
@@ -314,42 +255,94 @@ function AdminDashboardContent() {
                   />
                 </DialogContent>
               </Dialog>
+          </div>
+        </header>
+
+        {/* Dashboard Body */}
+        <div className="flex-1 overflow-y-auto">
+          <motion.div 
+            className="p-10 max-w-7xl mx-auto w-full space-y-12"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
+            
+            {/* Welcome Section */}
+            <div className="space-y-2">
+              <h2 className="text-4xl font-black tracking-tighter text-zinc-900 dark:text-zinc-100">
+                {activeTab === 'overview' ? `Merhaba, ${user?.name.split(' ')[0]} 👋` : 
+                 activeTab === 'vehicles' ? 'Araç Filosu' : 
+                 activeTab === 'routes' ? 'Rota Havuzu' : 'Operasyonel Akış'}
+              </h2>
+              <p className="text-zinc-500 dark:text-zinc-400 font-medium text-lg leading-snug">
+                Modern lojistik yönetimi için verileriniz burada.
+              </p>
             </div>
-          </div>
 
-          {/* Dash Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16">
-             <StatsCard label="Fleet Power" value={vehicles.length.toString()} icon={Bus} trend="+12% cap" color="text-indigo-400" />
-             <StatsCard label="Active Paths" value={routes.length.toString()} icon={RouteIcon} trend="Global" color="text-amber-400" />
-             <StatsCard label="Total Ops" value={trips.length.toString()} icon={Activity} trend="99.9% uptime" color="text-emerald-400" />
-             <StatsCard label="Efficiency" value="94%" icon={TrendingUp} trend="System Wide" color="text-rose-400" />
-          </div>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+               <StatsCard label="Aktif Araçlar" value={vehicles.length.toString()} icon={Bus} trend="+4 yeni" color="bg-indigo-50 text-indigo-600" />
+               <StatsCard label="Sistem Rotaları" value={routes.length.toString()} icon={RouteIcon} trend="Aktif ağ" color="bg-amber-50 text-amber-600" />
+               <StatsCard label="Toplam Sefer" value={trips.length.toString()} icon={Activity} trend="99% verim" color="bg-emerald-50 text-emerald-600" />
+               <StatsCard label="Operasyonel Güç" value="%94" icon={TrendingUp} trend="Mükemmel" color="bg-rose-50 text-rose-600" />
+            </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="bg-neutral-900/30 p-1.5 mb-10 rounded-[24px] border border-neutral-900/50 w-full md:w-fit h-14 backdrop-blur-sm">
-              <TabsTrigger value="overview" className="px-10 rounded-2xl font-black text-xs uppercase tracking-widest py-3 data-[state=active]:bg-white data-[state=active]:text-black transition-all">Overview</TabsTrigger>
-              <TabsTrigger value="vehicles" className="px-10 rounded-2xl font-black text-xs uppercase tracking-widest py-3 data-[state=active]:bg-white data-[state=active]:text-black transition-all">Fleet</TabsTrigger>
-              <TabsTrigger value="routes" className="px-10 rounded-2xl font-black text-xs uppercase tracking-widest py-3 data-[state=active]:bg-white data-[state=active]:text-black transition-all">Routes</TabsTrigger>
-              <TabsTrigger value="trips" className="px-10 rounded-2xl font-black text-xs uppercase tracking-widest py-3 data-[state=active]:bg-white data-[state=active]:text-black transition-all">Trips</TabsTrigger>
-            </TabsList>
+            {/* Tabs Content */}
+            <div className="space-y-8">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="bg-zinc-100 dark:bg-zinc-900 p-1 mb-10 rounded-2xl w-full md:w-fit h-12 inline-flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 transition-colors">
+                  <TabsTrigger value="overview" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Genel Bakış</TabsTrigger>
+                  <TabsTrigger value="vehicles" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Filo</TabsTrigger>
+                  <TabsTrigger value="routes" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Rotalar</TabsTrigger>
+                  <TabsTrigger value="trips" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Seferler</TabsTrigger>
+                </TabsList>
 
-            <TabsContent value="overview" className="focus:outline-none">
-               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <Card className="rounded-[40px] bg-neutral-900/40 border-neutral-800/50 backdrop-blur-md p-2">
-                    <CardHeader className="p-8"><CardTitle className="text-2xl font-black tracking-tight">Recent Activity</CardTitle></CardHeader>
-                    <CardContent className="p-8 pt-0"><p className="text-neutral-500 font-medium">System performance is optimal. 24 fleets checked in today.</p></CardContent>
-                  </Card>
-                  <Card className="rounded-[40px] bg-indigo-600 border-none p-2 shadow-2xl shadow-indigo-600/20">
-                     <CardHeader className="p-8"><CardTitle className="text-2xl font-black tracking-tight text-white">System Health</CardTitle></CardHeader>
-                     <CardContent className="p-8 pt-0"><p className="text-indigo-100 font-medium">Auto-scaling active. All sensors reporting normal levels for {user?.name}'s organization.</p></CardContent>
-                  </Card>
-               </div>
-            </TabsContent>
+                <TabsContent value="overview">
+                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                      <Card className="lg:col-span-2 rounded-[32px] bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden p-2 transition-colors">
+                         <CardHeader className="p-8 pb-4"><CardTitle className="text-xl font-black text-zinc-900 dark:text-zinc-100">Sistem Özeti</CardTitle></CardHeader>
+                         <CardContent className="p-8 pt-0">
+                            <div className="space-y-6">
+                               <p className="text-zinc-500 dark:text-zinc-400 font-medium">Operasyonel verileriniz gerçek zamanlı olarak güncelleniyor. Şu an sistemde her şey yolunda.</p>
+                               <div className="flex flex-wrap gap-4">
+                                  <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300 font-bold bg-zinc-50 dark:bg-zinc-900 px-4 py-2 rounded-xl text-[13px] border border-zinc-100 dark:border-zinc-800 transition-colors">
+                                     <CheckCircle2 size={16} className="text-emerald-500" /> %100 Sunucu Uptime
+                                  </div>
+                                  <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300 font-bold bg-zinc-50 dark:bg-zinc-900 px-4 py-2 rounded-xl text-[13px] border border-zinc-100 dark:border-zinc-800 transition-colors">
+                                     <ArrowUpRight size={16} className="text-indigo-500" /> Verimlilik Artışı
+                                  </div>
+                               </div>
+                            </div>
+                         </CardContent>
+                      </Card>
+                      <Card className="rounded-[32px] bg-zinc-950 border-none shadow-2xl p-2 relative overflow-hidden group">
+                         <div className="absolute top-0 right-0 p-8 text-zinc-800 transition-transform group-hover:scale-110 duration-500">
+                            <Bus size={80} strokeWidth={4} />
+                         </div>
+                         <CardHeader className="p-8"><CardTitle className="text-xl font-black text-white">Sistem Sağlığı</CardTitle></CardHeader>
+                         <CardContent className="p-8 pt-0 space-y-4">
+                            <p className="text-zinc-400 font-semibold text-sm leading-relaxed">Kapasite Verimliliği</p>
+                            <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+                               <div className="h-full bg-indigo-500 w-3/4 rounded-full" />
+                            </div>
+                            <p className="text-[11px] text-zinc-500 font-black uppercase tracking-widest mt-2">İşlem Hızı: %98</p>
+                         </CardContent>
+                      </Card>
+                   </div>
+                </TabsContent>
 
-            <TabsContent value="vehicles"><TableCard title="Asset Management" count={vehicles.length}><VehiclesTable vehicles={vehicles} /></TableCard></TabsContent>
-            <TabsContent value="routes"><TableCard title="Route Network" count={routes.length}><RoutesTable routes={routes} /></TableCard></TabsContent>
-            <TabsContent value="trips"><TableCard title="Operational Log" count={trips.length}><TripsTable trips={trips} /></TableCard></TabsContent>
-          </Tabs>
+                <TabsContent value="vehicles"><TableCard title="Filo Yönetimi" count={vehicles.length}><VehiclesTable vehicles={vehicles} /></TableCard></TabsContent>
+                <TabsContent value="routes"><TableCard title="Ağ Haritası" count={routes.length}><RoutesTable routes={routes} /></TableCard></TabsContent>
+                <TabsContent value="trips"><TableCard title="Sefer Kayıtları" count={trips.length}><TripsTable trips={trips} /></TableCard></TabsContent>
+              </Tabs>
+            </div>
+
+            {/* Footer Branding */}
+            <div className="pt-20 pb-10 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800 opacity-30 select-none transition-colors">
+               <span className="text-2xl font-black italic tracking-tighter text-zinc-900 dark:text-zinc-100">TRANSITIQ</span>
+               <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500">Integrated Intelligence</span>
+            </div>
+          </motion.div>
         </div>
       </main>
     </div>
@@ -358,17 +351,17 @@ function AdminDashboardContent() {
 
 function StatsCard({ label, value, icon: Icon, trend, color }: any) {
   return (
-    <Card className="rounded-[36px] bg-neutral-900/40 border border-neutral-800/30 backdrop-blur-sm group hover:border-neutral-700 transition-all cursor-default">
-      <CardContent className="p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className={`p-4 rounded-2xl bg-neutral-800/50 ${color} shadow-inner group-hover:bg-neutral-800 transition-all`}>
-            <Icon className="w-6 h-6" />
+    <Card className="rounded-[28px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-md cursor-default group overflow-hidden">
+      <CardContent className="p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <div className={`p-3 rounded-2xl ${color} dark:bg-opacity-10 shadow-sm group-hover:scale-110 transition-transform`}>
+            <Icon size={20} strokeWidth={2.5} />
           </div>
-          <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">{trend}</span>
+          <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">{trend}</span>
         </div>
         <div className="flex flex-col">
-          <span className="text-4xl font-black mb-1 tracking-tighter">{value}</span>
-          <span className="text-xs font-bold text-neutral-500 uppercase tracking-[0.2em]">{label}</span>
+          <span className="text-3xl font-black text-zinc-900 dark:text-zinc-100 tracking-tighter">{value}</span>
+          <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mt-1">{label}</span>
         </div>
       </CardContent>
     </Card>
@@ -377,11 +370,11 @@ function StatsCard({ label, value, icon: Icon, trend, color }: any) {
 
 function TableCard({ title, count, children }: any) {
   return (
-    <Card className="rounded-[48px] bg-neutral-900/30 border border-neutral-800/50 backdrop-blur-md shadow-2xl overflow-hidden ring-1 ring-white/5">
-      <CardHeader className="p-10 border-b border-neutral-800/50 flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="text-3xl font-black tracking-tighter">{title}</CardTitle>
-          <CardDescription className="text-neutral-500 font-bold mt-2 tracking-wide uppercase text-[10px]">{count} Records Identified</CardDescription>
+    <Card className="rounded-[40px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden ring-1 ring-zinc-950/5 transition-colors duration-500">
+      <CardHeader className="p-8 border-b border-zinc-100 dark:border-zinc-800 flex flex-row items-center justify-between">
+        <div className="space-y-1">
+          <CardTitle className="text-2xl font-black tracking-tighter text-zinc-900 dark:text-zinc-100">{title}</CardTitle>
+          <CardDescription className="text-zinc-500 dark:text-zinc-400 font-bold uppercase text-[10px] tracking-widest">{count} Kayıt Mevcut</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="p-0">{children}</CardContent>
@@ -389,35 +382,34 @@ function TableCard({ title, count, children }: any) {
   );
 }
 
-// Reuse table components with slightly updated styles
 function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
-  if (vehicles.length === 0) return <EmptyState icon={Bus} label="No assets available" />;
+  if (vehicles.length === 0) return <EmptyState icon={Bus} label="Henüz araç eklenmemiş" />;
   return (
     <div className="overflow-x-auto">
       <Table>
-        <TableHeader className="bg-black/40 border-b border-neutral-800">
-          <TableRow className="hover:bg-transparent border-none font-black text-[10px] uppercase tracking-[0.2em] text-neutral-500">
-            <TableHead className="px-10 h-16">Asset Identity</TableHead>
-            <TableHead>Config</TableHead>
-            <TableHead>Efficiency</TableHead>
-            <TableHead className="text-right px-10">Status</TableHead>
+        <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
+          <TableRow className="hover:bg-transparent border-none font-black text-[11px] uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 h-14">
+            <TableHead className="px-8">Plaka</TableHead>
+            <TableHead>Kapasite</TableHead>
+            <TableHead>Tüketim (100km)</TableHead>
+            <TableHead className="text-right px-8">Durum</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {vehicles.map((v) => (
-            <TableRow key={v.id} className="border-b border-neutral-800/30 hover:bg-white/[0.02] transition-colors group">
-              <TableCell className="py-8 px-10 text-neutral-100 font-black text-lg tracking-tight">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-[18px] bg-neutral-800/50 flex items-center justify-center border border-neutral-700/50 group-hover:bg-indigo-600/20 group-hover:text-indigo-400 group-hover:border-indigo-500/30 transition-all">
-                    <Bus className="w-6 h-6 stroke-[2.5]" />
+            <TableRow key={v.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group">
+              <TableCell className="py-6 px-8 text-zinc-900 dark:text-zinc-100 font-bold text-base">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center border border-zinc-200 dark:border-zinc-800 group-hover:bg-white dark:group-hover:bg-zinc-800 transition-all">
+                    <Bus size={20} className="text-zinc-600 dark:text-zinc-400" />
                   </div>
                   {v.plateNumber}
                 </div>
               </TableCell>
-              <TableCell className="text-neutral-400 font-bold">{v.capacity} Slots</TableCell>
-              <TableCell className="text-neutral-500 font-medium">{v.fuelConsumptionPer100km}L Cons.</TableCell>
-              <TableCell className="text-right px-10">
-                <span className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-tighter bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-[0_0_20px_-10px_rgba(99,102,241,0.5)]">Operational</span>
+              <TableCell className="text-zinc-500 dark:text-zinc-400 font-semibold">{v.capacity} Kişi</TableCell>
+              <TableCell className="text-zinc-500 dark:text-zinc-400 font-semibold">{v.fuelConsumptionPer100km} L</TableCell>
+              <TableCell className="text-right px-8">
+                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50">Aktif</span>
               </TableCell>
             </TableRow>
           ))}
@@ -428,25 +420,25 @@ function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
 }
 
 function RoutesTable({ routes }: { routes: Route[] }) {
-  if (routes.length === 0) return <EmptyState icon={RouteIcon} label="Network undefined" />;
+  if (routes.length === 0) return <EmptyState icon={RouteIcon} label="Henüz rota tanımlanmamış" />;
   return (
     <div className="overflow-x-auto">
       <Table>
-        <TableHeader className="bg-black/40 border-b border-neutral-800">
-          <TableRow className="hover:bg-transparent border-none font-black text-[10px] uppercase tracking-[0.2em] text-neutral-500">
-            <TableHead className="px-10 h-16">Route Corridor</TableHead>
-            <TableHead>Metrics</TableHead>
-            <TableHead className="text-right px-10">Valuation</TableHead>
+        <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
+          <TableRow className="hover:bg-transparent border-none font-black text-[11px] uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 h-14">
+            <TableHead className="px-8">Durak A ➔ Durak B</TableHead>
+            <TableHead>Mesafe</TableHead>
+            <TableHead className="text-right px-8">Taban Fiyat</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {routes.map((r) => (
-            <TableRow key={r.id} className="border-b border-neutral-800/30 hover:bg-white/[0.02] transition-colors group">
-              <TableCell className="py-8 px-10 text-neutral-100 font-black text-lg tracking-tight">
-                 {r.startLocation} <span className="text-indigo-500 font-black mx-2">→</span> {r.endLocation}
+            <TableRow key={r.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group">
+              <TableCell className="py-6 px-8 text-zinc-900 dark:text-zinc-100 font-extrabold text-lg tracking-tight">
+                 {r.startLocation} <span className="text-indigo-600 dark:text-indigo-400 mx-2">➔</span> {r.endLocation}
               </TableCell>
-              <TableCell className="text-neutral-400 font-bold">{r.totalDistanceKm} KM Distance</TableCell>
-              <TableCell className="text-right px-10 font-black text-2xl text-white">₺{r.basePrice}</TableCell>
+              <TableCell className="text-zinc-500 dark:text-zinc-400 font-bold">{r.totalDistanceKm} KM</TableCell>
+              <TableCell className="text-right px-8 font-black text-xl text-zinc-950 dark:text-zinc-100">₺{r.basePrice}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -456,36 +448,36 @@ function RoutesTable({ routes }: { routes: Route[] }) {
 }
 
 function TripsTable({ trips }: { trips: Trip[] }) {
-  if (trips.length === 0) return <EmptyState icon={CalendarDays} label="Log is empty" />;
+  if (trips.length === 0) return <EmptyState icon={CalendarDays} label="Sefer kaydı bulunamadı" />;
   return (
     <div className="overflow-x-auto">
       <Table>
-        <TableHeader className="bg-black/40 border-b border-neutral-800">
-          <TableRow className="hover:bg-transparent border-none font-black text-[10px] uppercase tracking-[0.2em] text-neutral-500">
-            <TableHead className="px-10 h-16">Operational Timeline</TableHead>
-            <TableHead>Assignment</TableHead>
-            <TableHead className="text-right px-10">Auth Status</TableHead>
+        <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
+          <TableRow className="hover:bg-transparent border-none font-black text-[11px] uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 h-14">
+            <TableHead className="px-8">Zaman Çizelgesi</TableHead>
+            <TableHead>Atanan Araç</TableHead>
+            <TableHead className="text-right px-8">Durum</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {trips.map((t) => (
-            <TableRow key={t.id} className="border-b border-neutral-800/30 hover:bg-white/[0.02] transition-colors group">
-              <TableCell className="py-8 px-10">
+            <TableRow key={t.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group">
+              <TableCell className="py-6 px-8">
                 <div className="flex flex-col">
-                  <span className="text-neutral-100 font-black text-lg tracking-tight">{new Date(t.startTime).toLocaleDateString()} at {new Date(t.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                  <span className="text-indigo-400 font-bold text-xs mt-1 uppercase tracking-widest">{t.route?.startLocation} ➔ {t.route?.endLocation}</span>
+                  <span className="text-zinc-900 dark:text-zinc-100 font-bold text-base">{new Date(t.startTime).toLocaleDateString()} at {new Date(t.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-bold text-[11px] mt-0.5 uppercase tracking-widest">{t.route?.startLocation} ➔ {t.route?.endLocation}</span>
                 </div>
               </TableCell>
-              <TableCell className="text-neutral-400">
+              <TableCell className="text-zinc-500 dark:text-zinc-400">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-[14px] bg-neutral-800/50 flex items-center justify-center border border-neutral-700/50 group-hover:bg-white/5 transition-all">
-                    <Bus className="w-5 h-5 text-neutral-500" />
+                  <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800">
+                    <Bus size={18} />
                   </div>
-                  <span className="font-bold">{t.vehicle?.plateNumber}</span>
+                  <span className="font-bold">{t.vehicle?.plateNumber ?? 'N/A'}</span>
                 </div>
               </TableCell>
-              <TableCell className="text-right px-10">
-                <span className="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Verified</span>
+              <TableCell className="text-right px-8">
+                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50">Onaylandı</span>
               </TableCell>
             </TableRow>
           ))}
@@ -497,12 +489,12 @@ function TripsTable({ trips }: { trips: Trip[] }) {
 
 function EmptyState({ icon: Icon, label }: { icon: any, label: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-32 px-10 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
-      <div className="w-24 h-24 rounded-[32px] bg-neutral-900 shadow-inner flex items-center justify-center mb-8 border border-neutral-800/50 ring-1 ring-white/5">
-        <Icon className="w-10 h-10 text-neutral-600" />
+    <div className="flex flex-col items-center justify-center py-24 px-10 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
+      <div className="w-20 h-20 rounded-[28px] bg-zinc-50 dark:bg-zinc-900 shadow-inner flex items-center justify-center mb-6 border border-zinc-200 dark:border-zinc-800 ring-1 ring-zinc-950/5 transition-colors">
+        <Icon className="w-8 h-8 text-zinc-300 dark:text-zinc-600" />
       </div>
-      <h3 className="text-2xl font-black mb-3 tracking-tighter text-white">{label}</h3>
-      <p className="text-neutral-500 text-sm max-w-sm font-medium leading-relaxed uppercase tracking-widest text-[10px]">No active data stream detected. Please initialize a new resource to begin monitoring.</p>
+      <h3 className="text-xl font-black mb-2 tracking-tighter text-zinc-900 dark:text-zinc-100">{label}</h3>
+      <p className="text-zinc-400 dark:text-zinc-500 text-xs font-bold uppercase tracking-widest">Henüz veri akışı saptanmadı.</p>
     </div>
   );
 }
@@ -516,23 +508,23 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
     return (
       <form onSubmit={handleVehicleSubmit} className="space-y-8">
         <div className="space-y-6">
-          <div className="space-y-3">
-            <Label className="text-xs font-black text-neutral-500 uppercase tracking-widest">Asset Plate Identifier</Label>
-            <Input className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl focus:ring-2 focus:ring-indigo-600 border-none ring-1 ring-white/5" placeholder="e.g. 34-IQ-TRANSIT" value={vehicleForm.plateNumber} onChange={e => setVehicleForm({...vehicleForm, plateNumber: e.target.value})} required />
+          <div className="space-y-2">
+            <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Araç Plakası</Label>
+            <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/5 placeholder:text-zinc-300 dark:placeholder:text-zinc-700 font-bold text-zinc-900 dark:text-zinc-100 transition-all outline-none" placeholder="Örn: 34-ABC-123" value={vehicleForm.plateNumber} onChange={e => setVehicleForm({...vehicleForm, plateNumber: e.target.value})} required />
           </div>
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <Label className="text-xs font-black text-neutral-500 uppercase tracking-widest">Seating Cap.</Label>
-              <Input type="number" className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl border-none ring-1 ring-white/5" placeholder="45" value={vehicleForm.capacity} onChange={e => setVehicleForm({...vehicleForm, capacity: e.target.value})} required />
+          <div className="grid grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Kapasite</Label>
+              <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="45" value={vehicleForm.capacity} onChange={e => setVehicleForm({...vehicleForm, capacity: e.target.value})} required />
             </div>
-            <div className="space-y-3">
-              <Label className="text-xs font-black text-neutral-500 uppercase tracking-widest">Efficiency (L)</Label>
-              <Input type="number" step="0.1" className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl border-none ring-1 ring-white/5" placeholder="24.5" value={vehicleForm.fuelConsumptionPer100km} onChange={e => setVehicleForm({...vehicleForm, fuelConsumptionPer100km: e.target.value})} required />
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Tüketim (L/100km)</Label>
+              <Input type="number" step="0.1" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="24.5" value={vehicleForm.fuelConsumptionPer100km} onChange={e => setVehicleForm({...vehicleForm, fuelConsumptionPer100km: e.target.value})} required />
             </div>
           </div>
         </div>
-        <Button type="submit" disabled={isSubmitting} className="w-full bg-white text-black hover:bg-neutral-200 h-16 rounded-[24px] font-black text-xl shadow-2xl transition-all active:scale-[0.97]">
-          {isSubmitting ? <Loader2 className="animate-spin" /> : "Deploy Asset"}
+        <Button type="submit" disabled={isSubmitting} className="w-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white h-16 rounded-[24px] font-black text-xl shadow-xl transition-all active:scale-[0.97]">
+          {isSubmitting ? <Loader2 className="animate-spin" /> : "Aracı Kaydet"}
         </Button>
       </form>
     );
@@ -542,23 +534,23 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
     return (
       <form onSubmit={handleRouteSubmit} className="space-y-8">
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <Label className="text-xs font-black text-neutral-500 uppercase tracking-widest">Origin Terminal</Label>
-              <Input className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl border-none ring-1 ring-white/5" placeholder="Node A" value={routeForm.startLocation} onChange={e => setRouteForm({...routeForm, startLocation: e.target.value})} required />
+          <div className="grid grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Başlangıç</Label>
+              <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="İstanbul" value={routeForm.startLocation} onChange={e => setRouteForm({...routeForm, startLocation: e.target.value})} required />
             </div>
-            <div className="space-y-3">
-              <Label className="text-xs font-black text-neutral-500 uppercase tracking-widest">Destination</Label>
-              <Input className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl border-none ring-1 ring-white/5" placeholder="Node B" value={routeForm.endLocation} onChange={e => setRouteForm({...routeForm, endLocation: e.target.value})} required />
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Varış</Label>
+              <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="Ankara" value={routeForm.endLocation} onChange={e => setRouteForm({...routeForm, endLocation: e.target.value})} required />
             </div>
           </div>
-          <div className="space-y-3">
-            <Label className="text-xs font-black text-neutral-500 uppercase tracking-widest">Valuation (₺ Per Seat)</Label>
-            <Input type="number" className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl border-none ring-1 ring-white/5" placeholder="750" value={routeForm.basePrice} onChange={e => setRouteForm({...routeForm, basePrice: e.target.value})} required />
+          <div className="space-y-2">
+            <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Taban Fiyat (₺)</Label>
+            <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="750" value={routeForm.basePrice} onChange={e => setRouteForm({...routeForm, basePrice: e.target.value})} required />
           </div>
         </div>
-        <Button type="submit" disabled={isSubmitting} className="w-full bg-white text-black hover:bg-neutral-200 h-16 rounded-[24px] font-black text-xl shadow-2xl transition-all">
-          {isSubmitting ? <Loader2 className="animate-spin" /> : "Initialize Corridor"}
+        <Button type="submit" disabled={isSubmitting} className="w-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white h-16 rounded-[24px] font-black text-xl shadow-xl transition-all">
+          {isSubmitting ? <Loader2 className="animate-spin" /> : "Rotayı Tanımla"}
         </Button>
       </form>
     );
@@ -567,39 +559,43 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
   return (
     <form onSubmit={handleTripSubmit} className="space-y-8">
       <div className="space-y-6">
-        <div className="space-y-3">
-          <Label className="text-xs font-black text-neutral-500 uppercase tracking-widest">Operational Corridor</Label>
+        <div className="space-y-2">
+          <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Rota</Label>
           <Select value={tripForm.routeId} onValueChange={(v) => setTripForm({...tripForm, routeId: v})}>
-            <SelectTrigger className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl border-none ring-1 ring-white/5 text-left">
-              <SelectValue placeholder="Identify Vector" />
+            <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-left outline-none text-zinc-900 dark:text-zinc-100 transition-all">
+              <SelectValue placeholder="Rota Seçin" />
             </SelectTrigger>
-            <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-2xl p-2">
-              {routes.map((r: any) => (
-                <SelectItem key={r.id} value={r.id} className="rounded-xl p-3 focus:bg-indigo-600 focus:text-white">{r.startLocation} ➔ {r.endLocation}</SelectItem>
-              ))}
+            <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2 shadow-2xl">
+              <AnimatePresence>
+                {routes.map((r: any) => (
+                  <SelectItem key={r.id} value={r.id} className="rounded-xl p-3 focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-950 dark:focus:text-zinc-100 cursor-pointer">{r.startLocation} ➔ {r.endLocation}</SelectItem>
+                ))}
+              </AnimatePresence>
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-3">
-          <Label className="text-xs font-black text-neutral-500 uppercase tracking-widest">Resource Assignment</Label>
+        <div className="space-y-2">
+          <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Araç</Label>
           <Select value={tripForm.vehicleId} onValueChange={(v) => setTripForm({...tripForm, vehicleId: v})}>
-            <SelectTrigger className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl border-none ring-1 ring-white/5 text-left">
-              <SelectValue placeholder="Select Fleet Unit" />
+            <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-left outline-none text-zinc-900 dark:text-zinc-100 transition-all">
+              <SelectValue placeholder="Araç Seçin" />
             </SelectTrigger>
-            <SelectContent className="bg-neutral-900 border-neutral-800 text-white rounded-2xl p-2">
-              {vehicles.map((v: any) => (
-                <SelectItem key={v.id} value={v.id} className="rounded-xl p-3 focus:bg-indigo-600 focus:text-white">{v.plateNumber} ({v.capacity} Seats)</SelectItem>
-              ))}
+            <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2 shadow-2xl">
+              <AnimatePresence>
+                {vehicles.map((v: any) => (
+                  <SelectItem key={v.id} value={v.id} className="rounded-xl p-3 focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-950 dark:focus:text-zinc-100 cursor-pointer">{v.plateNumber} ({v.capacity} Kişi)</SelectItem>
+                ))}
+              </AnimatePresence>
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-3">
-          <Label className="text-xs font-black text-neutral-500 uppercase tracking-widest">Temporal Window</Label>
-          <Input type="datetime-local" className="bg-neutral-950 border-neutral-800 h-14 rounded-2xl border-none ring-1 ring-white/5" value={tripForm.departureTime} onChange={e => setTripForm({...tripForm, departureTime: e.target.value})} required />
+        <div className="space-y-2">
+          <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Zaman</Label>
+          <Input type="datetime-local" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 transition-all outline-none" value={tripForm.departureTime} onChange={e => setTripForm({...tripForm, departureTime: e.target.value})} required />
         </div>
       </div>
-      <Button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 text-white hover:bg-indigo-500 h-16 rounded-[24px] font-black text-xl shadow-2xl shadow-indigo-600/20 transition-all">
-        {isSubmitting ? <Loader2 className="animate-spin" /> : "Authorize Schedule"}
+      <Button type="submit" disabled={isSubmitting} className="w-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white h-16 rounded-[24px] font-black text-xl shadow-xl transition-all active:scale-[0.97]">
+        {isSubmitting ? <Loader2 className="animate-spin" /> : "Seferi Başlat"}
       </Button>
     </form>
   );
