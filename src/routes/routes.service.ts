@@ -13,39 +13,60 @@ export class RoutesService {
   ) {}
 
   async create(tenantId: string, createRouteDto: CreateRouteDto) {
-    const { startLocation, endLocation, basePrice, taxRate } = createRouteDto;
+    const { originStationId, destinationStationId, basePrice, taxRate = 0.18, title, totalDistanceKm: providedDistance } = createRouteDto;
 
-    // Use LocationService mock to calculate distance
-    const totalDistanceKm = this.locationService.calculateDistanceKm(startLocation, endLocation);
+    // Fetch stations to get names for distance mock calculation
+    const origin = await this.prisma.station.findUnique({ where: { id: originStationId } });
+    const destination = await this.prisma.station.findUnique({ where: { id: destinationStationId } });
+
+    // Use LocationService mock if distance not or provided explicitly
+    const totalDistanceKm = providedDistance || this.locationService.calculateDistanceKm(
+      origin?.name || 'Unknown',
+      destination?.name || 'Unknown',
+    );
 
     // Final price calculation (logic in PricingService)
     const finalPrice = this.pricingService.calculateFinalPrice(basePrice, taxRate);
     console.log(`Calculated Final Price: ${finalPrice}`);
 
-    return (this.prisma as any).route.create({
+    return this.prisma.route.create({
       data: {
-        ...createRouteDto,
+        title,
+        originStationId,
+        destinationStationId,
+        basePrice,
+        taxRate,
         totalDistanceKm,
         tenantId,
+      },
+      include: {
+        originStation: true,
+        destinationStation: true,
       },
     });
   }
 
   async findAll(tenantId: string) {
-    return (this.prisma as any).route.findMany({
+    return this.prisma.route.findMany({
       where: {
         tenantId,
-        deletedAt: null,
+      },
+      include: {
+        originStation: true,
+        destinationStation: true,
       },
     });
   }
 
   async findOne(tenantId: string, id: string) {
-    const route = await (this.prisma as any).route.findFirst({
+    const route = await this.prisma.route.findFirst({
       where: {
         id,
         tenantId,
-        deletedAt: null,
+      },
+      include: {
+        originStation: true,
+        destinationStation: true,
       },
     });
 
@@ -59,18 +80,21 @@ export class RoutesService {
   async update(tenantId: string, id: string, updateRouteDto: UpdateRouteDto) {
     await this.findOne(tenantId, id);
 
-    return (this.prisma as any).route.update({
+    return this.prisma.route.update({
       where: { id },
       data: updateRouteDto,
+      include: {
+        originStation: true,
+        destinationStation: true,
+      },
     });
   }
 
   async remove(tenantId: string, id: string) {
     await this.findOne(tenantId, id);
 
-    return (this.prisma as any).route.update({
+    return this.prisma.route.delete({
       where: { id },
-      data: { deletedAt: new Date() },
     });
   }
 }

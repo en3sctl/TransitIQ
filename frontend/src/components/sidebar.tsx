@@ -29,6 +29,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const menuItems = [
     { id: "overview", icon: LayoutDashboard, label: 'Merkezi Kontrol' },
     { id: "vehicles", icon: Bus, label: 'Araç Filosu' },
+    { id: "stations", icon: RouteIcon, label: 'İstasyonlar' },
     { id: "routes", icon: RouteIcon, label: 'Rota Havuzu' },
     { id: "trips", icon: CalendarDays, label: 'Sefer Takvimi' },
     { id: "drivers", icon: Users, label: 'Sürücü Paneli' },

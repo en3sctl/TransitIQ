@@ -84,9 +84,8 @@ let TripsService = class TripsService {
                     routeId: dto.routeId,
                     vehicleId: dto.vehicleId,
                     driverId: dto.driverId || 'test-admin-id',
-                    startTime: departureTime,
-                    endTime: dto.endTime ? new Date(dto.endTime) : null,
-                    status: 'PENDING',
+                    departureTime: departureTime,
+                    status: 'PLANNED',
                 },
             });
         }

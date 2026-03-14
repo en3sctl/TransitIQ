@@ -5,14 +5,14 @@ export declare class DriverOpsService {
     constructor(prisma: PrismaService);
     getTodayTrips(tenantId: string, driverId: string): Promise<({
         vehicle: {
-            capacity: number;
-            status: import("@prisma/client").$Enums.VehicleStatus;
-            id: string;
+            registrationPlate: string;
             make: string | null;
             model: string | null;
             year: number | null;
-            registrationPlate: string;
             chassisNumber: string | null;
+            capacity: number;
+            status: import("@prisma/client").$Enums.VehicleStatus;
+            id: string;
             engineNumber: string | null;
             muayeneTarihi: Date | null;
             sigortaTarihi: Date | null;
@@ -28,11 +28,11 @@ export declare class DriverOpsService {
             updatedAt: Date;
             tenantId: string;
             title: string;
-            basePrice: import("@prisma/client-runtime-utils").Decimal;
-            taxRate: import("@prisma/client-runtime-utils").Decimal;
             originStationId: string;
             destinationStationId: string;
+            basePrice: import("@prisma/client-runtime-utils").Decimal;
             totalDistanceKm: number;
+            taxRate: import("@prisma/client-runtime-utils").Decimal;
         };
     } & {
         status: import("@prisma/client").$Enums.TripStatus;

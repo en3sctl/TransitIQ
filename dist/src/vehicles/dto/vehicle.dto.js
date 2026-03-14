@@ -12,30 +12,51 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateVehicleDto = exports.CreateVehicleDto = void 0;
 const class_validator_1 = require("class-validator");
 class CreateVehicleDto {
-    plateNumber;
+    registrationPlate;
+    make;
+    model;
+    year;
+    chassisNumber;
     capacity;
-    fuelConsumptionPer100km;
 }
 exports.CreateVehicleDto = CreateVehicleDto;
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
-], CreateVehicleDto.prototype, "plateNumber", void 0);
+], CreateVehicleDto.prototype, "registrationPlate", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateVehicleDto.prototype, "make", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateVehicleDto.prototype, "model", void 0);
+__decorate([
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1900),
+    __metadata("design:type", Number)
+], CreateVehicleDto.prototype, "year", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateVehicleDto.prototype, "chassisNumber", void 0);
 __decorate([
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], CreateVehicleDto.prototype, "capacity", void 0);
-__decorate([
-    (0, class_validator_1.IsNumber)(),
-    (0, class_validator_1.Min)(0),
-    __metadata("design:type", Number)
-], CreateVehicleDto.prototype, "fuelConsumptionPer100km", void 0);
 class UpdateVehicleDto {
-    plateNumber;
+    registrationPlate;
+    make;
+    model;
+    year;
+    chassisNumber;
     capacity;
-    fuelConsumptionPer100km;
     status;
 }
 exports.UpdateVehicleDto = UpdateVehicleDto;
@@ -43,17 +64,29 @@ __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
-], UpdateVehicleDto.prototype, "plateNumber", void 0);
+], UpdateVehicleDto.prototype, "registrationPlate", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateVehicleDto.prototype, "make", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateVehicleDto.prototype, "model", void 0);
+__decorate([
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1900),
+    __metadata("design:type", Number)
+], UpdateVehicleDto.prototype, "year", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateVehicleDto.prototype, "chassisNumber", void 0);
 __decorate([
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], UpdateVehicleDto.prototype, "capacity", void 0);
-__decorate([
-    (0, class_validator_1.IsNumber)(),
-    (0, class_validator_1.Min)(0),
-    __metadata("design:type", Number)
-], UpdateVehicleDto.prototype, "fuelConsumptionPer100km", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)

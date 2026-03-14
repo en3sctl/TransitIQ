@@ -1,14 +1,15 @@
 export declare class CreateRouteDto {
     title: string;
-    startLocation: string;
-    endLocation: string;
+    originStationId: string;
+    destinationStationId: string;
     basePrice: number;
-    taxRate: number;
+    totalDistanceKm?: number;
+    taxRate?: number;
 }
 export declare class UpdateRouteDto {
     title?: string;
-    startLocation?: string;
-    endLocation?: string;
+    originStationId?: string;
+    destinationStationId?: string;
     basePrice?: number;
     taxRate?: number;
 }

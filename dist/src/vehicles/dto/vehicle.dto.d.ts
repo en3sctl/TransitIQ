@@ -1,11 +1,17 @@
 export declare class CreateVehicleDto {
-    plateNumber: string;
+    registrationPlate: string;
+    make: string;
+    model: string;
+    year: number;
+    chassisNumber: string;
     capacity: number;
-    fuelConsumptionPer100km: number;
 }
 export declare class UpdateVehicleDto {
-    plateNumber?: string;
+    registrationPlate?: string;
+    make?: string;
+    model?: string;
+    year?: number;
+    chassisNumber?: string;
     capacity?: number;
-    fuelConsumptionPer100km?: number;
     status?: string;
 }

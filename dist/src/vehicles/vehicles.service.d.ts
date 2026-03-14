@@ -4,14 +4,14 @@ export declare class VehiclesService {
     private prisma;
     constructor(prisma: PrismaService);
     create(tenantId: string, createVehicleDto: CreateVehicleDto): Promise<{
-        capacity: number;
-        status: import("@prisma/client").$Enums.VehicleStatus;
-        id: string;
+        registrationPlate: string;
         make: string | null;
         model: string | null;
         year: number | null;
-        registrationPlate: string;
         chassisNumber: string | null;
+        capacity: number;
+        status: import("@prisma/client").$Enums.VehicleStatus;
+        id: string;
         engineNumber: string | null;
         muayeneTarihi: Date | null;
         sigortaTarihi: Date | null;
@@ -22,14 +22,14 @@ export declare class VehiclesService {
         tenantId: string;
     }>;
     findAll(tenantId: string): Promise<{
-        capacity: number;
-        status: import("@prisma/client").$Enums.VehicleStatus;
-        id: string;
+        registrationPlate: string;
         make: string | null;
         model: string | null;
         year: number | null;
-        registrationPlate: string;
         chassisNumber: string | null;
+        capacity: number;
+        status: import("@prisma/client").$Enums.VehicleStatus;
+        id: string;
         engineNumber: string | null;
         muayeneTarihi: Date | null;
         sigortaTarihi: Date | null;
@@ -40,14 +40,14 @@ export declare class VehiclesService {
         tenantId: string;
     }[]>;
     findOne(tenantId: string, id: string): Promise<{
-        capacity: number;
-        status: import("@prisma/client").$Enums.VehicleStatus;
-        id: string;
+        registrationPlate: string;
         make: string | null;
         model: string | null;
         year: number | null;
-        registrationPlate: string;
         chassisNumber: string | null;
+        capacity: number;
+        status: import("@prisma/client").$Enums.VehicleStatus;
+        id: string;
         engineNumber: string | null;
         muayeneTarihi: Date | null;
         sigortaTarihi: Date | null;
@@ -58,14 +58,14 @@ export declare class VehiclesService {
         tenantId: string;
     }>;
     update(tenantId: string, id: string, updateVehicleDto: UpdateVehicleDto): Promise<{
-        capacity: number;
-        status: import("@prisma/client").$Enums.VehicleStatus;
-        id: string;
+        registrationPlate: string;
         make: string | null;
         model: string | null;
         year: number | null;
-        registrationPlate: string;
         chassisNumber: string | null;
+        capacity: number;
+        status: import("@prisma/client").$Enums.VehicleStatus;
+        id: string;
         engineNumber: string | null;
         muayeneTarihi: Date | null;
         sigortaTarihi: Date | null;
@@ -76,14 +76,14 @@ export declare class VehiclesService {
         tenantId: string;
     }>;
     remove(tenantId: string, id: string): Promise<{
-        capacity: number;
-        status: import("@prisma/client").$Enums.VehicleStatus;
-        id: string;
+        registrationPlate: string;
         make: string | null;
         model: string | null;
         year: number | null;
-        registrationPlate: string;
         chassisNumber: string | null;
+        capacity: number;
+        status: import("@prisma/client").$Enums.VehicleStatus;
+        id: string;
         engineNumber: string | null;
         muayeneTarihi: Date | null;
         sigortaTarihi: Date | null;

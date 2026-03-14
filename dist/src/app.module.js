@@ -20,6 +20,7 @@ const ai_module_1 = require("./ai/ai.module");
 const driver_ops_module_1 = require("./driver-ops/driver-ops.module");
 const booking_module_1 = require("./booking/booking.module");
 const auth_module_1 = require("./auth/auth.module");
+const stations_module_1 = require("./stations/stations.module");
 const config_1 = require("@nestjs/config");
 let AppModule = class AppModule {
 };
@@ -38,6 +39,7 @@ exports.AppModule = AppModule = __decorate([
             ai_module_1.AiModule,
             driver_ops_module_1.DriverOpsModule,
             booking_module_1.BookingModule,
+            stations_module_1.StationsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

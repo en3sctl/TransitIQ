@@ -24,15 +24,25 @@ let RoutesService = class RoutesService {
         this.locationService = locationService;
     }
     async create(tenantId, createRouteDto) {
-        const { startLocation, endLocation, basePrice, taxRate } = createRouteDto;
-        const totalDistanceKm = this.locationService.calculateDistanceKm(startLocation, endLocation);
+        const { originStationId, destinationStationId, basePrice, taxRate = 0.18, title, totalDistanceKm: providedDistance } = createRouteDto;
+        const origin = await this.prisma.station.findUnique({ where: { id: originStationId } });
+        const destination = await this.prisma.station.findUnique({ where: { id: destinationStationId } });
+        const totalDistanceKm = providedDistance || this.locationService.calculateDistanceKm(origin?.name || 'Unknown', destination?.name || 'Unknown');
         const finalPrice = this.pricingService.calculateFinalPrice(basePrice, taxRate);
         console.log(`Calculated Final Price: ${finalPrice}`);
         return this.prisma.route.create({
             data: {
-                ...createRouteDto,
+                title,
+                originStationId,
+                destinationStationId,
+                basePrice,
+                taxRate,
                 totalDistanceKm,
                 tenantId,
+            },
+            include: {
+                originStation: true,
+                destinationStation: true,
             },
         });
     }
@@ -40,7 +50,10 @@ let RoutesService = class RoutesService {
         return this.prisma.route.findMany({
             where: {
                 tenantId,
-                deletedAt: null,
+            },
+            include: {
+                originStation: true,
+                destinationStation: true,
             },
         });
     }
@@ -49,7 +62,10 @@ let RoutesService = class RoutesService {
             where: {
                 id,
                 tenantId,
-                deletedAt: null,
+            },
+            include: {
+                originStation: true,
+                destinationStation: true,
             },
         });
         if (!route) {
@@ -62,13 +78,16 @@ let RoutesService = class RoutesService {
         return this.prisma.route.update({
             where: { id },
             data: updateRouteDto,
+            include: {
+                originStation: true,
+                destinationStation: true,
+            },
         });
     }
     async remove(tenantId, id) {
         await this.findOne(tenantId, id);
-        return this.prisma.route.update({
+        return this.prisma.route.delete({
             where: { id },
-            data: { deletedAt: new Date() },
         });
     }
 };

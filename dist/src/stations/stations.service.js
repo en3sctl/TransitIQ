@@ -9,65 +9,53 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VehiclesService = void 0;
+exports.StationsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../common/prisma/prisma.service");
-let VehiclesService = class VehiclesService {
+let StationsService = class StationsService {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async create(tenantId, createVehicleDto) {
-        return this.prisma.vehicle.create({
+    async create(tenantId, createDto) {
+        return this.prisma.station.create({
             data: {
-                ...createVehicleDto,
+                ...createDto,
                 tenantId,
             },
         });
     }
     async findAll(tenantId) {
-        return this.prisma.vehicle.findMany({
-            where: {
-                tenantId,
-                deletedAt: null,
-            },
+        return this.prisma.station.findMany({
+            where: { tenantId },
         });
     }
     async findOne(tenantId, id) {
-        const vehicle = await this.prisma.vehicle.findFirst({
-            where: {
-                id,
-                tenantId,
-                deletedAt: null,
-            },
+        const station = await this.prisma.station.findFirst({
+            where: { id, tenantId },
         });
-        if (!vehicle) {
-            throw new common_1.NotFoundException(`Vehicle with ID ${id} not found`);
+        if (!station) {
+            throw new common_1.NotFoundException('Station not found');
         }
-        return vehicle;
+        return station;
     }
-    async update(tenantId, id, updateVehicleDto) {
+    async update(tenantId, id, updateDto) {
         await this.findOne(tenantId, id);
-        const { status, ...rest } = updateVehicleDto;
-        return this.prisma.vehicle.update({
+        return this.prisma.station.update({
             where: { id },
-            data: {
-                ...rest,
-                ...(status && { status: status }),
-            },
+            data: updateDto,
         });
     }
     async remove(tenantId, id) {
         await this.findOne(tenantId, id);
-        return this.prisma.vehicle.update({
+        return this.prisma.station.delete({
             where: { id },
-            data: { deletedAt: new Date() },
         });
     }
 };
-exports.VehiclesService = VehiclesService;
-exports.VehiclesService = VehiclesService = __decorate([
+exports.StationsService = StationsService;
+exports.StationsService = StationsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
-], VehiclesService);
-//# sourceMappingURL=vehicles.service.js.map
+], StationsService);
+//# sourceMappingURL=stations.service.js.map

@@ -6,14 +6,14 @@ export declare class BookingController {
     search(searchDto: SearchTripsDto): Promise<{
         availableSeats: number;
         vehicle: {
-            capacity: number;
-            status: import("@prisma/client").$Enums.VehicleStatus;
-            id: string;
+            registrationPlate: string;
             make: string | null;
             model: string | null;
             year: number | null;
-            registrationPlate: string;
             chassisNumber: string | null;
+            capacity: number;
+            status: import("@prisma/client").$Enums.VehicleStatus;
+            id: string;
             engineNumber: string | null;
             muayeneTarihi: Date | null;
             sigortaTarihi: Date | null;
@@ -50,11 +50,11 @@ export declare class BookingController {
             updatedAt: Date;
             tenantId: string;
             title: string;
-            basePrice: import("@prisma/client-runtime-utils").Decimal;
-            taxRate: import("@prisma/client-runtime-utils").Decimal;
             originStationId: string;
             destinationStationId: string;
+            basePrice: import("@prisma/client-runtime-utils").Decimal;
             totalDistanceKm: number;
+            taxRate: import("@prisma/client-runtime-utils").Decimal;
         };
         bookings: {
             status: import("@prisma/client").$Enums.BookingStatus;

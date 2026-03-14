@@ -9,82 +9,60 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateRouteDto = exports.CreateRouteDto = void 0;
+exports.UpdateStationDto = exports.CreateStationDto = void 0;
 const class_validator_1 = require("class-validator");
-class CreateRouteDto {
-    title;
-    originStationId;
-    destinationStationId;
-    basePrice;
-    totalDistanceKm;
-    taxRate;
+class CreateStationDto {
+    name;
+    city;
+    locationLat;
+    locationLng;
 }
-exports.CreateRouteDto = CreateRouteDto;
+exports.CreateStationDto = CreateStationDto;
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
-], CreateRouteDto.prototype, "title", void 0);
+], CreateStationDto.prototype, "name", void 0);
 __decorate([
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
-], CreateRouteDto.prototype, "originStationId", void 0);
-__decorate([
-    (0, class_validator_1.IsUUID)(),
-    (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", String)
-], CreateRouteDto.prototype, "destinationStationId", void 0);
-__decorate([
-    (0, class_validator_1.IsNumber)(),
-    (0, class_validator_1.Min)(0),
-    __metadata("design:type", Number)
-], CreateRouteDto.prototype, "basePrice", void 0);
+], CreateStationDto.prototype, "city", void 0);
 __decorate([
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
-], CreateRouteDto.prototype, "totalDistanceKm", void 0);
+], CreateStationDto.prototype, "locationLat", void 0);
 __decorate([
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
-], CreateRouteDto.prototype, "taxRate", void 0);
-class UpdateRouteDto {
-    title;
-    originStationId;
-    destinationStationId;
-    basePrice;
-    taxRate;
+], CreateStationDto.prototype, "locationLng", void 0);
+class UpdateStationDto {
+    name;
+    city;
+    locationLat;
+    locationLng;
 }
-exports.UpdateRouteDto = UpdateRouteDto;
+exports.UpdateStationDto = UpdateStationDto;
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], UpdateRouteDto.prototype, "title", void 0);
+], UpdateStationDto.prototype, "name", void 0);
 __decorate([
-    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], UpdateRouteDto.prototype, "originStationId", void 0);
-__decorate([
-    (0, class_validator_1.IsUUID)(),
-    (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", String)
-], UpdateRouteDto.prototype, "destinationStationId", void 0);
+], UpdateStationDto.prototype, "city", void 0);
 __decorate([
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
-], UpdateRouteDto.prototype, "basePrice", void 0);
+], UpdateStationDto.prototype, "locationLat", void 0);
 __decorate([
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
-], UpdateRouteDto.prototype, "taxRate", void 0);
-//# sourceMappingURL=route.dto.js.map
+], UpdateStationDto.prototype, "locationLng", void 0);
+//# sourceMappingURL=station.dto.js.map

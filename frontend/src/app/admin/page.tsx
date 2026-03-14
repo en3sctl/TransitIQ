@@ -62,23 +62,33 @@ import {
 
 interface Vehicle {
   id: string;
-  plateNumber: string;
+  registrationPlate: string;
+  make: string;
+  model: string;
+  year: number;
   capacity: number;
-  fuelConsumptionPer100km: number;
   status: string;
+}
+
+interface Station {
+  id: string;
+  name: string;
+  city: string;
+  locationLat: number | null;
+  locationLng: number | null;
 }
 
 interface Route {
   id: string;
-  startLocation: string;
-  endLocation: string;
+  originStation: Station;
+  destinationStation: Station;
   basePrice: number | string;
   totalDistanceKm: number;
 }
 
 interface Trip {
   id: string;
-  startTime: string;
+  departureTime: string;
   status: string;
   route: Route;
   vehicle: Vehicle;
@@ -98,6 +108,7 @@ function AdminDashboardContent() {
   
   // Data State
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [stations, setStations] = useState<Station[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   
@@ -107,19 +118,22 @@ function AdminDashboardContent() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Form States
-  const [vehicleForm, setVehicleForm] = useState({ plateNumber: "", capacity: "", fuelConsumptionPer100km: "" });
-  const [routeForm, setRouteForm] = useState({ startLocation: "", endLocation: "", basePrice: "", title: "" });
+  const [vehicleForm, setVehicleForm] = useState({ registrationPlate: "", make: "", model: "", year: "", chassisNumber: "", capacity: "" });
+  const [stationForm, setStationForm] = useState({ name: "", city: "", locationLat: "", locationLng: "" });
+  const [routeForm, setRouteForm] = useState({ originStationId: "", destinationStationId: "", basePrice: "", title: "", totalDistanceKm: "" });
   const [tripForm, setTripForm] = useState({ routeId: "", vehicleId: "", departureTime: "", driverId: "" });
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [vRes, rRes, tRes] = await Promise.all([
+      const [vRes, sRes, rRes, tRes] = await Promise.all([
         api.get("/vehicles"),
-        api.get("/routes"),
-        api.get("/trips").catch(() => ({ data: [] }))
+        api.get("/stations").catch(() => ({ data: [] })),
+        api.get("/routes").catch(() => ({ data: [] })),
+        api.get("/trips").catch(() => ({ data: [] })),
       ]);
       setVehicles(vRes.data);
+      setStations(sRes.data);
       setRoutes(rRes.data);
       setTrips(tRes.data);
     } catch (err: any) {
@@ -137,12 +151,36 @@ function AdminDashboardContent() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await api.post("/vehicles", {
-        ...vehicleForm,
+      const payload = {
+        registrationPlate: vehicleForm.registrationPlate,
+        make: vehicleForm.make,
+        model: vehicleForm.model,
+        year: Number(vehicleForm.year),
+        chassisNumber: vehicleForm.chassisNumber,
         capacity: Number(vehicleForm.capacity),
-        fuelConsumptionPer100km: Number(vehicleForm.fuelConsumptionPer100km),
+      };
+      await api.post("/vehicles", payload);
+      setVehicleForm({ registrationPlate: "", make: "", model: "", year: "", chassisNumber: "", capacity: "" });
+      setIsDialogOpen(false);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await api.post("/stations", {
+        name: stationForm.name,
+        city: stationForm.city,
+        locationLat: stationForm.locationLat ? Number(stationForm.locationLat) : null,
+        locationLng: stationForm.locationLng ? Number(stationForm.locationLng) : null,
       });
-      setVehicleForm({ plateNumber: "", capacity: "", fuelConsumptionPer100km: "" });
+      setStationForm({ name: "", city: "", locationLat: "", locationLng: "" });
       setIsDialogOpen(false);
       fetchData();
     } catch (err) {
@@ -157,11 +195,14 @@ function AdminDashboardContent() {
     setIsSubmitting(true);
     try {
       await api.post("/routes", {
-        ...routeForm,
+        title: routeForm.title || `${stations.find(s => s.id === routeForm.originStationId)?.city} - ${stations.find(s => s.id === routeForm.destinationStationId)?.city}`,
+        originStationId: routeForm.originStationId,
+        destinationStationId: routeForm.destinationStationId,
         basePrice: Number(routeForm.basePrice),
+        totalDistanceKm: Number(routeForm.totalDistanceKm) || 0,
         taxRate: 0.18,
       });
-      setRouteForm({ startLocation: "", endLocation: "", basePrice: "", title: "" });
+      setRouteForm({ originStationId: "", destinationStationId: "", basePrice: "", title: "", totalDistanceKm: "" });
       setIsDialogOpen(false);
       fetchData();
     } catch (err) {
@@ -230,16 +271,18 @@ function AdminDashboardContent() {
               <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-800 mx-2" />
 
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white rounded-xl h-10 px-5 text-xs font-black shadow-sm transition-all active:scale-[0.98]">
-                    <Plus className="mr-2 h-4 w-4 stroke-[3]" /> 
-                    {activeTab === 'vehicles' ? 'Araç Ekle' : activeTab === 'routes' ? 'Rota Oluştur' : 'Sefer Ata'}
-                  </Button>
-                </DialogTrigger>
+                <DialogTrigger
+                  render={
+                    <Button className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white rounded-xl h-10 px-5 text-xs font-black shadow-sm transition-all active:scale-[0.98]">
+                      <Plus className="mr-2 h-4 w-4 stroke-[3]" /> 
+                      {activeTab === 'vehicles' ? 'Araç Ekle' : activeTab === 'stations' ? 'İstasyon Ekle' : activeTab === 'routes' ? 'Rota Oluştur' : 'Sefer Ata'}
+                    </Button>
+                  }
+                />
                 <DialogContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-[32px] sm:max-w-lg p-10 shadow-2xl overflow-hidden ring-1 ring-zinc-950/5">
                   <DialogHeader className="mb-8 p-1">
                     <DialogTitle className="text-3xl font-black tracking-tighter">
-                      {activeTab === 'vehicles' ? 'Yeni Araç Kaydı' : activeTab === 'routes' ? 'Rota Genişletme' : 'Kaynak Dağıtımı'}
+                      {activeTab === 'vehicles' ? 'Yeni Araç Kaydı' : activeTab === 'stations' ? 'Yeni İstasyon' : activeTab === 'routes' ? 'Rota Genişletme' : 'Kaynak Dağıtımı'}
                     </DialogTitle>
                     <DialogDescription className="text-zinc-500 dark:text-zinc-400 font-medium text-base mt-2">
                       Sistem için gerekli parametreleri aşağıda yapılandırın.
@@ -248,9 +291,9 @@ function AdminDashboardContent() {
 
                   <DynamicForm 
                     activeTab={activeTab}
-                    forms={{ vehicleForm, routeForm, tripForm, setVehicleForm, setRouteForm, setTripForm }}
-                    handlers={{ handleVehicleSubmit, handleRouteSubmit, handleTripSubmit }}
-                    data={{ routes, vehicles }}
+                    forms={{ vehicleForm, stationForm, routeForm, tripForm, setVehicleForm, setStationForm, setRouteForm, setTripForm }}
+                    handlers={{ handleVehicleSubmit, handleStationSubmit, handleRouteSubmit, handleTripSubmit }}
+                    data={{ routes, vehicles, stations }}
                     isSubmitting={isSubmitting}
                   />
                 </DialogContent>
@@ -272,6 +315,7 @@ function AdminDashboardContent() {
               <h2 className="text-4xl font-black tracking-tighter text-zinc-900 dark:text-zinc-100">
                 {activeTab === 'overview' ? `Merhaba, ${user?.name.split(' ')[0]} 👋` : 
                  activeTab === 'vehicles' ? 'Araç Filosu' : 
+                 activeTab === 'stations' ? 'İstasyonlar & Terminaller' :
                  activeTab === 'routes' ? 'Rota Havuzu' : 'Operasyonel Akış'}
               </h2>
               <p className="text-zinc-500 dark:text-zinc-400 font-medium text-lg leading-snug">
@@ -293,6 +337,8 @@ function AdminDashboardContent() {
                 <TabsList className="bg-zinc-100 dark:bg-zinc-900 p-1 mb-10 rounded-2xl w-full md:w-fit h-12 inline-flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 transition-colors">
                   <TabsTrigger value="overview" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Genel Bakış</TabsTrigger>
                   <TabsTrigger value="vehicles" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Filo</TabsTrigger>
+                  <TabsTrigger value="stations" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">İstasyonlar</TabsTrigger>
+                  {/* Temporarily disabled Routes and Trips for schema alignment */}
                   <TabsTrigger value="routes" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Rotalar</TabsTrigger>
                   <TabsTrigger value="trips" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Seferler</TabsTrigger>
                 </TabsList>
@@ -332,6 +378,7 @@ function AdminDashboardContent() {
                 </TabsContent>
 
                 <TabsContent value="vehicles"><TableCard title="Filo Yönetimi" count={vehicles.length}><VehiclesTable vehicles={vehicles} /></TableCard></TabsContent>
+                <TabsContent value="stations"><TableCard title="İstasyon Yönetimi" count={stations.length}><StationsTable stations={stations} /></TableCard></TabsContent>
                 <TabsContent value="routes"><TableCard title="Ağ Haritası" count={routes.length}><RoutesTable routes={routes} /></TableCard></TabsContent>
                 <TabsContent value="trips"><TableCard title="Sefer Kayıtları" count={trips.length}><TripsTable trips={trips} /></TableCard></TabsContent>
               </Tabs>
@@ -389,9 +436,9 @@ function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
       <Table>
         <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
           <TableRow className="hover:bg-transparent border-none font-black text-[11px] uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 h-14">
-            <TableHead className="px-8">Plaka</TableHead>
+            <TableHead className="px-8">Araç / Plaka</TableHead>
+            <TableHead>Model</TableHead>
             <TableHead>Kapasite</TableHead>
-            <TableHead>Tüketim (100km)</TableHead>
             <TableHead className="text-right px-8">Durum</TableHead>
           </TableRow>
         </TableHeader>
@@ -403,13 +450,16 @@ function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
                   <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center border border-zinc-200 dark:border-zinc-800 group-hover:bg-white dark:group-hover:bg-zinc-800 transition-all">
                     <Bus size={20} className="text-zinc-600 dark:text-zinc-400" />
                   </div>
-                  {v.plateNumber}
+                  <div className="flex flex-col">
+                    <span>{v.registrationPlate}</span>
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider">{v.make}</span>
+                  </div>
                 </div>
               </TableCell>
+              <TableCell className="text-zinc-900 dark:text-zinc-100 font-semibold">{v.model} ({v.year})</TableCell>
               <TableCell className="text-zinc-500 dark:text-zinc-400 font-semibold">{v.capacity} Kişi</TableCell>
-              <TableCell className="text-zinc-500 dark:text-zinc-400 font-semibold">{v.fuelConsumptionPer100km} L</TableCell>
               <TableCell className="text-right px-8">
-                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50">Aktif</span>
+                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50">{v.status}</span>
               </TableCell>
             </TableRow>
           ))}
@@ -435,7 +485,7 @@ function RoutesTable({ routes }: { routes: Route[] }) {
           {routes.map((r) => (
             <TableRow key={r.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group">
               <TableCell className="py-6 px-8 text-zinc-900 dark:text-zinc-100 font-extrabold text-lg tracking-tight">
-                 {r.startLocation} <span className="text-indigo-600 dark:text-indigo-400 mx-2">➔</span> {r.endLocation}
+                 {r.originStation?.name} <span className="text-indigo-600 dark:text-indigo-400 mx-2">➔</span> {r.destinationStation?.name}
               </TableCell>
               <TableCell className="text-zinc-500 dark:text-zinc-400 font-bold">{r.totalDistanceKm} KM</TableCell>
               <TableCell className="text-right px-8 font-black text-xl text-zinc-950 dark:text-zinc-100">₺{r.basePrice}</TableCell>
@@ -464,8 +514,12 @@ function TripsTable({ trips }: { trips: Trip[] }) {
             <TableRow key={t.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group">
               <TableCell className="py-6 px-8">
                 <div className="flex flex-col">
-                  <span className="text-zinc-900 dark:text-zinc-100 font-bold text-base">{new Date(t.startTime).toLocaleDateString()} at {new Date(t.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                  <span className="text-indigo-600 dark:text-indigo-400 font-bold text-[11px] mt-0.5 uppercase tracking-widest">{t.route?.startLocation} ➔ {t.route?.endLocation}</span>
+                  <span className="text-zinc-900 dark:text-zinc-100 font-bold text-base">
+                    {new Date(t.departureTime).toLocaleDateString()} at {new Date(t.departureTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-bold text-[11px] mt-0.5 uppercase tracking-widest">
+                    {t.route?.originStation?.name || 'Unknown'} ➔ {t.route?.destinationStation?.name || 'Unknown'}
+                  </span>
                 </div>
               </TableCell>
               <TableCell className="text-zinc-500 dark:text-zinc-400">
@@ -473,7 +527,7 @@ function TripsTable({ trips }: { trips: Trip[] }) {
                   <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800">
                     <Bus size={18} />
                   </div>
-                  <span className="font-bold">{t.vehicle?.plateNumber ?? 'N/A'}</span>
+                  <span className="font-bold">{t.vehicle?.registrationPlate ?? 'N/A'}</span>
                 </div>
               </TableCell>
               <TableCell className="text-right px-8">
@@ -500,31 +554,77 @@ function EmptyState({ icon: Icon, label }: { icon: any, label: string }) {
 }
 
 function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
-  const { vehicleForm, routeForm, tripForm, setVehicleForm, setRouteForm, setTripForm } = forms;
-  const { handleVehicleSubmit, handleRouteSubmit, handleTripSubmit } = handlers;
-  const { routes, vehicles } = data;
+  const { vehicleForm, stationForm, routeForm, tripForm, setVehicleForm, setStationForm, setRouteForm, setTripForm } = forms;
+  const { handleVehicleSubmit, handleStationSubmit, handleRouteSubmit, handleTripSubmit } = handlers;
+  const { routes, vehicles, stations } = data;
 
   if (activeTab === 'vehicles') {
     return (
       <form onSubmit={handleVehicleSubmit} className="space-y-8">
         <div className="space-y-6">
-          <div className="space-y-2">
-            <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Araç Plakası</Label>
-            <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/5 placeholder:text-zinc-300 dark:placeholder:text-zinc-700 font-bold text-zinc-900 dark:text-zinc-100 transition-all outline-none" placeholder="Örn: 34-ABC-123" value={vehicleForm.plateNumber} onChange={e => setVehicleForm({...vehicleForm, plateNumber: e.target.value})} required />
+          <div className="grid grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Marka</Label>
+              <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="Mercedes-Benz" value={vehicleForm.make} onChange={e => setVehicleForm({...vehicleForm, make: e.target.value})} required />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Model</Label>
+              <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="Travego 15 SHD" value={vehicleForm.model} onChange={e => setVehicleForm({...vehicleForm, model: e.target.value})} required />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Plaka</Label>
+              <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="34 ABC 123" value={vehicleForm.registrationPlate} onChange={e => setVehicleForm({...vehicleForm, registrationPlate: e.target.value})} required />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Model Yılı</Label>
+              <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="2024" value={vehicleForm.year} onChange={e => setVehicleForm({...vehicleForm, year: e.target.value})} required />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-5">
             <div className="space-y-2">
               <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Kapasite</Label>
-              <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="45" value={vehicleForm.capacity} onChange={e => setVehicleForm({...vehicleForm, capacity: e.target.value})} required />
+              <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="46" value={vehicleForm.capacity} onChange={e => setVehicleForm({...vehicleForm, capacity: e.target.value})} required />
             </div>
             <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Tüketim (L/100km)</Label>
-              <Input type="number" step="0.1" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="24.5" value={vehicleForm.fuelConsumptionPer100km} onChange={e => setVehicleForm({...vehicleForm, fuelConsumptionPer100km: e.target.value})} required />
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Şasi No</Label>
+              <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="WDB..." value={vehicleForm.chassisNumber} onChange={e => setVehicleForm({...vehicleForm, chassisNumber: e.target.value})} required />
             </div>
           </div>
         </div>
         <Button type="submit" disabled={isSubmitting} className="w-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white h-16 rounded-[24px] font-black text-xl shadow-xl transition-all active:scale-[0.97]">
-          {isSubmitting ? <Loader2 className="animate-spin" /> : "Aracı Kaydet"}
+          {isSubmitting ? <Loader2 className="animate-spin" /> : "Aracı Filoya Ekle"}
+        </Button>
+      </form>
+    );
+  }
+
+  if (activeTab === 'stations') {
+    return (
+      <form onSubmit={handleStationSubmit} className="space-y-8">
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">İstasyon / Terminal Adı</Label>
+            <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="Esenler Otogarı" value={stationForm.name} onChange={e => setStationForm({...stationForm, name: e.target.value})} required />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Şehir</Label>
+            <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="İstanbul" value={stationForm.city} onChange={e => setStationForm({...stationForm, city: e.target.value})} required />
+          </div>
+          <div className="grid grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Enlem (Lat)</Label>
+              <Input type="number" step="any" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="41.035" value={stationForm.locationLat} onChange={e => setStationForm({...stationForm, locationLat: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Boylam (Lng)</Label>
+              <Input type="number" step="any" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="28.892" value={stationForm.locationLng} onChange={e => setStationForm({...stationForm, locationLng: e.target.value})} />
+            </div>
+          </div>
+        </div>
+        <Button type="submit" disabled={isSubmitting} className="w-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white h-16 rounded-[24px] font-black text-xl shadow-xl transition-all active:scale-[0.97]">
+          {isSubmitting ? <Loader2 className="animate-spin" /> : "İstasyonu Kaydet"}
         </Button>
       </form>
     );
@@ -536,17 +636,49 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-5">
             <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Başlangıç</Label>
-              <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="İstanbul" value={routeForm.startLocation} onChange={e => setRouteForm({...routeForm, startLocation: e.target.value})} required />
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Başlangıç İstasyonu</Label>
+              <Select value={routeForm.originStationId} onValueChange={(v) => setRouteForm({...routeForm, originStationId: v})}>
+                <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold">
+                  <SelectValue placeholder="İstasyon Seçin">
+                    {stations.find((s: Station) => s.id === routeForm.originStationId) 
+                      ? `${stations.find((s: Station) => s.id === routeForm.originStationId).name} (${stations.find((s: Station) => s.id === routeForm.originStationId).city})` 
+                      : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2">
+                  {stations.map((s: Station) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name} ({s.city})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Varış</Label>
-              <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="Ankara" value={routeForm.endLocation} onChange={e => setRouteForm({...routeForm, endLocation: e.target.value})} required />
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Varış İstasyonu</Label>
+              <Select value={routeForm.destinationStationId} onValueChange={(v) => setRouteForm({...routeForm, destinationStationId: v})}>
+                <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold">
+                  <SelectValue placeholder="İstasyon Seçin">
+                    {stations.find((s: Station) => s.id === routeForm.destinationStationId) 
+                      ? `${stations.find((s: Station) => s.id === routeForm.destinationStationId).name} (${stations.find((s: Station) => s.id === routeForm.destinationStationId).city})` 
+                      : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2">
+                  {stations.map((s: Station) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name} ({s.city})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Taban Fiyat (₺)</Label>
-            <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="750" value={routeForm.basePrice} onChange={e => setRouteForm({...routeForm, basePrice: e.target.value})} required />
+          <div className="grid grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Taban Fiyat (₺)</Label>
+              <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="750" value={routeForm.basePrice} onChange={e => setRouteForm({...routeForm, basePrice: e.target.value})} required />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Tahmini Mesafe (KM)</Label>
+              <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="450" value={routeForm.totalDistanceKm} onChange={e => setRouteForm({...routeForm, totalDistanceKm: e.target.value})} required />
+            </div>
           </div>
         </div>
         <Button type="submit" disabled={isSubmitting} className="w-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white h-16 rounded-[24px] font-black text-xl shadow-xl transition-all">
@@ -563,12 +695,18 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
           <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Rota</Label>
           <Select value={tripForm.routeId} onValueChange={(v) => setTripForm({...tripForm, routeId: v})}>
             <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-left outline-none text-zinc-900 dark:text-zinc-100 transition-all">
-              <SelectValue placeholder="Rota Seçin" />
+              <SelectValue placeholder="Rota Seçin">
+                {routes.find((r: Route) => r.id === tripForm.routeId)
+                  ? `${routes.find((r: Route) => r.id === tripForm.routeId).originStation?.name} ➔ ${routes.find((r: Route) => r.id === tripForm.routeId).destinationStation?.name}`
+                  : undefined}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2 shadow-2xl">
               <AnimatePresence>
                 {routes.map((r: any) => (
-                  <SelectItem key={r.id} value={r.id} className="rounded-xl p-3 focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-950 dark:focus:text-zinc-100 cursor-pointer">{r.startLocation} ➔ {r.endLocation}</SelectItem>
+                  <SelectItem key={r.id} value={r.id} className="rounded-xl p-3 focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-950 dark:focus:text-zinc-100 cursor-pointer">
+                    {r.originStation?.name} ➔ {r.destinationStation?.name}
+                  </SelectItem>
                 ))}
               </AnimatePresence>
             </SelectContent>
@@ -578,12 +716,18 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
           <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Araç</Label>
           <Select value={tripForm.vehicleId} onValueChange={(v) => setTripForm({...tripForm, vehicleId: v})}>
             <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-left outline-none text-zinc-900 dark:text-zinc-100 transition-all">
-              <SelectValue placeholder="Araç Seçin" />
+              <SelectValue placeholder="Araç Seçin">
+                {vehicles.find((v: Vehicle) => v.id === tripForm.vehicleId)
+                  ? `${vehicles.find((v: Vehicle) => v.id === tripForm.vehicleId).make} - ${vehicles.find((v: Vehicle) => v.id === tripForm.vehicleId).registrationPlate}`
+                  : undefined}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2 shadow-2xl">
               <AnimatePresence>
                 {vehicles.map((v: any) => (
-                  <SelectItem key={v.id} value={v.id} className="rounded-xl p-3 focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-950 dark:focus:text-zinc-100 cursor-pointer">{v.plateNumber} ({v.capacity} Kişi)</SelectItem>
+                  <SelectItem key={v.id} value={v.id} className="rounded-xl p-3 focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-950 dark:focus:text-zinc-100 cursor-pointer">
+                    {v.make} - {v.registrationPlate}
+                  </SelectItem>
                 ))}
               </AnimatePresence>
             </SelectContent>
@@ -598,5 +742,33 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
         {isSubmitting ? <Loader2 className="animate-spin" /> : "Seferi Başlat"}
       </Button>
     </form>
+  );
+}
+
+function StationsTable({ stations }: { stations: Station[] }) {
+  if (stations.length === 0) return <EmptyState icon={Search} label="Henüz istasyon eklenmemiş" />;
+  return (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
+          <TableRow className="hover:bg-transparent border-none font-black text-[11px] uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 h-14">
+            <TableHead className="px-8" style={{ width: '50%' }}>İstasyon Adı</TableHead>
+            <TableHead style={{ width: '25%' }}>Şehir</TableHead>
+            <TableHead className="text-right px-8" style={{ width: '25%' }}>Koordinatlar</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {stations.map((s) => (
+            <TableRow key={s.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group">
+              <TableCell className="py-6 px-8 text-zinc-900 dark:text-zinc-100 font-bold text-base">{s.name}</TableCell>
+              <TableCell className="text-zinc-500 dark:text-zinc-400 font-semibold">{s.city}</TableCell>
+              <TableCell className="text-right px-8 font-mono text-[10px] text-zinc-400">
+                {s.locationLat && s.locationLng ? `${s.locationLat}, ${s.locationLng}` : "—"}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
