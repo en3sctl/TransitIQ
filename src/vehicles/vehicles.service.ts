@@ -8,11 +8,9 @@ export class VehiclesService {
   constructor(private prisma: PrismaService) {}
 
   async create(tenantId: string, createVehicleDto: CreateVehicleDto) {
-    const { plateNumber, ...rest } = createVehicleDto as any;
     return this.prisma.vehicle.create({
       data: {
-        ...rest,
-        registrationPlate: plateNumber,
+        ...createVehicleDto,
         tenantId,
       },
     });
@@ -47,12 +45,11 @@ export class VehiclesService {
     // Ensure vehicle belongs to tenant before update
     await this.findOne(tenantId, id);
 
-    const { plateNumber, status, ...rest } = updateVehicleDto as any;
+    const { status, ...rest } = updateVehicleDto;
     return this.prisma.vehicle.update({
       where: { id },
       data: {
         ...rest,
-        ...(plateNumber && { registrationPlate: plateNumber }),
         ...(status && { status: status as VehicleStatus }),
       },
     });

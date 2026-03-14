@@ -11,6 +11,7 @@ import { AiModule } from './ai/ai.module';
 import { DriverOpsModule } from './driver-ops/driver-ops.module';
 import { BookingModule } from './booking/booking.module';
 import { AuthModule } from './auth/auth.module';
+import { StationsModule } from './stations/stations.module';
 
 import { ConfigModule } from '@nestjs/config';
 
@@ -27,6 +28,7 @@ import { ConfigModule } from '@nestjs/config';
     AiModule,
     DriverOpsModule,
     BookingModule,
+    StationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

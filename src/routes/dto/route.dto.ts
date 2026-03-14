@@ -1,25 +1,31 @@
-import { IsString, IsNotEmpty, IsNumber, Min, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Min, IsOptional, IsUUID } from 'class-validator';
 
 export class CreateRouteDto {
   @IsString()
   @IsNotEmpty()
   title: string;
 
-  @IsString()
+  @IsUUID()
   @IsNotEmpty()
-  startLocation: string;
+  originStationId: string;
 
-  @IsString()
+  @IsUUID()
   @IsNotEmpty()
-  endLocation: string;
+  destinationStationId: string;
 
   @IsNumber()
   @Min(0)
   basePrice: number;
 
   @IsNumber()
+  @IsOptional()
   @Min(0)
-  taxRate: number;
+  totalDistanceKm?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  taxRate?: number;
 }
 
 export class UpdateRouteDto {
@@ -27,13 +33,13 @@ export class UpdateRouteDto {
   @IsOptional()
   title?: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
-  startLocation?: string;
+  originStationId?: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
-  endLocation?: string;
+  destinationStationId?: string;
 
   @IsNumber()
   @IsOptional()
