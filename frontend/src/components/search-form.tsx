@@ -65,7 +65,10 @@ export default function SearchForm() {
           <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Nereden</label>
           <Select value={origin} onValueChange={(val) => setOrigin(val || '')}>
             <SelectTrigger className="border-0 p-0 text-sm h-auto focus:ring-0 text-slate-900 font-semibold bg-transparent shadow-none w-full text-left justify-start truncate">
-              <SelectValue placeholder="İstasyon Seçin" className="truncate text-slate-900" />
+              <span className="truncate">
+                {origin ? (stations.find((s) => s.id === origin)?.name || "İstasyon Seçin") : "İstasyon Seçin"}
+              </span>
+              <div className="hidden"><SelectValue /></div>
             </SelectTrigger>
             <SelectContent className="bg-white border-slate-200 rounded-2xl shadow-xl z-50">
               {isLoading ? (
@@ -93,7 +96,10 @@ export default function SearchForm() {
           <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Nereye</label>
           <Select value={destination} onValueChange={(val) => setDestination(val || '')}>
             <SelectTrigger className="border-0 p-0 text-sm h-auto focus:ring-0 text-slate-900 font-semibold bg-transparent shadow-none w-full text-left justify-start truncate">
-              <SelectValue placeholder="İstasyon Seçin" className="truncate text-slate-900" />
+              <span className="truncate">
+                {destination ? (stations.find((s) => s.id === destination)?.name || "İstasyon Seçin") : "İstasyon Seçin"}
+              </span>
+              <div className="hidden"><SelectValue /></div>
             </SelectTrigger>
             <SelectContent className="bg-white border-slate-200 rounded-2xl shadow-xl z-50">
               {isLoading ? (
