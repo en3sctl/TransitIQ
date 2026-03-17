@@ -2,79 +2,76 @@ import { Button } from "@/components/ui/button";
 import { MoveRight } from "lucide-react";
 import Image from "next/image";
 import SearchForm from "@/components/search-form";
+import { ModeToggle } from "@/components/mode-toggle";
 
 export default function LandingPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-neutral-950 text-neutral-50 overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 overflow-hidden relative">
       {/* Navigation */}
-      <nav className="flex items-center justify-between px-6 py-6 max-w-7xl mx-auto w-full border-b border-neutral-900">
+      <nav className="flex items-center justify-between px-6 py-5 max-w-7xl mx-auto w-full border-b border-zinc-200/80 dark:border-zinc-800 relative z-30 backdrop-blur-md bg-white/80 dark:bg-zinc-950/80 sticky top-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
-            T
-          </div>
-          <span className="text-xl font-bold tracking-tight">TransitIQ</span>
+          <span className="text-2xl font-black tracking-tighter text-zinc-950 dark:text-white uppercase select-none">
+            TransitIQ
+          </span>
         </div>
-        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-neutral-400">
-          <a href="#" className="hover:text-neutral-50 transition-colors">Routes</a>
-          <a href="#" className="hover:text-neutral-50 transition-colors">Pricing</a>
-          <a href="#" className="hover:text-neutral-50 transition-colors">About</a>
+        <div className="hidden md:flex items-center gap-8 text-sm font-bold text-zinc-600 dark:text-zinc-400">
+          <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Rotalar</a>
+          <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Fiyatlandırma</a>
+          <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Hakkımızda</a>
         </div>
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" className="text-sm rounded-xl">Login</Button>
-          <Button className="bg-indigo-600 hover:bg-indigo-500 rounded-xl text-sm shadow-lg shadow-indigo-500/20">Get Started</Button>
+        <div className="flex items-center gap-3">
+          <ModeToggle />
+          <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-800" />
+          <Button variant="ghost" className="text-sm rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 font-semibold">Giriş Yap</Button>
+          <Button className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white rounded-xl text-sm shadow-sm font-semibold px-5">Kayıt Ol</Button>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <main className="flex-1 relative">
-        {/* Background Gradients */}
-        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
+      {/* Hero Section with High-Res Background */}
+      <main className="flex-1 relative flex flex-col items-center justify-center text-center px-6 pt-24 pb-36 z-10 w-full">
+        {/* Background Image Container */}
+        <div className="absolute inset-0 z-0 select-none pointer-events-none">
+          {/* Top Gradient Fade to blend Navbar */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white via-white/40 to-white dark:from-zinc-950 dark:via-zinc-950/40 dark:to-zinc-950 z-10" />
+          <div 
+            className="w-full h-full bg-[url('/otebis.png')] bg-cover bg-center opacity-95 dark:opacity-80"
+          />
+        </div>
 
-        <div className="max-w-7xl mx-auto px-6 pt-20 pb-32">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold mb-8 animate-in fade-in slide-in-from-bottom-3 duration-1000">
-              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-              New Routes Available
-            </div>
-            
-            <h1 className="text-6xl md:text-8xl font-black tracking-tight leading-[0.9] mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-75">
-              Geleceğin Seyahat Deneyimi <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">TransitIQ ile.</span>
-            </h1>
-            
-            <p className="text-lg md:text-xl text-neutral-400 mb-10 max-w-xl animate-in fade-in slide-in-from-bottom-5 duration-1000 delay-150 leading-relaxed">
-              Experience the future of transportation. Secure your seat on premium intercity routes with AI-optimized pricing and real-time tracking.
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center gap-4 animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-300">
-              <Button size="lg" className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 h-14 px-8 rounded-2xl text-base font-semibold group shadow-xl shadow-indigo-500/25">
-                Book a Ticket <MoveRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-              <Button size="lg" variant="outline" className="w-full sm:w-auto border-neutral-800 bg-neutral-900/50 backdrop-blur-sm hover:bg-neutral-800 h-14 px-8 rounded-2xl text-base font-semibold">
-                View Routes
-              </Button>
-            </div>
+        <div className="relative z-20 flex flex-col items-center w-full">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl text-zinc-600 dark:text-zinc-300 text-xs font-bold mb-8 scale-95 select-none">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            Yepyeni Rotalar Eklendi
           </div>
 
-          {/* Search Form Component */}
-          <SearchForm />
+          <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-[1.05] max-w-4xl text-zinc-900 dark:text-white mb-6 drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)] dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+            Türkiye'nin Her Yerine <br />
+            <span className="text-indigo-600 dark:text-indigo-400">Güvenli ve Konforlu Seyahat</span>
+          </h1>
+
+          <p className="text-lg md:text-xl text-zinc-700 dark:text-zinc-300 font-semibold max-w-2xl mx-auto mb-14 leading-relaxed tracking-tight drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)] dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+            Yüzlerce rota, en iyi fiyatlar. Hemen otobüs biletini bul ve yolculuğa başla.
+          </p>
+
+          {/* Floating Search Form Component */}
+          <div className="w-full max-w-4xl relative px-4">
+            <div className="absolute inset-0 bg-indigo-500/10 blur-3xl rounded-3xl pointer-events-none" />
+            <SearchForm />
+          </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="px-6 py-12 border-t border-neutral-900 max-w-7xl mx-auto w-full flex flex-col md:flex-row justify-between items-center gap-8 text-neutral-500 text-sm">
-        <div className="flex items-center gap-2 grayscale brightness-50">
-          <div className="w-6 h-6 rounded-md bg-white flex items-center justify-center font-bold text-black text-xs">
-            T
-          </div>
-          <span className="font-bold tracking-tight">TransitIQ</span>
+      <footer className="px-6 py-12 border-t border-zinc-200/80 dark:border-zinc-800 max-w-7xl mx-auto w-full flex flex-col md:flex-row justify-between items-center gap-8 text-zinc-500 text-sm relative z-20 bg-white dark:bg-zinc-950">
+        <div className="flex items-center gap-2">
+          <span className="font-black tracking-tighter text-zinc-950 dark:text-white text-lg uppercase">TransitIQ</span>
         </div>
-        <div className="flex items-center gap-12">
-          <a href="#" className="hover:text-neutral-50 transition-colors">Privacy Policy</a>
-          <a href="#" className="hover:text-neutral-50 transition-colors">Terms of Service</a>
-          <a href="#" className="hover:text-neutral-50 transition-colors">Contact</a>
+        <div className="flex items-center gap-10 font-semibold text-zinc-600 dark:text-zinc-400">
+          <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Gizlilik Politikası</a>
+          <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Şartlar</a>
+          <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">İletişim</a>
         </div>
-        <div>© 2026 TransitIQ Inc.</div>
+        <div className="font-semibold text-zinc-400 dark:text-zinc-500">© 2026 TransitIQ Inc. Tüm hakları saklıdır.</div>
       </footer>
     </div>
   );

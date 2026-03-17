@@ -22,6 +22,10 @@ services:
       - JWT_SECRET=your_jwt_secret_here
     depends_on:
       - db
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/dist
 
   frontend:
     build:
@@ -31,8 +35,13 @@ services:
       - "3001:3001"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - WATCHPACK_POLLING=true
     depends_on:
       - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
 
 volumes:
   postgres_data:

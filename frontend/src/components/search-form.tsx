@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MapPin, Calendar, MoveRight } from 'lucide-react';
 
@@ -17,22 +16,23 @@ export default function SearchForm() {
   const [origin, setOrigin] = useState<string>('');
   const [destination, setDestination] = useState<string>('');
   const [date, setDate] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchStations = async () => {
       try {
+        setIsLoading(true);
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
         const res = await fetch(`${baseUrl}/stations`);
         const data = await res.json();
-        setStations(data);
+        console.log('Fetched stations:', data);
+        const stationsArray = Array.isArray(data) ? data : data.data || [];
+        setStations(stationsArray);
       } catch (error) {
-        console.error('Failed to fetch stations:', error);
-        // Fallback mock data for visual presentation if fetch fails
-        setStations([
-          { id: '1', name: 'İstanbul' },
-          { id: '2', name: 'Ankara' },
-          { id: '3', name: 'İzmir' },
-        ]);
+        console.error('Fetch error:', error);
+        setStations([]); // Empty lists trigger fallback row
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchStations();
@@ -40,73 +40,104 @@ export default function SearchForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!origin || !destination || !date) return;
-    router.push(`/search?origin=${origin}&destination=${destination}&date=${date}`);
+    if (!origin || !destination) {
+      alert("Lütfen kalkış ve varış noktalarını seçin.");
+      return;
+    }
+    if (!date) {
+      alert("Lütfen gidiş tarihi seçin.");
+      return;
+    }
+    router.push(`/search?originId=${origin}&destinationId=${destination}&date=${date}`);
   };
 
   return (
-    <div className="mt-20 p-2 rounded-[28px] bg-neutral-900/40 border border-neutral-800/50 backdrop-blur-md animate-in fade-in zoom-in-95 duration-1000 delay-500 max-w-5xl mx-auto shadow-2xl">
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-2">
-        <div className="bg-neutral-900/60 p-4 rounded-2xl border border-neutral-800/50 group hover:border-indigo-500/30 transition-colors relative">
-          <label className="flex items-center gap-3 text-neutral-500 mb-1 font-medium text-xs uppercase tracking-wider">
-            <MapPin className="w-4 h-4 text-indigo-500" />
-            Nereden
-          </label>
-          <Select value={origin} onValueChange={setOrigin}>
-            <SelectTrigger className="w-full bg-transparent border-0 p-0 h-auto text-sm font-semibold text-neutral-200 focus:ring-0">
-              <SelectValue placeholder="İstasyon Seçin" />
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col md:flex-row items-center bg-white rounded-3xl md:rounded-full shadow-2xl p-2 w-full max-w-5xl mx-auto"
+    >
+      {/* Origin */}
+      <div className="flex-1 w-full px-6 py-4 flex items-center gap-4 md:border-r border-slate-200 min-w-0">
+        <div className="p-3 rounded-full bg-slate-50 text-slate-500 shrink-0">
+          <MapPin className="w-5 h-5" />
+        </div>
+        <div className="flex-1 flex flex-col items-start text-left min-w-0">
+          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Nereden</label>
+          <Select value={origin} onValueChange={(val) => setOrigin(val || '')}>
+            <SelectTrigger className="border-0 p-0 text-sm h-auto focus:ring-0 text-slate-900 font-semibold bg-transparent shadow-none w-full text-left justify-start truncate">
+              <SelectValue placeholder="İstasyon Seçin" className="truncate text-slate-900" />
             </SelectTrigger>
-            <SelectContent className="bg-neutral-900 border-neutral-800">
-              {stations.map((s) => (
-                <SelectItem key={s.id} value={s.id} className="text-neutral-200 hover:bg-neutral-800">
-                  {s.name}
-                </SelectItem>
-              ))}
+            <SelectContent className="bg-white border-slate-200 rounded-2xl shadow-xl z-50">
+              {isLoading ? (
+                <SelectItem value="loading" disabled className="text-slate-400">Yükleniyor...</SelectItem>
+              ) : stations.length === 0 ? (
+                <SelectItem value="none" disabled className="text-slate-400">İstasyon bulunamadı</SelectItem>
+              ) : (
+                stations.map((s) => (
+                  <SelectItem key={s.id} value={s.id} className="text-slate-700 hover:bg-slate-50 rounded-lg cursor-pointer">
+                    {s.name}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>
+      </div>
 
-        <div className="bg-neutral-900/60 p-4 rounded-2xl border border-neutral-800/50 group hover:border-indigo-500/30 transition-colors relative">
-          <label className="flex items-center gap-3 text-neutral-500 mb-1 font-medium text-xs uppercase tracking-wider">
-            <MapPin className="w-4 h-4 text-purple-500" />
-            Nereye
-          </label>
-          <Select value={destination} onValueChange={setDestination}>
-            <SelectTrigger className="w-full bg-transparent border-0 p-0 h-auto text-sm font-semibold text-neutral-200 focus:ring-0">
-              <SelectValue placeholder="İstasyon Seçin" />
+      {/* Destination */}
+      <div className="flex-1 w-full px-6 py-4 flex items-center gap-4 md:border-r border-slate-200 min-w-0">
+        <div className="p-3 rounded-full bg-slate-50 text-slate-500 shrink-0">
+          <MapPin className="w-5 h-5" />
+        </div>
+        <div className="flex-1 flex flex-col items-start text-left min-w-0">
+          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Nereye</label>
+          <Select value={destination} onValueChange={(val) => setDestination(val || '')}>
+            <SelectTrigger className="border-0 p-0 text-sm h-auto focus:ring-0 text-slate-900 font-semibold bg-transparent shadow-none w-full text-left justify-start truncate">
+              <SelectValue placeholder="İstasyon Seçin" className="truncate text-slate-900" />
             </SelectTrigger>
-            <SelectContent className="bg-neutral-900 border-neutral-800">
-              {stations.map((s) => (
-                <SelectItem key={s.id} value={s.id} className="text-neutral-200 hover:bg-neutral-800">
-                  {s.name}
-                </SelectItem>
-              ))}
+            <SelectContent className="bg-white border-slate-200 rounded-2xl shadow-xl z-50">
+              {isLoading ? (
+                <SelectItem value="loading" disabled className="text-slate-400">Yükleniyor...</SelectItem>
+              ) : stations.length === 0 ? (
+                <SelectItem value="none" disabled className="text-slate-400">İstasyon bulunamadı</SelectItem>
+              ) : (
+                stations.map((s) => (
+                  <SelectItem key={s.id} value={s.id} className="text-slate-700 hover:bg-slate-50 rounded-lg cursor-pointer">
+                    {s.name}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>
+      </div>
 
-        <div className="bg-neutral-900/60 p-4 rounded-2xl border border-neutral-800/50 group hover:border-indigo-500/30 transition-colors relative">
-          <label className="flex items-center gap-3 text-neutral-500 mb-1 font-medium text-xs uppercase tracking-wider">
-            <Calendar className="w-4 h-4 text-pink-500" />
-            Tarih
-          </label>
+      {/* Date */}
+      <div className="flex-1 w-full px-6 py-4 flex items-center gap-4 min-w-0">
+        <div className="p-3 rounded-full bg-slate-50 text-slate-500 shrink-0">
+          <Calendar className="w-5 h-5" />
+        </div>
+        <div className="flex-1 flex flex-col items-start text-left min-w-0">
+          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Tarih</label>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full bg-transparent border-0 p-0 h-auto text-sm font-semibold text-neutral-200 focus:ring-0 outline-none [color-scheme:dark]"
+            className="w-full bg-transparent border-0 p-0 h-auto text-sm font-semibold text-slate-900 focus:ring-0 outline-none [color-scheme:light] cursor-pointer"
             required
           />
         </div>
+      </div>
 
+      {/* Submit Button */}
+      <div className="p-1 w-full md:w-auto">
         <button
           type="submit"
-          disabled={!origin || !destination || !date}
-          className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed p-4 rounded-2xl flex items-center justify-center transition-all cursor-pointer select-none ring-1 ring-indigo-400/50 shadow-lg shadow-indigo-600/30 group font-bold text-white tracking-wide"
+          className="bg-zinc-950 text-white hover:bg-zinc-800 rounded-full px-8 py-3 md:py-4 font-bold whitespace-nowrap transition-all cursor-pointer w-full md:w-auto shadow-sm"
         >
-          Seferleri Bul <MoveRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          <span>Bilet Bul</span>
         </button>
-      </form>
-    </div>
+      </div>
+    </form>
   );
 }

@@ -15,9 +15,9 @@ export class StationsService {
     });
   }
 
-  async findAll(tenantId: string) {
+  async findAll(tenantId?: string) {
     return this.prisma.station.findMany({
-      where: { tenantId },
+      where: tenantId ? { tenantId } : {},
     });
   }
 
