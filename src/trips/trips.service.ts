@@ -45,10 +45,14 @@ export class TripsService implements OnModuleInit {
     return (this.prisma as any).trip.findMany({
       where: {
         tenantId,
-        deletedAt: null,
       },
       include: {
-        route: true,
+        route: {
+          include: {
+            originStation: true,
+            destinationStation: true,
+          },
+        },
         vehicle: true,
         driver: {
           select: {
@@ -59,7 +63,7 @@ export class TripsService implements OnModuleInit {
         },
       },
       orderBy: {
-        startTime: 'asc',
+        departureTime: 'asc',
       },
     });
   }
@@ -93,10 +97,14 @@ export class TripsService implements OnModuleInit {
       where: {
         id,
         tenantId,
-        deletedAt: null,
       },
       include: {
-        route: true,
+        route: {
+          include: {
+            originStation: true,
+            destinationStation: true,
+          },
+        },
         vehicle: true,
       },
     });

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { MoveRight, MapPin, Calendar, Users } from "lucide-react";
+import { MoveRight } from "lucide-react";
 import Image from "next/image";
+import SearchForm from "@/components/search-form";
 
 export default function LandingPage() {
   return (
@@ -38,7 +39,7 @@ export default function LandingPage() {
             </div>
             
             <h1 className="text-6xl md:text-8xl font-black tracking-tight leading-[0.9] mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-75">
-              Book your next trip <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">with TransitIQ.</span>
+              Geleceğin Seyahat Deneyimi <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">TransitIQ ile.</span>
             </h1>
             
             <p className="text-lg md:text-xl text-neutral-400 mb-10 max-w-xl animate-in fade-in slide-in-from-bottom-5 duration-1000 delay-150 leading-relaxed">
@@ -55,35 +56,8 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Quick Booking Bar */}
-          <div className="mt-20 p-2 rounded-[28px] bg-neutral-900/40 border border-neutral-800/50 backdrop-blur-md animate-in fade-in zoom-in-95 duration-1000 delay-500 max-w-5xl">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-              <div className="bg-neutral-900/60 p-4 rounded-2xl border border-neutral-800/50 group hover:border-indigo-500/30 transition-colors">
-                <div className="flex items-center gap-3 text-neutral-500 mb-1 font-medium text-xs uppercase tracking-wider">
-                  <MapPin className="w-4 h-4 text-indigo-500" />
-                  From
-                </div>
-                <div className="text-sm font-semibold text-neutral-200">New York, NY</div>
-              </div>
-              <div className="bg-neutral-900/60 p-4 rounded-2xl border border-neutral-800/50 group hover:border-indigo-500/30 transition-colors">
-                <div className="flex items-center gap-3 text-neutral-500 mb-1 font-medium text-xs uppercase tracking-wider">
-                  <MapPin className="w-4 h-4 text-purple-500" />
-                  To
-                </div>
-                <div className="text-sm font-semibold text-neutral-200">Boston, MA</div>
-              </div>
-              <div className="bg-neutral-900/60 p-4 rounded-2xl border border-neutral-800/50 group hover:border-indigo-500/30 transition-colors">
-                <div className="flex items-center gap-3 text-neutral-500 mb-1 font-medium text-xs uppercase tracking-wider">
-                  <Calendar className="w-4 h-4 text-pink-500" />
-                  Date
-                </div>
-                <div className="text-sm font-semibold text-neutral-200">Select Date</div>
-              </div>
-              <div className="bg-indigo-600 hover:bg-indigo-500 p-4 rounded-2xl flex items-center justify-center transition-all cursor-pointer select-none ring-1 ring-indigo-400/50 shadow-lg shadow-indigo-600/30">
-                <span className="font-bold text-white tracking-wide">Search Trips</span>
-              </div>
-            </div>
-          </div>
+          {/* Search Form Component */}
+          <SearchForm />
         </div>
       </main>
 
