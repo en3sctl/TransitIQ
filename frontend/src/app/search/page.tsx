@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Bus, Calendar, Clock, Lock, CheckCircle2, ShieldCheck, LifeBuoy, RefreshCcw, Loader2 } from "lucide-react";
+import { ArrowLeft, Bus, Calendar, Clock, Lock, CheckCircle2, ShieldCheck, LifeBuoy, RefreshCcw } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
@@ -104,23 +104,32 @@ export default function SearchResultsPage() {
   }, [selectedTrip]);
 
   const handleSelectTrip = (trip: Trip) => {
+    // 1. First trigger overlay so layout stays intact underneath
     setIsLoadingSeats(true);
-    setSelectedTrip(trip);
+    
+    // 2. Set timeout so selection mounts exactly when preloader is fully visible
     setTimeout(() => {
+      setSelectedTrip(trip);
       setIsLoadingSeats(false);
-    }, 1000);
+    }, 1500); // 1.5 seconds delay for smoother appearance
   };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-50 transition-colors">
       
-      {/* Obilet-Style Full Screen Preloader */}
+      {/* Şekilli Şukullu Full Screen Preloader */}
       {isLoadingSeats && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/90 dark:bg-zinc-950/90 backdrop-blur-sm transition-all duration-300 animate-in fade-in">
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="w-12 h-12 text-indigo-600 dark:text-indigo-400 animate-spin" />
-            <p className="text-lg font-black text-slate-900 dark:text-white tracking-tight mt-2">Koltuk durumu kontrol ediliyor...</p>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">Lütfen bekleyin, en güncel durum listeleniyor.</p>
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md transition-all duration-300 animate-in fade-in">
+          <div className="flex flex-col items-center gap-4">
+            
+            {/* Pulsing Back Glow behind Animated Bus */}
+            <div className="relative flex items-center justify-center">
+              <div className="absolute inset-0 bg-indigo-500/20 dark:bg-indigo-500/10 rounded-full blur-3xl animate-pulse" style={{ width: '150px', height: '150px' }} />
+              <Bus className="w-20 h-20 text-indigo-600 dark:text-indigo-400 animate-bounce relative z-10" />
+            </div>
+
+            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-2 animate-pulse">Koltuk haritası hazırlanıyor...</p>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 font-bold">En uygun koltuklar sizin için listeleniyor.</p>
           </div>
         </div>
       )}
@@ -178,10 +187,8 @@ export default function SearchResultsPage() {
                 {mockTrips.map((trip) => (
                   <div key={trip.id} className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col xl:flex-row items-center w-full gap-6 hover:shadow-md hover:-translate-y-1 transition-all duration-300">
                     
-                    {/* 1. Time & Route Group (Locked Ends + Stretches Center) */}
+                    {/* 1. Time & Route Group */}
                     <div className="flex-1 flex items-center w-full gap-4">
-                      
-                      {/* Locked Width Departure */}
                       <div className="w-24 flex-shrink-0 text-center md:text-left">
                         <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{trip.departureTime}</span>
                         <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 mt-0.5 truncate">{trip.origin}</p>
@@ -194,14 +201,13 @@ export default function SearchResultsPage() {
                         </div>
                       </div>
 
-                      {/* Locked Width Arrival */}
                       <div className="w-24 flex-shrink-0 text-center md:text-left">
                         <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{trip.arrivalTime}</span>
                         <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 mt-0.5 truncate">{trip.destination}</p>
                       </div>
                     </div>
                     
-                    {/* 2. Bus Info Box (Locked Width and Inside content Truncates) */}
+                    {/* 2. Bus Info Box */}
                     <div className="w-56 flex-shrink-0 flex items-center gap-3 bg-slate-50 dark:bg-zinc-800/40 px-4 py-3 rounded-xl justify-start overflow-hidden">
                       <Bus className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
                       <div className="truncate">
@@ -210,11 +216,11 @@ export default function SearchResultsPage() {
                       </div>
                     </div>
 
-                    {/* 3. Price & Action */}
-                    <div className="w-48 flex-shrink-0 flex items-center justify-end gap-3 border-t xl:border-t-0 xl:border-l border-slate-100 dark:border-zinc-800 pt-4 xl:pt-0 xl:pl-4 h-full">
-                      <div className="text-right">
-                        <span className="text-xl font-black text-slate-900 dark:text-white">₺{trip.price}</span>
-                        <p className="text-xs font-semibold text-rose-500 mt-0.5">Son {trip.availableSeats} Koltuk</p>
+                    {/* 3. Price & Action (Redesigned) */}
+                    <div className="w-52 flex-shrink-0 flex items-center justify-end gap-4 border-t xl:border-t-0 xl:border-l border-slate-100 dark:border-zinc-800 pt-4 xl:pt-0 xl:pl-4 h-full">
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider">Son {trip.availableSeats} Koltuk</span>
+                        <span className="text-2xl font-black text-slate-900 dark:text-white">₺{trip.price}</span>
                       </div>
                       <Button 
                         onClick={() => handleSelectTrip(trip)} 
