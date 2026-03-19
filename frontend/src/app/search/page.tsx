@@ -109,12 +109,26 @@ export default function SearchResultsPage() {
     // 1. First trigger overlay so layout stays intact underneath
     setIsLoadingSeats(true);
     
-    // 2. Set timeout so selection mounts exactly when preloader is fully visible
+    // 2. Save to sessionStorage for back-navigation persistence
+    sessionStorage.setItem('tempSelectedTrip', JSON.stringify(trip));
+
+    // 3. Set timeout so selection mounts exactly when preloader is fully visible
     setTimeout(() => {
       setSelectedTrip(trip);
       setIsLoadingSeats(false);
     }, 1500); // 1.5 seconds delay for smoother appearance
   };
+
+  // Restore selectedTrip from sessionStorage on mount (for back-nav from checkout)
+  useEffect(() => {
+    const saved = sessionStorage.getItem('tempSelectedTrip');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as Trip;
+        setSelectedTrip(parsed);
+      } catch { /* ignore parse errors */ }
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-50 transition-colors">
@@ -153,10 +167,23 @@ export default function SearchResultsPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-zinc-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center gap-2 text-slate-600 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-            <span className="text-sm font-semibold">Geri Dön</span>
-          </Link>
+          {selectedTrip ? (
+            <button
+              onClick={() => { setSelectedTrip(null); sessionStorage.removeItem('tempSelectedTrip'); }}
+              className="inline-flex items-center gap-2 text-slate-600 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="text-sm font-semibold">Sefer Seçimine Dön</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => { sessionStorage.removeItem('tempSelectedTrip'); router.push('/'); }}
+              className="inline-flex items-center gap-2 text-slate-600 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="text-sm font-semibold">Ana Sayfaya Dön</span>
+            </button>
+          )}
           
           <div className="flex flex-col items-center text-center">
             <h1 className="text-lg font-bold text-slate-900 dark:text-white">Gidiş Seferleri</h1>
@@ -257,7 +284,7 @@ export default function SearchResultsPage() {
               <div className="p-5 border-b border-slate-100 dark:border-zinc-800">
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Seçilen Sefer</h3>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedTrip(null)} className="text-xs text-indigo-600 dark:text-indigo-400 font-bold h-7">Değiştir</Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setSelectedTrip(null); sessionStorage.removeItem('tempSelectedTrip'); }} className="text-xs text-indigo-600 dark:text-indigo-400 font-bold h-7">Değiştir</Button>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">

@@ -1,10 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   ArrowLeft,
   Bus,
@@ -19,13 +27,15 @@ import {
   CreditCard,
   MapPin,
   Armchair,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 
 export default function CheckoutPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const tripId = searchParams.get('tripId') || '';
   const seat = searchParams.get('seat') || '';
@@ -51,7 +61,24 @@ export default function CheckoutPage() {
 
   const [isKvkkChecked, setIsKvkkChecked] = useState(false);
   const [isAgreementChecked, setIsAgreementChecked] = useState(false);
+  const [isKvkkModalOpen, setIsKvkkModalOpen] = useState(false);
+  const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
+  const kvkkRef = useRef<HTMLDivElement>(null);
+  const agreementRef = useRef<HTMLDivElement>(null);
   const canSubmit = isKvkkChecked && isAgreementChecked;
+
+  // Scroll modals to top when opened
+  useEffect(() => {
+    if (isKvkkModalOpen && kvkkRef.current) {
+      kvkkRef.current.scrollTop = 0;
+    }
+  }, [isKvkkModalOpen]);
+
+  useEffect(() => {
+    if (isAgreementModalOpen && agreementRef.current) {
+      agreementRef.current.scrollTop = 0;
+    }
+  }, [isAgreementModalOpen]);
 
   const formattedDate = dateStr
     ? new Date(dateStr).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -63,10 +90,10 @@ export default function CheckoutPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-zinc-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/search" className="inline-flex items-center gap-2 text-slate-600 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 transition-colors">
+          <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-slate-600 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 transition-colors">
             <ArrowLeft className="w-5 h-5" />
-            <span className="text-sm font-semibold">Geri Dön</span>
-          </Link>
+            <span className="text-sm font-semibold">Koltuk Seçimine Geri Dön</span>
+          </button>
 
           <div className="flex flex-col items-center text-center">
             <h1 className="text-lg font-bold text-slate-900 dark:text-white">Güvenli Ödeme</h1>
@@ -239,10 +266,10 @@ export default function CheckoutPage() {
                 id="kvkk"
                 checked={isKvkkChecked}
                 onCheckedChange={(checked) => setIsKvkkChecked(checked === true)}
-                className="mt-0.5 border-slate-300 dark:border-zinc-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                className="mt-1 border-slate-300 dark:border-zinc-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
               />
               <Label htmlFor="kvkk" className="text-sm font-semibold text-slate-600 dark:text-zinc-300 leading-relaxed cursor-pointer">
-                <Link href="/kvkk" className="text-indigo-600 dark:text-indigo-400 underline underline-offset-2 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">KVKK Aydınlatma Metni</Link>'ni okudum, anladım ve kişisel verilerimin işlenmesine açık rıza veriyorum.
+                <button type="button" onClick={(e) => { e.preventDefault(); setIsKvkkModalOpen(true); }} className="text-indigo-600 dark:text-indigo-400 underline underline-offset-2 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">KVKK Aydınlatma Metni</button>&apos;ni okudum, anladım ve kişisel verilerimin işlenmesine açık rıza veriyorum.
               </Label>
             </div>
             <div className="flex items-start gap-3">
@@ -250,13 +277,198 @@ export default function CheckoutPage() {
                 id="agreement"
                 checked={isAgreementChecked}
                 onCheckedChange={(checked) => setIsAgreementChecked(checked === true)}
-                className="mt-0.5 border-slate-300 dark:border-zinc-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                className="mt-1 border-slate-300 dark:border-zinc-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
               />
               <Label htmlFor="agreement" className="text-sm font-semibold text-slate-600 dark:text-zinc-300 leading-relaxed cursor-pointer">
-                <Link href="/agreements" className="text-indigo-600 dark:text-indigo-400 underline underline-offset-2 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">Mesafeli Satış Sözleşmesi</Link> ve <Link href="/agreements" className="text-indigo-600 dark:text-indigo-400 underline underline-offset-2 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">Ön Bilgilendirme Formu</Link>'nu okudum ve onaylıyorum.
+                <button type="button" onClick={(e) => { e.preventDefault(); setIsAgreementModalOpen(true); }} className="text-indigo-600 dark:text-indigo-400 underline underline-offset-2 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">Mesafeli Satış Sözleşmesi ve Ön Bilgilendirme Formu</button>&apos;nu okudum ve onaylıyorum.
               </Label>
             </div>
           </div>
+
+          {/* KVKK Modal */}
+          <Dialog open={isKvkkModalOpen} onOpenChange={setIsKvkkModalOpen}>
+            <DialogContent ref={kvkkRef} className="sm:max-w-4xl w-[90vw] max-h-[85vh] overflow-y-auto bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
+              <div tabIndex={0} className="outline-none focus:outline-none h-0 w-0" aria-hidden="true" />
+              <DialogHeader>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50">
+                    <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">KVKK Aydınlatma Metni</DialogTitle>
+                </div>
+                <DialogDescription className="text-sm text-slate-500 dark:text-zinc-400">6698 Sayılı Kişisel Verilerin Korunması Kanunu kapsamında hazırlanmış aydınlatma metni</DialogDescription>
+              </DialogHeader>
+              <div className="py-4 space-y-6 text-sm text-slate-600 dark:text-zinc-300 leading-relaxed">
+
+                <p>TransitIQ Ulaşım Teknolojileri Anonim Şirketi (&quot;TransitIQ&quot; veya &quot;Şirket&quot;) olarak, 6698 sayılı Kişisel Verilerin Korunması Kanunu (&quot;KVKK&quot;) kapsamında kişisel verilerinizin güvenliği hususuna azami hassasiyet göstermekteyiz. Bu doğrultuda, KVKK&apos;nın 10. maddesi gereğince aydınlatma yükümlülüğümüzü yerine getirmek amacıyla işbu Aydınlatma Metni hazırlanmıştır.</p>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">1. Veri Sorumlusunun Kimliği</h3>
+                  <p>Kişisel verileriniz, veri sorumlusu sıfatıyla TransitIQ Ulaşım Teknolojileri A.Ş. tarafından aşağıda açıklanan amaçlar doğrultusunda işlenebilecektir.</p>
+                  <p className="mt-2"><strong>Unvan:</strong> TransitIQ Ulaşım Teknolojileri Anonim Şirketi</p>
+                  <p><strong>Adres:</strong> Büyükdere Caddesi No: 185, Levent, Beşiktaş, İstanbul, Türkiye</p>
+                  <p><strong>Mersis No:</strong> 0123456789012345</p>
+                  <p><strong>E-posta:</strong> kvkk@transitiq.com.tr</p>
+                  <p><strong>Telefon:</strong> +90 (212) 555 00 00</p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">2. Kişisel Verilerin İşlenme Amacı</h3>
+                  <p>Toplanan kişisel verileriniz aşağıdaki amaçlarla KVKK&apos;nın 5. ve 6. maddelerinde belirtilen kişisel veri işleme şartları dahilinde işlenebilecektir:</p>
+                  <ul className="list-disc pl-6 mt-2 space-y-1">
+                    <li>Otobüs bileti satışına ilişkin sözleşmesel yükümlülüklerin yerine getirilmesi</li>
+                    <li>Yolcu kimlik bilgilerinin doğrulanması ve yasal yükümlülüklerin yerine getirilmesi</li>
+                    <li>Ödeme işlemlerinin gerçekleştirilmesi ve mali kayıtların tutulması</li>
+                    <li>Müşteri hizmetleri ve destek taleplerinin yönetimi</li>
+                    <li>E-bilet ve sefer bilgilerinin iletilmesi (e-posta, SMS)</li>
+                    <li>İptal, iade ve değişiklik işlemlerinin yürütülmesi</li>
+                    <li>Yasal düzenleme ve mevzuattan kaynaklanan yükümlülüklerin ifası</li>
+                    <li>Hizmet kalitesinin artırılması, analiz ve istatistik çalışmaları</li>
+                    <li>Bilgi güvenliği süreçlerinin yürütülmesi ve saht. erişim denetimi</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">3. İşlenen Kişisel Verilerin Kimlere ve Hangi Amaçla Aktarılabileceği</h3>
+                  <p>Toplanan kişisel verileriniz, yukarıda belirtilen amaçların gerçekleştirilmesi doğrultusunda aşağıdaki kişi ve kurumlara aktarılabilecektir:</p>
+                  <ul className="list-disc pl-6 mt-2 space-y-1">
+                    <li><strong>Ödeme Kuruluşları:</strong> Iyzico Ödeme Hizmetleri A.Ş. — ödeme işlemlerinin güvenli şekilde gerçekleştirilmesi amacıyla</li>
+                    <li><strong>Taşımacılık Şirketleri:</strong> Bilet satışı yapılan taşımacılık firmasına, seferin gerçekleştirilmesi amacıyla</li>
+                    <li><strong>Kamu Kurum ve Kuruluşları:</strong> EPDK, Ulaştırma ve Altyapı Bakanlığı, Emniyet Genel Müdürlüğü ve diğer yetkili makamlar — yasal zorunluluklar gereği</li>
+                    <li><strong>Hukuk Danışmanları:</strong> Hukuki süreçlerin takibi ve yürütülmesi amacıyla</li>
+                    <li><strong>Teknoloji Sağlayıcıları:</strong> Sunucu, bulut hizmet sağlayıcıları — verilerin güvenli şekilde saklanması amacıyla</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">4. Kişisel Veri Toplamanın Yöntemi ve Hukuki Sebebi</h3>
+                  <p>Kişisel verileriniz, web sitemiz üzerindeki bilet satın alma formları aracılığıyla elektronik ortamda toplanmaktadır. Bu veriler:</p>
+                  <ul className="list-disc pl-6 mt-2 space-y-1">
+                    <li>KVKK md. 5/2(c) — Bir sözleşmenin kurulması veya ifası için zorunlu olması</li>
+                    <li>KVKK md. 5/2(e) — Bir hakkın tesisi, kullanılması veya korunması için zorunlu olması</li>
+                    <li>KVKK md. 5/2(ç) — Kanunlarda açıkça öngörülmesi</li>
+                    <li>KVKK md. 5/1 — Açık rıza (pazarlama faaliyetleri için)</li>
+                  </ul>
+                  <p className="mt-2">hukuki sebeplerine dayanarak işlenmektedir.</p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">5. İlgili Kişinin Hakları (KVKK Madde 11)</h3>
+                  <p>KVKK&apos;nın 11. maddesi uyarınca aşağıdaki haklara sahipsiniz:</p>
+                  <ul className="list-disc pl-6 mt-2 space-y-1">
+                    <li>Kişisel verilerinizin işlenip işlenmediğini öğrenme</li>
+                    <li>Kişisel verileriniz işlenmişse buna ilişkin bilgi talep etme</li>
+                    <li>Kişisel verilerinizin işlenme amacını ve bunların amacına uygun kullanılıp kullanılmadığını öğrenme</li>
+                    <li>Yurt içinde veya yurt dışında kişisel verilerin aktarıldığı üçüncü kişileri bilme</li>
+                    <li>Kişisel verilerin eksik veya yanlış işlenmiş olması hâlinde bunların düzeltilmesini isteme</li>
+                    <li>KVKK md. 7 çerçevesinde kişisel verilerin silinmesini veya yok edilmesini isteme</li>
+                    <li>Düzeltme, silme ve yok etme işlemlerinin, kişisel verilerin aktarıldığı üçüncü kişilere bildirilmesini isteme</li>
+                    <li>İşlenen verilerin münhasıran otomatik sistemler vasıtasıyla analiz edilmesi suretiyle kişinin aleyhine bir sonucun ortaya çıkmasına itiraz etme</li>
+                    <li>Kişisel verilerin kanuna aykırı olarak işlenmesi sebebiyle zarara uğraması hâlinde zararın giderilmesini talep etme</li>
+                  </ul>
+                  <p className="mt-3">Haklarınıza ilişkin taleplerinizi, <strong>kvkk@transitiq.com.tr</strong> adresine veya şirket merkezimize yazılı olarak iletebilirsiniz. Talepleriniz, niteliğine göre en kısa sürede ve en geç otuz (30) gün içinde ücretsiz olarak sonuçlandırılacaktır.</p>
+                </div>
+
+                <div className="border-t border-slate-200 dark:border-zinc-700 pt-4">
+                  <p className="text-xs text-slate-400 dark:text-zinc-500">İşbu aydınlatma metni, 6698 sayılı KVKK&apos;nın 10. maddesi ile Aydınlatma Yükümlülüğünün Yerine Getirilmesinde Uyulacak Usul ve Esaslar Hakkında Tebliğ hükümlerine uygun olarak hazırlanmıştır. Son güncelleme: 19 Mart 2026.</p>
+                </div>
+
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => { setIsKvkkChecked(true); setIsKvkkModalOpen(false); }}
+                  className="w-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl py-5 font-bold"
+                >
+                  Okudum, Onaylıyorum
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Agreement Modal */}
+          <Dialog open={isAgreementModalOpen} onOpenChange={setIsAgreementModalOpen}>
+            <DialogContent ref={agreementRef} className="sm:max-w-4xl w-[90vw] max-h-[85vh] overflow-y-auto bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
+              <div tabIndex={0} className="outline-none focus:outline-none h-0 w-0" aria-hidden="true" />
+              <DialogHeader>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50">
+                    <FileText className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">Mesafeli Satış Sözleşmesi ve Ön Bilgilendirme Formu</DialogTitle>
+                </div>
+                <DialogDescription className="text-sm text-slate-500 dark:text-zinc-400">6502 sayılı Tüketicinin Korunması Hakkında Kanun ve Mesafeli Sözleşmeler Yönetmeliği kapsamında düzenlenen sözleşme</DialogDescription>
+              </DialogHeader>
+              <div className="py-4 space-y-6 text-sm text-slate-600 dark:text-zinc-300 leading-relaxed">
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 1 – TARAFLAR</h3>
+                  <p><strong>1.1. Satıcı Bilgileri:</strong></p>
+                  <p>Unvan: TransitIQ Ulaşım Teknolojileri Anonim Şirketi</p>
+                  <p>Adres: Büyükdere Caddesi No: 185, Levent, Beşiktaş, İstanbul, Türkiye</p>
+                  <p>Telefon: +90 (212) 555 00 00</p>
+                  <p>E-posta: destek@transitiq.com.tr</p>
+                  <p>Mersis No: 0123456789012345</p>
+                  <p className="mt-2"><strong>1.2. Alıcı Bilgileri:</strong></p>
+                  <p>Ödeme sayfasındaki formda kişisel bilgilerini beyan eden ve online bilet satın alma işlemini gerçekleştiren gerçek kişi (&quot;Yolcu&quot; veya &quot;Alıcı&quot;).</p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 2 – KONU</h3>
+                  <p>İşbu sözleşme, Alıcı&apos;nın Satıcı&apos;ya ait <strong>www.transitiq.com.tr</strong> internet sitesi üzerinden elektronik ortamda siparişini verdiği, sözleşmede bahsi geçen nitelikleri haiz otobüs bileti hizmetinin satışı ve ifasına ilişkin olarak 6502 sayılı Tüketicinin Korunması Hakkında Kanun ve Mesafeli Sözleşmeler Yönetmeliği hükümleri gereğince tarafların hak ve yükümlülüklerini düzenlemeyi amaçlamaktadır.</p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 3 – SÖZLEŞME KONUSU HİZMET/BİLET BİLGİLERİ</h3>
+                  <p><strong>3.1.</strong> Hizmetin temel özellikleri (güzergah, kalkış/varış noktaları, tarih, saat, koltuk numarası, otobüs tipi ve bilet ücreti) sipariş özeti bölümünde açıkça belirtilmiştir.</p>
+                  <p><strong>3.2.</strong> Listelenen fiyatlara KDV dahildir. Herhangi bir ek ücret, servis bedeli veya sigorta bedeli bilet fiyatına dahil olup, toplam tutar sipariş özetinde gösterilmektedir.</p>
+                  <p><strong>3.3.</strong> Alıcı tarafından onaylanan bilet bilgilerinin doğruluğu Alıcı&apos;nın sorumluluğundadır.</p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 4 – GENEL HÜKÜMLER</h3>
+                  <p><strong>4.1.</strong> Alıcı, satışa konu hizmetin temel nitelikleri, satış fiyatı ve ödeme şekli ile ifaya ilişkin bilgileri okuyup bilgi sahibi olduğunu ve elektronik ortamda gerekli teyidi verdiğini kabul, beyan ve taahhüt eder.</p>
+                  <p><strong>4.2.</strong> Satıcı, hizmetin sipariş tarihinden itibaren sözleşmede belirtilen süre içinde ifasını taahhüt eder. Sefer iptallerinde Alıcı, bilet bedelinin tamamının iadesini talep etme hakkına sahiptir.</p>
+                  <p><strong>4.3.</strong> Alıcı, ödemeyi kredi kartı veya banka kartı ile Iyzico güvenli ödeme altyapısı üzerinden gerçekleştirmektedir. Tüm kart bilgileri 256-bit SSL şifreleme ile korunmakta olup, Satıcı tarafından saklanmamaktadır.</p>
+                  <p><strong>4.4.</strong> Alıcı, belirttiği e-posta adresine ve/veya cep telefonuna gönderilecek e-bilet ve sefer bilgilendirme mesajlarını kabul eder.</p>
+                  <p><strong>4.5.</strong> İşbu sözleşme, Alıcı tarafından elektronik ortamda onaylanmasıyla yürürlüğe girer. Sözleşme metni, Alıcı&apos;nın kayıtlı e-posta adresine gönderilir.</p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 5 – İPTAL VE İADE KOŞULLARI</h3>
+                  <p><strong>5.1.</strong> Alıcı, seferin kalkış saatinden en az <strong>24 saat önce</strong> iptal talebinde bulunması halinde, bilet bedelinin <strong>%100&apos;ü</strong> iade edilir.</p>
+                  <p><strong>5.2.</strong> Seferin kalkış saatinden <strong>24 ila 6 saat önce</strong> yapılan iptallerde, bilet bedelinin <strong>%80&apos;i</strong> iade edilir, <strong>%20&apos;si</strong> cezai kesinti olarak uygulanır.</p>
+                  <p><strong>5.3.</strong> Seferin kalkış saatinden <strong>6 saatten az</strong> bir süre kala yapılan iptallerde iade yapılmaz.</p>
+                  <p><strong>5.4.</strong> Satıcı tarafından yapılan sefer iptallerinde bilet bedelinin tamamı 7 iş günü içinde Alıcı&apos;nın ödeme yaptığı araca iade edilir.</p>
+                  <p><strong>5.5.</strong> Tarih ve saat değişikliği talepleri, kalkış saatinden en az 12 saat önce yapılmalıdır ve müsait sefer bulunması şartına bağlıdır.</p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 6 – CAYMA HAKKI</h3>
+                  <p><strong>6.1.</strong> Alıcı, 6502 sayılı Kanun&apos;un 48. maddesi ve Mesafeli Sözleşmeler Yönetmeliği uyarınca, hizmetin ifasına başlanmadığı sürece 14 (on dört) gün içinde cayma hakkını kullanabilir.</p>
+                  <p><strong>6.2.</strong> Cayma hakkının kullanılması halinde bilet bedeli, cayma bildiriminin Satıcı&apos;ya ulaştığı tarihten itibaren 14 gün içinde Alıcı&apos;ya iade edilir.</p>
+                  <p><strong>6.3.</strong> Hizmetin ifasına başlanması (yolcunun otobüse binmesi), cayma hakkının sona ermesi anlamına gelir.</p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 7 – UYUŞMAZLIK ÇÖZÜMÜ</h3>
+                  <p>İşbu sözleşmeden doğan uyuşmazlıklarda, Tüketici Hakem Heyetleri ve Tüketici Mahkemeleri yetkilidir. Parasal sınırlar için yürürlükteki mevzuat hükümleri uygulanır.</p>
+                </div>
+
+                <div className="border-t border-slate-200 dark:border-zinc-700 pt-4">
+                  <p className="text-xs text-slate-400 dark:text-zinc-500">İşbu sözleşme, 6502 sayılı Tüketicinin Korunması Hakkında Kanun ve 27.11.2014 tarihli Mesafeli Sözleşmeler Yönetmeliği hükümlerine uygun olarak hazırlanmıştır. Sözleşme tarihi: 19 Mart 2026.</p>
+                </div>
+
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => { setIsAgreementChecked(true); setIsAgreementModalOpen(false); }}
+                  className="w-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl py-5 font-bold"
+                >
+                  Okudum, Onaylıyorum
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Submit Button */}
           <Button
