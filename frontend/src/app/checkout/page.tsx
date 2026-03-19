@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,6 +66,59 @@ export default function CheckoutPage() {
   const kvkkRef = useRef<HTMLDivElement>(null);
   const agreementRef = useRef<HTMLDivElement>(null);
   const canSubmit = isKvkkChecked && isAgreementChecked;
+
+  const [iyzicoHtml, setIyzicoHtml] = useState<string | null>(null);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+
+  // Execute Iyzico scripts after injecting HTML
+  useEffect(() => {
+    if (iyzicoHtml) {
+      const container = document.getElementById('iyzico-form-container');
+      if (container) {
+        const scripts = container.querySelectorAll('script');
+        scripts.forEach((oldScript) => {
+          const newScript = document.createElement('script');
+          if (oldScript.src) {
+            newScript.src = oldScript.src;
+          } else {
+            newScript.textContent = oldScript.textContent;
+          }
+          oldScript.parentNode?.replaceChild(newScript, oldScript);
+        });
+      }
+    }
+  }, [iyzicoHtml]);
+
+  const handlePayment = useCallback(async () => {
+    if (!canSubmit) return;
+    setIsPaymentLoading(true);
+    try {
+      const res = await fetch('http://localhost:3000/payment/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          price: price,
+          buyerName: form.ad,
+          buyerSurname: form.soyad,
+          buyerTc: form.tcKimlik,
+          buyerEmail: form.email,
+          buyerPhone: form.telefon,
+        }),
+      });
+      const data = await res.json();
+      if (data.checkoutFormContent) {
+        setIyzicoHtml(data.checkoutFormContent);
+      } else {
+        console.error('Iyzico error:', data);
+        alert('Ödeme formu yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+      }
+    } catch (err) {
+      console.error('Payment init error:', err);
+      alert('Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
+    } finally {
+      setIsPaymentLoading(false);
+    }
+  }, [canSubmit, price, form]);
 
   // Scroll modals to top when opened
   useEffect(() => {
@@ -229,7 +282,7 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* Section B: Ödeme Bilgileri (Iyzico Placeholder) */}
+          {/* Section B: Ödeme Bilgileri */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-md overflow-hidden transition-all duration-300">
             <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800 flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50">
@@ -242,20 +295,34 @@ export default function CheckoutPage() {
             </div>
 
             <div className="p-6">
-              <div className="border-2 border-dashed border-slate-300 dark:border-zinc-700 rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-4 min-h-[200px] bg-slate-50/50 dark:bg-zinc-800/20">
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50 to-emerald-50 dark:from-indigo-950/30 dark:to-emerald-950/30">
-                  <CreditCard className="w-10 h-10 text-indigo-500 dark:text-indigo-400" />
+              {iyzicoHtml ? (
+                <div
+                  id="iyzico-form-container"
+                  dangerouslySetInnerHTML={{ __html: iyzicoHtml }}
+                />
+              ) : (
+                <div className="border-2 border-dashed border-slate-300 dark:border-zinc-700 rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-4 min-h-[200px] bg-slate-50/50 dark:bg-zinc-800/20">
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50 to-emerald-50 dark:from-indigo-950/30 dark:to-emerald-950/30">
+                    <CreditCard className="w-10 h-10 text-indigo-500 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="text-base font-bold text-slate-700 dark:text-zinc-200">{isPaymentLoading ? 'Iyzico ödeme formu yükleniyor...' : 'Iyzico Güvenli Ödeme Formu'}</p>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold mt-1">{isPaymentLoading ? 'Lütfen bekleyiniz...' : 'Formu doldurup sözleşmeleri onaylandıktan sonra ödeme başlatılabilir'}</p>
+                  </div>
+                  {!isPaymentLoading && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-500 dark:text-zinc-400">VISA</div>
+                      <div className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-500 dark:text-zinc-400">Mastercard</div>
+                      <div className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-500 dark:text-zinc-400">Troy</div>
+                    </div>
+                  )}
+                  {isPaymentLoading && (
+                    <div className="mt-2">
+                      <div className="w-8 h-8 border-4 border-indigo-200 dark:border-indigo-800 border-t-indigo-600 dark:border-t-indigo-400 rounded-full animate-spin" />
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <p className="text-base font-bold text-slate-700 dark:text-zinc-200">Iyzico Güvenli Ödeme Formu Buraya Gelecek</p>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold mt-1">Kredi kartı / Banka kartı ile güvenli ödeme</p>
-                </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-500 dark:text-zinc-400">VISA</div>
-                  <div className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-500 dark:text-zinc-400">Mastercard</div>
-                  <div className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-500 dark:text-zinc-400">Troy</div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -471,17 +538,29 @@ export default function CheckoutPage() {
           </Dialog>
 
           {/* Submit Button */}
-          <Button
-            disabled={!canSubmit}
-            className={`w-full rounded-2xl py-7 font-bold text-base shadow-lg transition-all duration-300 flex items-center justify-center gap-3 ${
-              canSubmit
-                ? 'bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 hover:shadow-xl cursor-pointer'
-                : 'bg-slate-300 dark:bg-zinc-700 text-slate-500 dark:text-zinc-400 cursor-not-allowed shadow-none'
-            }`}
-          >
-            <Lock className="w-5 h-5" />
-            Güvenli Ödeme Yap
-          </Button>
+          {!iyzicoHtml && (
+            <Button
+              disabled={!canSubmit || isPaymentLoading}
+              onClick={handlePayment}
+              className={`w-full rounded-2xl py-7 font-bold text-base shadow-lg transition-all duration-300 flex items-center justify-center gap-3 ${
+                canSubmit && !isPaymentLoading
+                  ? 'bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 hover:shadow-xl cursor-pointer'
+                  : 'bg-slate-300 dark:bg-zinc-700 text-slate-500 dark:text-zinc-400 cursor-not-allowed shadow-none'
+              }`}
+            >
+              {isPaymentLoading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Ödeme Formu Yükleniyor...
+                </>
+              ) : (
+                <>
+                  <Lock className="w-5 h-5" />
+                  Güvenli Ödeme Yap
+                </>
+              )}
+            </Button>
+          )}
         </div>
 
         {/* Right Side — Order Summary (1 col) */}

@@ -12,6 +12,7 @@ import { DriverOpsModule } from './driver-ops/driver-ops.module';
 import { BookingModule } from './booking/booking.module';
 import { AuthModule } from './auth/auth.module';
 import { StationsModule } from './stations/stations.module';
+import { PaymentModule } from './payment/payment.module';
 
 import { ConfigModule } from '@nestjs/config';
 
@@ -29,6 +30,7 @@ import { ConfigModule } from '@nestjs/config';
     DriverOpsModule,
     BookingModule,
     StationsModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],
