@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Bus, Calendar, Clock, Lock, CheckCircle2, ShieldCheck, LifeBuoy, RefreshCcw } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 
 interface Trip {
@@ -29,6 +29,7 @@ interface Seat {
 
 export default function SearchResultsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const originId = searchParams.get('originId');
   const destinationId = searchParams.get('destinationId');
   const dateStr = searchParams.get('date');
@@ -36,6 +37,7 @@ export default function SearchResultsPage() {
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
   const [isLoadingSeats, setIsLoadingSeats] = useState<boolean>(false);
+  const [isRedirectingToCheckout, setIsRedirectingToCheckout] = useState<boolean>(false);
 
   // Mock Trip Data (usually fetched from backend)
   const mockTrips: Trip[] = [
@@ -117,6 +119,20 @@ export default function SearchResultsPage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-50 transition-colors">
       
+      {/* Redirect to Checkout Preloader */}
+      {isRedirectingToCheckout && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md transition-all duration-300 animate-in fade-in">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative flex items-center justify-center">
+              <div className="absolute inset-0 bg-emerald-500/20 dark:bg-emerald-500/10 rounded-full blur-3xl animate-pulse" style={{ width: '150px', height: '150px' }} />
+              <Lock className="w-20 h-20 text-emerald-600 dark:text-emerald-400 animate-bounce relative z-10" />
+            </div>
+            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-2 animate-pulse">Güvenli ödeme sayfasına yönlendiriliyorsunuz...</p>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 font-bold">Lütfen bekleyiniz, bağlantınız şifreleniyor.</p>
+          </div>
+        </div>
+      )}
+
       {/* Şekilli Şukullu Full Screen Preloader */}
       {isLoadingSeats && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md transition-all duration-300 animate-in fade-in">
@@ -378,7 +394,28 @@ export default function SearchResultsPage() {
                     </div>
                   </div>
 
-                  <Button className="w-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl py-6 font-bold text-base shadow-md">Ödemeye İlerle</Button>
+                  <Button
+                    onClick={() => {
+                      setIsRedirectingToCheckout(true);
+                      const params = new URLSearchParams({
+                        tripId: selectedTrip!.id,
+                        seat: selectedSeat!,
+                        price: String(selectedTrip!.price),
+                        origin: selectedTrip!.origin,
+                        destination: selectedTrip!.destination,
+                        date: dateStr || '',
+                        departureTime: selectedTrip!.departureTime,
+                        arrivalTime: selectedTrip!.arrivalTime,
+                        busType: selectedTrip!.busType,
+                      });
+                      setTimeout(() => {
+                        router.push(`/checkout?${params.toString()}`);
+                      }, 1200);
+                    }}
+                    className="w-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl py-6 font-bold text-base shadow-md"
+                  >
+                    Ödemeye İlerle
+                  </Button>
                 </div>
 
                 {/* Secondary Secure Transaction Card */}
