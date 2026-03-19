@@ -127,3 +127,21 @@
     @apply font-sans;
   }
 }
+
+/* Force Iyzico payment form to always render in light mode.
+   next-themes sets color-scheme:dark on <html>, which propagates into
+   Iyzico's iframe and makes browser UA form controls (inputs) dark/invisible.
+   This forces the container and iframe back to light. */
+#iyzipay-checkout-form {
+  color-scheme: light !important;
+  color: #333 !important;
+}
+
+#iyzipay-checkout-form iframe {
+  color-scheme: light !important;
+}
+
+#iyzipay-checkout-form * {
+  color: #333 !important;
+}
+

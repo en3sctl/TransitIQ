@@ -17,6 +17,6 @@ export class PaymentController {
       buyerPhone: dto.buyerPhone,
     });
 
-    return result;
+    return { checkoutFormContent: result.checkoutFormContent };
   }
 }
