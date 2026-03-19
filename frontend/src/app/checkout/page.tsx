@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   ArrowLeft,
@@ -28,12 +29,52 @@ import {
   MapPin,
   Armchair,
   FileText,
+  Car,
+  Truck,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 
-export default function CheckoutPage() {
+const KvkkContent = memo(() => (
+  <div className="space-y-4 text-sm text-slate-600 dark:text-zinc-300 leading-relaxed max-w-none">
+    <p><strong>Veri Sorumlusunun Kimliği:</strong> TransitIQ Ulaşım A.Ş. olarak, 6698 sayılı Kişisel Verilerin Korunması Kanunu uyarınca, kişisel verileriniz veri sorumlusu sıfatıyla tarafımızca işlenmektedir.</p>
+    <p><strong>Kişisel Verilerin İşlenme Amacı:</strong> Toplanan kişisel verileriniz (Ad, Soyad, T.C. Kimlik No, İletişim bilgileri); bilet satış sözleşmesinin kurulması, sefer ve koltuk rezervasyonlarının yapılması, Ulaştırma Bakanlığı (UETDS) yasal bildirim zorunluluklarının yerine getirilmesi, ödeme işlemlerinin (Iyzico) güvenli bir şekilde gerçekleştirilmesi amaçlarıyla işlenmektedir.</p>
+    <p><strong>Kişisel Verilerin Aktarılması:</strong> Söz konusu kişisel verileriniz, yasal zorunluluklar kapsamında Ulaştırma ve Altyapı Bakanlığına, ödeme altyapısının sağlanması amacıyla yetkili ödeme kuruluşlarına (Iyzico) ve kanunen yetkili kamu kurumlarına aktarılabilecektir.</p>
+    <p><strong>Kişisel Veri Toplamanın Yöntemi ve Hukuki Sebebi:</strong> Kişisel verileriniz, web sitemiz üzerinden elektronik ortamda; &quot;Bir sözleşmenin kurulması veya ifasıyla doğrudan doğruya ilgili olması&quot; ve &quot;Veri sorumlusunun hukuki yükümlülüğünü yerine getirebilmesi&quot; hukuki sebeplerine dayanılarak otomatik yollarla toplanmaktadır.</p>
+    <p><strong>İlgili Kişinin Hakları:</strong> Kanun&apos;un 11. maddesi uyarınca; verilerinizin işlenip işlenmediğini öğrenme, amacına uygun kullanılıp kullanılmadığını bilme, eksikse düzeltilmesini ve şartları oluştuysa silinmesini talep etme hakkına sahipsiniz.</p>
+  </div>
+));
+KvkkContent.displayName = "KvkkContent";
+
+const AgreementContent = memo(() => (
+  <div className="space-y-4 text-sm text-slate-600 dark:text-zinc-300 leading-relaxed max-w-none">
+    <h3 className="text-base font-bold text-slate-800 dark:text-white text-center mb-2 font-semibold">MESAFELİ SATIŞ SÖZLEŞMESİ</h3>
+    <div>
+      <h4 className="font-bold mb-1">MADDE 1 - TARAFLAR</h4>
+      <p>İşbu sözleşme, bir tarafta web sitesi üzerinden otobüs bileti satın alan &quot;Alıcı&quot; ile diğer tarafta biletleme ve aracılık hizmetini sunan TransitIQ Ulaşım Teknolojileri A.Ş. (&quot;Satıcı&quot;) arasında elektronik ortamda onaylandığı tarih itibarıyla akdedilmiştir. Alıcı, sisteme girmiş olduğu iletişim ve fatura bilgilerinin doğruluğunu beyan ve taahhüt eder.</p>
+    </div>
+    <div>
+      <h4 className="font-bold mb-1">MADDE 2 - KONU</h4>
+      <p>İşbu Sözleşme&apos;nin konusu, Alıcı&apos;nın Satıcı&apos;ya ait web sitesinden elektronik ortamda siparişini verdiği biletin satışı ve teslimi ile ilgili olarak 6502 sayılı Tüketicinin Korunması Hakkında Kanun ve Mesafeli Sözleşmeler Yönetmeliği hükümleri uyarınca tarafların karşılıklı hak ve yükümlülüklerinin belirlenmesidir.</p>
+    </div>
+    <div>
+      <h4 className="font-bold mb-1">MADDE 3 - SÖZLEŞME KONUSU BİLET BİLGİLERİ</h4>
+      <p>Sözleşme konusu hizmet, Alıcı tarafından seçilen kalkış ve varış noktaları arasında, belirtilen tarih ve saatte yapılacak olan tarifeli otobüs seferi taşıma biletidir. Alıcı tarafından ödenen toplam bedel, bilet üzerinde ve sipariş özetinde gösterilen tutar olup, bu bedele tüm yasal vergiler ve varsa hizmet komisyonları dahildir.</p>
+    </div>
+    <div>
+      <h4 className="font-bold mb-1">MADDE 4 - GENEL HÜKÜMLER</h4>
+      <p>Yolcuların sefer saatinden en az 15 dakika önce ilgili peronda hazır bulunmaları gerekmektedir. Sefer saatinde peronda bulunmayan yolcular adına bilet hakkı yanar. Seyahat esnasında bagaj limitleri standart 30 kilogram olup, aşan kısım için taşıyıcı firmanın ek ücret politikaları geçerli olacaktır. Alıcı, taşıyıcı firmanın iç kurallarına uymakla yükümlüdür.</p>
+    </div>
+    <div>
+      <h4 className="font-bold mb-1">MADDE 5 - CAYMA HAKKI VE İPTAL KOŞULLARI</h4>
+      <p>Mesafeli Sözleşmeler Yönetmeliği’nin 15/g maddesi uyarınca, belirli bir tarihte yapılması gereken yolcu taşıma hizmetlerinde tüketicinin cayma hakkı bulunmamaktadır. Sefer saatinden 24 saat öncesine kadar yapılan iptal taleplerinde bilet bedelinin tamamı iade edilir. Sefer saatine 24 saatten az kalan iptal taleplerinde ise iade yapılmaz, bilet açığa alınabilir.</p>
+    </div>
+  </div>
+));
+AgreementContent.displayName = "AgreementContent";
+
+function CheckoutContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -67,27 +108,8 @@ export default function CheckoutPage() {
   const agreementRef = useRef<HTMLDivElement>(null);
   const canSubmit = isKvkkChecked && isAgreementChecked;
 
-  const [iyzicoHtml, setIyzicoHtml] = useState<string | null>(null);
+  const [isIyzicoLoaded, setIsIyzicoLoaded] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
-
-  // Execute Iyzico scripts after injecting HTML
-  useEffect(() => {
-    if (iyzicoHtml) {
-      const container = document.getElementById('iyzico-form-container');
-      if (container) {
-        const scripts = container.querySelectorAll('script');
-        scripts.forEach((oldScript) => {
-          const newScript = document.createElement('script');
-          if (oldScript.src) {
-            newScript.src = oldScript.src;
-          } else {
-            newScript.textContent = oldScript.textContent;
-          }
-          oldScript.parentNode?.replaceChild(newScript, oldScript);
-        });
-      }
-    }
-  }, [iyzicoHtml]);
 
   const handlePayment = useCallback(async () => {
     if (!canSubmit) return;
@@ -107,7 +129,19 @@ export default function CheckoutPage() {
       });
       const data = await res.json();
       if (data.checkoutFormContent) {
-        setIyzicoHtml(data.checkoutFormContent);
+        setIsIyzicoLoaded(true);
+        // Inject script to render inline after a small delay to let #iyzipay-checkout-form Div render
+        setTimeout(() => {
+          const container = document.createElement('div');
+          container.innerHTML = data.checkoutFormContent;
+          const scripts = container.querySelectorAll('script');
+          scripts.forEach((oldScript) => {
+            const newScript = document.createElement('script');
+            if (oldScript.src) newScript.src = oldScript.src;
+            else newScript.textContent = oldScript.textContent;
+            document.body.appendChild(newScript);
+          });
+        }, 300);
       } else {
         console.error('Iyzico error:', data);
         alert('Ödeme formu yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
@@ -180,392 +214,11 @@ export default function CheckoutPage() {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+      {/* Main Content */}
+      <main className="max-w-[95%] xl:max-w-[1600px] mx-auto w-full px-4 py-8 pb-40 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
 
-        {/* Left Side — Forms (2 cols) */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Section A: Yolcu Bilgileri */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-md overflow-hidden transition-all duration-300">
-            <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800 flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50">
-                <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">Yolcu Bilgileri</h2>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">Bilet için gerekli kişisel bilgileriniz</p>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-5">
-              {/* TC Kimlik */}
-              <div className="space-y-2">
-                <Label htmlFor="tcKimlik" className="text-sm font-bold text-slate-700 dark:text-zinc-300">T.C. Kimlik No</Label>
-                <div className="relative">
-                  <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
-                  <Input
-                    id="tcKimlik"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={11}
-                    placeholder="12345678901"
-                    value={form.tcKimlik}
-                    onChange={(e) => handleChange('tcKimlik', e.target.value.replace(/\D/g, '').slice(0, 11))}
-                    className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Ad + Soyad row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ad" className="text-sm font-bold text-slate-700 dark:text-zinc-300">Ad</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
-                    <Input
-                      id="ad"
-                      type="text"
-                      placeholder="Adınız"
-                      value={form.ad}
-                      onChange={(e) => handleChange('ad', e.target.value)}
-                      className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="soyad" className="text-sm font-bold text-slate-700 dark:text-zinc-300">Soyad</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
-                    <Input
-                      id="soyad"
-                      type="text"
-                      placeholder="Soyadınız"
-                      value={form.soyad}
-                      onChange={(e) => handleChange('soyad', e.target.value)}
-                      className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Email + Telefon row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-bold text-slate-700 dark:text-zinc-300">E-posta</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="ornek@email.com"
-                      value={form.email}
-                      onChange={(e) => handleChange('email', e.target.value)}
-                      className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="telefon" className="text-sm font-bold text-slate-700 dark:text-zinc-300">Cep Telefonu</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
-                    <Input
-                      id="telefon"
-                      type="tel"
-                      placeholder="05XX XXX XX XX"
-                      value={form.telefon}
-                      onChange={(e) => handleChange('telefon', e.target.value)}
-                      className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Section B: Ödeme Bilgileri */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-md overflow-hidden transition-all duration-300">
-            <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800 flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50">
-                <CreditCard className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">Ödeme Bilgileri</h2>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">Güvenli ödeme altyapısı Iyzico tarafından sağlanmaktadır</p>
-              </div>
-            </div>
-
-            <div className="p-6">
-              {iyzicoHtml ? (
-                <div
-                  id="iyzico-form-container"
-                  dangerouslySetInnerHTML={{ __html: iyzicoHtml }}
-                />
-              ) : (
-                <div className="border-2 border-dashed border-slate-300 dark:border-zinc-700 rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-4 min-h-[200px] bg-slate-50/50 dark:bg-zinc-800/20">
-                  <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50 to-emerald-50 dark:from-indigo-950/30 dark:to-emerald-950/30">
-                    <CreditCard className="w-10 h-10 text-indigo-500 dark:text-indigo-400" />
-                  </div>
-                  <div>
-                    <p className="text-base font-bold text-slate-700 dark:text-zinc-200">{isPaymentLoading ? 'Iyzico ödeme formu yükleniyor...' : 'Iyzico Güvenli Ödeme Formu'}</p>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold mt-1">{isPaymentLoading ? 'Lütfen bekleyiniz...' : 'Formu doldurup sözleşmeleri onaylandıktan sonra ödeme başlatılabilir'}</p>
-                  </div>
-                  {!isPaymentLoading && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <div className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-500 dark:text-zinc-400">VISA</div>
-                      <div className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-500 dark:text-zinc-400">Mastercard</div>
-                      <div className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-500 dark:text-zinc-400">Troy</div>
-                    </div>
-                  )}
-                  {isPaymentLoading && (
-                    <div className="mt-2">
-                      <div className="w-8 h-8 border-4 border-indigo-200 dark:border-indigo-800 border-t-indigo-600 dark:border-t-indigo-400 rounded-full animate-spin" />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Legal Agreement Checkboxes */}
-          <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="kvkk"
-                checked={isKvkkChecked}
-                onCheckedChange={(checked) => setIsKvkkChecked(checked === true)}
-                className="mt-1 border-slate-300 dark:border-zinc-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-              />
-              <Label htmlFor="kvkk" className="text-sm font-semibold text-slate-600 dark:text-zinc-300 leading-relaxed cursor-pointer">
-                <button type="button" onClick={(e) => { e.preventDefault(); setIsKvkkModalOpen(true); }} className="text-indigo-600 dark:text-indigo-400 underline underline-offset-2 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">KVKK Aydınlatma Metni</button>&apos;ni okudum, anladım ve kişisel verilerimin işlenmesine açık rıza veriyorum.
-              </Label>
-            </div>
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="agreement"
-                checked={isAgreementChecked}
-                onCheckedChange={(checked) => setIsAgreementChecked(checked === true)}
-                className="mt-1 border-slate-300 dark:border-zinc-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-              />
-              <Label htmlFor="agreement" className="text-sm font-semibold text-slate-600 dark:text-zinc-300 leading-relaxed cursor-pointer">
-                <button type="button" onClick={(e) => { e.preventDefault(); setIsAgreementModalOpen(true); }} className="text-indigo-600 dark:text-indigo-400 underline underline-offset-2 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">Mesafeli Satış Sözleşmesi ve Ön Bilgilendirme Formu</button>&apos;nu okudum ve onaylıyorum.
-              </Label>
-            </div>
-          </div>
-
-          {/* KVKK Modal */}
-          <Dialog open={isKvkkModalOpen} onOpenChange={setIsKvkkModalOpen}>
-            <DialogContent ref={kvkkRef} className="sm:max-w-4xl w-[90vw] max-h-[85vh] overflow-y-auto bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
-              <div tabIndex={0} className="outline-none focus:outline-none h-0 w-0" aria-hidden="true" />
-              <DialogHeader>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50">
-                    <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">KVKK Aydınlatma Metni</DialogTitle>
-                </div>
-                <DialogDescription className="text-sm text-slate-500 dark:text-zinc-400">6698 Sayılı Kişisel Verilerin Korunması Kanunu kapsamında hazırlanmış aydınlatma metni</DialogDescription>
-              </DialogHeader>
-              <div className="py-4 space-y-6 text-sm text-slate-600 dark:text-zinc-300 leading-relaxed">
-
-                <p>TransitIQ Ulaşım Teknolojileri Anonim Şirketi (&quot;TransitIQ&quot; veya &quot;Şirket&quot;) olarak, 6698 sayılı Kişisel Verilerin Korunması Kanunu (&quot;KVKK&quot;) kapsamında kişisel verilerinizin güvenliği hususuna azami hassasiyet göstermekteyiz. Bu doğrultuda, KVKK&apos;nın 10. maddesi gereğince aydınlatma yükümlülüğümüzü yerine getirmek amacıyla işbu Aydınlatma Metni hazırlanmıştır.</p>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">1. Veri Sorumlusunun Kimliği</h3>
-                  <p>Kişisel verileriniz, veri sorumlusu sıfatıyla TransitIQ Ulaşım Teknolojileri A.Ş. tarafından aşağıda açıklanan amaçlar doğrultusunda işlenebilecektir.</p>
-                  <p className="mt-2"><strong>Unvan:</strong> TransitIQ Ulaşım Teknolojileri Anonim Şirketi</p>
-                  <p><strong>Adres:</strong> Büyükdere Caddesi No: 185, Levent, Beşiktaş, İstanbul, Türkiye</p>
-                  <p><strong>Mersis No:</strong> 0123456789012345</p>
-                  <p><strong>E-posta:</strong> kvkk@transitiq.com.tr</p>
-                  <p><strong>Telefon:</strong> +90 (212) 555 00 00</p>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">2. Kişisel Verilerin İşlenme Amacı</h3>
-                  <p>Toplanan kişisel verileriniz aşağıdaki amaçlarla KVKK&apos;nın 5. ve 6. maddelerinde belirtilen kişisel veri işleme şartları dahilinde işlenebilecektir:</p>
-                  <ul className="list-disc pl-6 mt-2 space-y-1">
-                    <li>Otobüs bileti satışına ilişkin sözleşmesel yükümlülüklerin yerine getirilmesi</li>
-                    <li>Yolcu kimlik bilgilerinin doğrulanması ve yasal yükümlülüklerin yerine getirilmesi</li>
-                    <li>Ödeme işlemlerinin gerçekleştirilmesi ve mali kayıtların tutulması</li>
-                    <li>Müşteri hizmetleri ve destek taleplerinin yönetimi</li>
-                    <li>E-bilet ve sefer bilgilerinin iletilmesi (e-posta, SMS)</li>
-                    <li>İptal, iade ve değişiklik işlemlerinin yürütülmesi</li>
-                    <li>Yasal düzenleme ve mevzuattan kaynaklanan yükümlülüklerin ifası</li>
-                    <li>Hizmet kalitesinin artırılması, analiz ve istatistik çalışmaları</li>
-                    <li>Bilgi güvenliği süreçlerinin yürütülmesi ve saht. erişim denetimi</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">3. İşlenen Kişisel Verilerin Kimlere ve Hangi Amaçla Aktarılabileceği</h3>
-                  <p>Toplanan kişisel verileriniz, yukarıda belirtilen amaçların gerçekleştirilmesi doğrultusunda aşağıdaki kişi ve kurumlara aktarılabilecektir:</p>
-                  <ul className="list-disc pl-6 mt-2 space-y-1">
-                    <li><strong>Ödeme Kuruluşları:</strong> Iyzico Ödeme Hizmetleri A.Ş. — ödeme işlemlerinin güvenli şekilde gerçekleştirilmesi amacıyla</li>
-                    <li><strong>Taşımacılık Şirketleri:</strong> Bilet satışı yapılan taşımacılık firmasına, seferin gerçekleştirilmesi amacıyla</li>
-                    <li><strong>Kamu Kurum ve Kuruluşları:</strong> EPDK, Ulaştırma ve Altyapı Bakanlığı, Emniyet Genel Müdürlüğü ve diğer yetkili makamlar — yasal zorunluluklar gereği</li>
-                    <li><strong>Hukuk Danışmanları:</strong> Hukuki süreçlerin takibi ve yürütülmesi amacıyla</li>
-                    <li><strong>Teknoloji Sağlayıcıları:</strong> Sunucu, bulut hizmet sağlayıcıları — verilerin güvenli şekilde saklanması amacıyla</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">4. Kişisel Veri Toplamanın Yöntemi ve Hukuki Sebebi</h3>
-                  <p>Kişisel verileriniz, web sitemiz üzerindeki bilet satın alma formları aracılığıyla elektronik ortamda toplanmaktadır. Bu veriler:</p>
-                  <ul className="list-disc pl-6 mt-2 space-y-1">
-                    <li>KVKK md. 5/2(c) — Bir sözleşmenin kurulması veya ifası için zorunlu olması</li>
-                    <li>KVKK md. 5/2(e) — Bir hakkın tesisi, kullanılması veya korunması için zorunlu olması</li>
-                    <li>KVKK md. 5/2(ç) — Kanunlarda açıkça öngörülmesi</li>
-                    <li>KVKK md. 5/1 — Açık rıza (pazarlama faaliyetleri için)</li>
-                  </ul>
-                  <p className="mt-2">hukuki sebeplerine dayanarak işlenmektedir.</p>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">5. İlgili Kişinin Hakları (KVKK Madde 11)</h3>
-                  <p>KVKK&apos;nın 11. maddesi uyarınca aşağıdaki haklara sahipsiniz:</p>
-                  <ul className="list-disc pl-6 mt-2 space-y-1">
-                    <li>Kişisel verilerinizin işlenip işlenmediğini öğrenme</li>
-                    <li>Kişisel verileriniz işlenmişse buna ilişkin bilgi talep etme</li>
-                    <li>Kişisel verilerinizin işlenme amacını ve bunların amacına uygun kullanılıp kullanılmadığını öğrenme</li>
-                    <li>Yurt içinde veya yurt dışında kişisel verilerin aktarıldığı üçüncü kişileri bilme</li>
-                    <li>Kişisel verilerin eksik veya yanlış işlenmiş olması hâlinde bunların düzeltilmesini isteme</li>
-                    <li>KVKK md. 7 çerçevesinde kişisel verilerin silinmesini veya yok edilmesini isteme</li>
-                    <li>Düzeltme, silme ve yok etme işlemlerinin, kişisel verilerin aktarıldığı üçüncü kişilere bildirilmesini isteme</li>
-                    <li>İşlenen verilerin münhasıran otomatik sistemler vasıtasıyla analiz edilmesi suretiyle kişinin aleyhine bir sonucun ortaya çıkmasına itiraz etme</li>
-                    <li>Kişisel verilerin kanuna aykırı olarak işlenmesi sebebiyle zarara uğraması hâlinde zararın giderilmesini talep etme</li>
-                  </ul>
-                  <p className="mt-3">Haklarınıza ilişkin taleplerinizi, <strong>kvkk@transitiq.com.tr</strong> adresine veya şirket merkezimize yazılı olarak iletebilirsiniz. Talepleriniz, niteliğine göre en kısa sürede ve en geç otuz (30) gün içinde ücretsiz olarak sonuçlandırılacaktır.</p>
-                </div>
-
-                <div className="border-t border-slate-200 dark:border-zinc-700 pt-4">
-                  <p className="text-xs text-slate-400 dark:text-zinc-500">İşbu aydınlatma metni, 6698 sayılı KVKK&apos;nın 10. maddesi ile Aydınlatma Yükümlülüğünün Yerine Getirilmesinde Uyulacak Usul ve Esaslar Hakkında Tebliğ hükümlerine uygun olarak hazırlanmıştır. Son güncelleme: 19 Mart 2026.</p>
-                </div>
-
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={() => { setIsKvkkChecked(true); setIsKvkkModalOpen(false); }}
-                  className="w-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl py-5 font-bold"
-                >
-                  Okudum, Onaylıyorum
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Agreement Modal */}
-          <Dialog open={isAgreementModalOpen} onOpenChange={setIsAgreementModalOpen}>
-            <DialogContent ref={agreementRef} className="sm:max-w-4xl w-[90vw] max-h-[85vh] overflow-y-auto bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
-              <div tabIndex={0} className="outline-none focus:outline-none h-0 w-0" aria-hidden="true" />
-              <DialogHeader>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50">
-                    <FileText className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">Mesafeli Satış Sözleşmesi ve Ön Bilgilendirme Formu</DialogTitle>
-                </div>
-                <DialogDescription className="text-sm text-slate-500 dark:text-zinc-400">6502 sayılı Tüketicinin Korunması Hakkında Kanun ve Mesafeli Sözleşmeler Yönetmeliği kapsamında düzenlenen sözleşme</DialogDescription>
-              </DialogHeader>
-              <div className="py-4 space-y-6 text-sm text-slate-600 dark:text-zinc-300 leading-relaxed">
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 1 – TARAFLAR</h3>
-                  <p><strong>1.1. Satıcı Bilgileri:</strong></p>
-                  <p>Unvan: TransitIQ Ulaşım Teknolojileri Anonim Şirketi</p>
-                  <p>Adres: Büyükdere Caddesi No: 185, Levent, Beşiktaş, İstanbul, Türkiye</p>
-                  <p>Telefon: +90 (212) 555 00 00</p>
-                  <p>E-posta: destek@transitiq.com.tr</p>
-                  <p>Mersis No: 0123456789012345</p>
-                  <p className="mt-2"><strong>1.2. Alıcı Bilgileri:</strong></p>
-                  <p>Ödeme sayfasındaki formda kişisel bilgilerini beyan eden ve online bilet satın alma işlemini gerçekleştiren gerçek kişi (&quot;Yolcu&quot; veya &quot;Alıcı&quot;).</p>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 2 – KONU</h3>
-                  <p>İşbu sözleşme, Alıcı&apos;nın Satıcı&apos;ya ait <strong>www.transitiq.com.tr</strong> internet sitesi üzerinden elektronik ortamda siparişini verdiği, sözleşmede bahsi geçen nitelikleri haiz otobüs bileti hizmetinin satışı ve ifasına ilişkin olarak 6502 sayılı Tüketicinin Korunması Hakkında Kanun ve Mesafeli Sözleşmeler Yönetmeliği hükümleri gereğince tarafların hak ve yükümlülüklerini düzenlemeyi amaçlamaktadır.</p>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 3 – SÖZLEŞME KONUSU HİZMET/BİLET BİLGİLERİ</h3>
-                  <p><strong>3.1.</strong> Hizmetin temel özellikleri (güzergah, kalkış/varış noktaları, tarih, saat, koltuk numarası, otobüs tipi ve bilet ücreti) sipariş özeti bölümünde açıkça belirtilmiştir.</p>
-                  <p><strong>3.2.</strong> Listelenen fiyatlara KDV dahildir. Herhangi bir ek ücret, servis bedeli veya sigorta bedeli bilet fiyatına dahil olup, toplam tutar sipariş özetinde gösterilmektedir.</p>
-                  <p><strong>3.3.</strong> Alıcı tarafından onaylanan bilet bilgilerinin doğruluğu Alıcı&apos;nın sorumluluğundadır.</p>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 4 – GENEL HÜKÜMLER</h3>
-                  <p><strong>4.1.</strong> Alıcı, satışa konu hizmetin temel nitelikleri, satış fiyatı ve ödeme şekli ile ifaya ilişkin bilgileri okuyup bilgi sahibi olduğunu ve elektronik ortamda gerekli teyidi verdiğini kabul, beyan ve taahhüt eder.</p>
-                  <p><strong>4.2.</strong> Satıcı, hizmetin sipariş tarihinden itibaren sözleşmede belirtilen süre içinde ifasını taahhüt eder. Sefer iptallerinde Alıcı, bilet bedelinin tamamının iadesini talep etme hakkına sahiptir.</p>
-                  <p><strong>4.3.</strong> Alıcı, ödemeyi kredi kartı veya banka kartı ile Iyzico güvenli ödeme altyapısı üzerinden gerçekleştirmektedir. Tüm kart bilgileri 256-bit SSL şifreleme ile korunmakta olup, Satıcı tarafından saklanmamaktadır.</p>
-                  <p><strong>4.4.</strong> Alıcı, belirttiği e-posta adresine ve/veya cep telefonuna gönderilecek e-bilet ve sefer bilgilendirme mesajlarını kabul eder.</p>
-                  <p><strong>4.5.</strong> İşbu sözleşme, Alıcı tarafından elektronik ortamda onaylanmasıyla yürürlüğe girer. Sözleşme metni, Alıcı&apos;nın kayıtlı e-posta adresine gönderilir.</p>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 5 – İPTAL VE İADE KOŞULLARI</h3>
-                  <p><strong>5.1.</strong> Alıcı, seferin kalkış saatinden en az <strong>24 saat önce</strong> iptal talebinde bulunması halinde, bilet bedelinin <strong>%100&apos;ü</strong> iade edilir.</p>
-                  <p><strong>5.2.</strong> Seferin kalkış saatinden <strong>24 ila 6 saat önce</strong> yapılan iptallerde, bilet bedelinin <strong>%80&apos;i</strong> iade edilir, <strong>%20&apos;si</strong> cezai kesinti olarak uygulanır.</p>
-                  <p><strong>5.3.</strong> Seferin kalkış saatinden <strong>6 saatten az</strong> bir süre kala yapılan iptallerde iade yapılmaz.</p>
-                  <p><strong>5.4.</strong> Satıcı tarafından yapılan sefer iptallerinde bilet bedelinin tamamı 7 iş günü içinde Alıcı&apos;nın ödeme yaptığı araca iade edilir.</p>
-                  <p><strong>5.5.</strong> Tarih ve saat değişikliği talepleri, kalkış saatinden en az 12 saat önce yapılmalıdır ve müsait sefer bulunması şartına bağlıdır.</p>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 6 – CAYMA HAKKI</h3>
-                  <p><strong>6.1.</strong> Alıcı, 6502 sayılı Kanun&apos;un 48. maddesi ve Mesafeli Sözleşmeler Yönetmeliği uyarınca, hizmetin ifasına başlanmadığı sürece 14 (on dört) gün içinde cayma hakkını kullanabilir.</p>
-                  <p><strong>6.2.</strong> Cayma hakkının kullanılması halinde bilet bedeli, cayma bildiriminin Satıcı&apos;ya ulaştığı tarihten itibaren 14 gün içinde Alıcı&apos;ya iade edilir.</p>
-                  <p><strong>6.3.</strong> Hizmetin ifasına başlanması (yolcunun otobüse binmesi), cayma hakkının sona ermesi anlamına gelir.</p>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-800 dark:text-white mb-2">MADDE 7 – UYUŞMAZLIK ÇÖZÜMÜ</h3>
-                  <p>İşbu sözleşmeden doğan uyuşmazlıklarda, Tüketici Hakem Heyetleri ve Tüketici Mahkemeleri yetkilidir. Parasal sınırlar için yürürlükteki mevzuat hükümleri uygulanır.</p>
-                </div>
-
-                <div className="border-t border-slate-200 dark:border-zinc-700 pt-4">
-                  <p className="text-xs text-slate-400 dark:text-zinc-500">İşbu sözleşme, 6502 sayılı Tüketicinin Korunması Hakkında Kanun ve 27.11.2014 tarihli Mesafeli Sözleşmeler Yönetmeliği hükümlerine uygun olarak hazırlanmıştır. Sözleşme tarihi: 19 Mart 2026.</p>
-                </div>
-
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={() => { setIsAgreementChecked(true); setIsAgreementModalOpen(false); }}
-                  className="w-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl py-5 font-bold"
-                >
-                  Okudum, Onaylıyorum
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Submit Button */}
-          {!iyzicoHtml && (
-            <Button
-              disabled={!canSubmit || isPaymentLoading}
-              onClick={handlePayment}
-              className={`w-full rounded-2xl py-7 font-bold text-base shadow-lg transition-all duration-300 flex items-center justify-center gap-3 ${
-                canSubmit && !isPaymentLoading
-                  ? 'bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 hover:shadow-xl cursor-pointer'
-                  : 'bg-slate-300 dark:bg-zinc-700 text-slate-500 dark:text-zinc-400 cursor-not-allowed shadow-none'
-              }`}
-            >
-              {isPaymentLoading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Ödeme Formu Yükleniyor...
-                </>
-              ) : (
-                <>
-                  <Lock className="w-5 h-5" />
-                  Güvenli Ödeme Yap
-                </>
-              )}
-            </Button>
-          )}
-        </div>
-
-        {/* Right Side — Order Summary (1 col) */}
-        <div className="lg:col-span-1 space-y-5">
-
+        {/* Column 1: Sipariş Özeti & Trust Badges */}
+        <div className="lg:col-span-3 space-y-5">
           {/* Sipariş Özeti Card */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-lg overflow-hidden transition-all duration-300">
             <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800 bg-gradient-to-r from-indigo-50/50 to-transparent dark:from-indigo-950/20 dark:to-transparent">
@@ -666,15 +319,259 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Branding */}
-          <div className="flex flex-col items-center justify-center py-10 animate-in fade-in-50 duration-500">
-            <Bus className="w-12 h-12 mb-3 text-slate-300 dark:text-zinc-600" />
-            <p className="text-3xl font-black text-zinc-950 dark:text-zinc-100 tracking-tight">TransitIQ</p>
-            <p className="text-xs font-bold text-slate-500 dark:text-zinc-400 mt-1">İyi Yolculuklar Dileriz</p>
+        {/* Column 2: Yolcu Bilgileri, Checkboxes, Submit */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Section A: Yolcu Bilgileri */}
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-md overflow-hidden transition-all duration-300">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800 flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50">
+                <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">Yolcu Bilgileri</h2>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">Bilet için gerekli kişisel bilgileriniz</p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* TC Kimlik */}
+              <div className="space-y-2">
+                <Label htmlFor="tcKimlik" className="text-sm font-bold text-slate-700 dark:text-zinc-300">T.C. Kimlik No</Label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-50" />
+                  <Input
+                    id="tcKimlik"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={11}
+                    placeholder="12345678901"
+                    value={form.tcKimlik}
+                    onChange={(e) => handleChange('tcKimlik', e.target.value.replace(/\D/g, '').slice(0, 11))}
+                    className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Ad + Soyad row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ad" className="text-sm font-bold text-slate-700 dark:text-zinc-300">Ad</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
+                    <Input
+                      id="ad"
+                      type="text"
+                      placeholder="Adınız"
+                      value={form.ad}
+                      onChange={(e) => handleChange('ad', e.target.value)}
+                      className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="soyad" className="text-sm font-bold text-slate-700 dark:text-zinc-300">Soyad</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
+                    <Input
+                      id="soyad"
+                      type="text"
+                      placeholder="Soyadınız"
+                      value={form.soyad}
+                      onChange={(e) => handleChange('soyad', e.target.value)}
+                      className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Email + Telefon row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-bold text-slate-700 dark:text-zinc-300">E-posta</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="ornek@email.com"
+                      value={form.email}
+                      onChange={(e) => handleChange('email', e.target.value)}
+                      className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="telefon" className="text-sm font-bold text-slate-700 dark:text-zinc-300">Cep Telefonu</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
+                    <Input
+                      id="telefon"
+                      type="tel"
+                      placeholder="05XX XXX XX XX"
+                      value={form.telefon}
+                      onChange={(e) => handleChange('telefon', e.target.value)}
+                      className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Legal Agreement Checkboxes */}
+          <div className="space-y-4 mb-6">
+            <Dialog open={isKvkkModalOpen} onOpenChange={setIsKvkkModalOpen}>
+              <div className="flex items-start gap-3 mb-4 w-full">
+                <Checkbox 
+                  id="kvkk" 
+                  required 
+                  checked={isKvkkChecked} 
+                  onCheckedChange={(checked) => setIsKvkkChecked(checked === true)} 
+                  className="mt-1 flex-shrink-0 border-slate-300 dark:border-zinc-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600" 
+                />
+                <label htmlFor="kvkk" className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 cursor-pointer">
+                  <DialogTrigger className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline inline">KVKK Aydınlatma Metni</DialogTrigger>
+                  <span className="inline">&apos;ni okudum, anladım ve kişisel verilerimin işlenmesine açık rıza veriyorum.</span>
+                </label>
+              </div>
+              <DialogContent ref={kvkkRef} className="sm:max-w-4xl w-[90vw] max-h-[85vh] overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+                <div tabIndex={0} className="outline-none focus:outline-none h-0 w-0" aria-hidden="true" />
+                <DialogHeader>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50">
+                      <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">KVKK Aydınlatma Metni</DialogTitle>
+                  </div>
+                </DialogHeader>
+                <div className="py-4">
+                  <KvkkContent />
+                </div>
+                <DialogFooter>
+                  <Button onClick={() => { setIsKvkkChecked(true); setIsKvkkModalOpen(false); }} className="w-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl py-5 font-bold">Okudum, Onaylıyorum</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isAgreementModalOpen} onOpenChange={setIsAgreementModalOpen}>
+              <div className="flex items-start gap-3 mb-6 w-full">
+                <Checkbox 
+                  id="agreement" 
+                  required 
+                  checked={isAgreementChecked} 
+                  onCheckedChange={(checked) => setIsAgreementChecked(checked === true)} 
+                  className="mt-1 flex-shrink-0 border-slate-300 dark:border-zinc-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600" 
+                />
+                <label htmlFor="agreement" className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 cursor-pointer">
+                  <DialogTrigger className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline inline">Mesafeli Satış Sözleşmesi ve Ön Bilgilendirme Formu</DialogTrigger>
+                  <span className="inline">&apos;nu okudum ve onaylıyorum.</span>
+                </label>
+              </div>
+              <DialogContent ref={agreementRef} className="sm:max-w-4xl w-[90vw] max-h-[85vh] overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+                <div tabIndex={0} className="outline-none focus:outline-none h-0 w-0" aria-hidden="true" />
+                <DialogHeader>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50">
+                      <FileText className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">Mesafeli Satış Sözleşmesi</DialogTitle>
+                  </div>
+                </DialogHeader>
+                <div className="py-4">
+                  <AgreementContent />
+                </div>
+                <DialogFooter>
+                  <Button onClick={() => { setIsAgreementChecked(true); setIsAgreementModalOpen(false); }} className="w-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl py-5 font-bold">Okudum, Onaylıyorum</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Submit Button */}
+          {!isIyzicoLoaded && (
+            <Button
+              disabled={!canSubmit || isPaymentLoading}
+              onClick={handlePayment}
+              className={`w-full rounded-2xl py-7 font-bold text-base shadow-lg transition-all duration-300 flex items-center justify-center gap-3 ${
+                canSubmit && !isPaymentLoading
+                  ? 'bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 hover:shadow-xl cursor-pointer'
+                  : 'bg-slate-300 dark:bg-zinc-700 text-slate-500 dark:text-zinc-400 cursor-not-allowed shadow-none'
+              }`}
+            >
+              {isPaymentLoading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Ödeme Formu Yükleniyor...
+                </>
+              ) : (
+                <>
+                  <Lock className="w-5 h-5" />
+                  Bilgileri Onayla ve Ödemeye Geç
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+
+        {/* Column 3: Ödeme Bilgileri (Iyzico Inline) */}
+        <div className="lg:col-span-5 space-y-5">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-md overflow-hidden transition-all duration-300">
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800 flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50">
+                <CreditCard className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">Ödeme Bilgileri</h2>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">Güvenli ödeme altyapısı Iyzico tarafından sağlanmaktadır</p>
+              </div>
+            </div>
+            <div className="p-6">
+              {isIyzicoLoaded ? (
+                <div id="iyzipay-checkout-form" className="w-full"></div>
+              ) : (
+                <div className="border-2 border-dashed border-slate-300 dark:border-zinc-700 rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-4 min-h-[200px] bg-slate-50/50 dark:bg-zinc-800/20">
+                  <p className="text-base font-bold text-slate-700 dark:text-zinc-200">Iyzico Güvenli Ödeme Formu</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
       </main>
+
+      {/* Animated Vehicle Footer */}
+      <div className="fixed bottom-0 left-0 w-full h-16 bg-zinc-900 border-t-2 border-zinc-700 z-50 overflow-hidden flex items-center">
+        <style>{`
+          @keyframes drive { 0% { transform: translateX(-150px); } 100% { transform: translateX(100vw); } }
+        `}</style>
+        <div className="absolute w-full border-t-2 border-dashed border-zinc-500 top-1/2 transform -translate-y-1/2"></div>
+        
+        <div style={{ animation: 'drive 8s linear infinite' }} className="absolute left-0 text-yellow-500 z-10 top-1">
+          <Car size={20} />
+        </div>
+        <div style={{ animation: 'drive 15s linear infinite' }} className="absolute left-0 text-indigo-400 z-10 bottom-1">
+          <Bus size={24} />
+        </div>
+        <div style={{ animation: 'drive 22s linear infinite 5s' }} className="absolute left-0 text-emerald-500 z-10 bottom-0">
+          <Truck size={28} />
+        </div>
+      </div>
     </div>
+  );
+}
+
+import { Suspense } from "react";
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-900 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   );
 }
