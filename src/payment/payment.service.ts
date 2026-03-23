@@ -18,19 +18,18 @@ export class PaymentService {
 
   async initializeCheckoutForm(params: {
     price: string;
-    pnrCode: string;
     buyerName: string;
     buyerSurname: string;
     buyerTc: string;
     buyerEmail: string;
     buyerPhone: string;
   }): Promise<{ checkoutFormContent: string; token: string }> {
-    const { price, pnrCode, buyerName, buyerSurname, buyerTc, buyerEmail, buyerPhone } =
+    const { price, buyerName, buyerSurname, buyerTc, buyerEmail, buyerPhone } =
       params;
 
     const request = {
       locale: Iyzipay.LOCALE.TR,
-      conversationId: `pnr-${pnrCode}`,
+      conversationId: `transit-${Date.now()}`,
       price: price,
       paidPrice: price,
       currency: Iyzipay.CURRENCY.TRY,

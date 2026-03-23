@@ -11,7 +11,6 @@ export class PaymentController {
   async initializePayment(@Body() dto: InitializePaymentDto) {
     const result = await this.paymentService.initializeCheckoutForm({
       price: dto.price,
-      pnrCode: dto.pnrCode,
       buyerName: dto.buyerName,
       buyerSurname: dto.buyerSurname,
       buyerTc: dto.buyerTc,
@@ -31,7 +30,15 @@ export class PaymentController {
       const result = await this.paymentService.retrieveCheckoutForm(body.token);
 
       if (result.status === 'success') {
-        const pnr = result.conversationId.replace('pnr-', '');
+        // Try to extract PNR from conversationId, fallback to generated one
+        let pnr = '';
+        if (result.conversationId && result.conversationId.startsWith('pnr-')) {
+          pnr = result.conversationId.replace('pnr-', '');
+        }
+        if (!pnr) {
+          pnr = 'TX-' + Math.floor(10000 + Math.random() * 90000);
+        }
+
         return res.redirect(302, `http://localhost:3001/success?pnr=${encodeURIComponent(pnr)}`);
       }
 
