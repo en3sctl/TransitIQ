@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Bus, Calendar, Clock, Lock, CheckCircle2, ShieldCheck, LifeBuoy, RefreshCcw } from "lucide-react";
-import Link from "next/link";
+import { ArrowLeft, Bus, Calendar, Clock, Lock, CheckCircle2, ShieldCheck, LifeBuoy, RefreshCcw, Armchair, Users } from "lucide-react";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
+import { useBookingStore } from '@/store/useBookingStore';
+import { generateSeatLayout, type SeatStatus } from '@/lib/seat-engine';
+
+const MAX_SEATS = 5;
 
 interface Trip {
   id: string;
@@ -18,13 +22,13 @@ interface Trip {
   availableSeats: number;
   origin: string;
   destination: string;
+  layoutType: string;
+  totalSeats: number;
 }
 
-interface Seat {
-  id: string;
-  seatNumber: string;
-  status: 'AVAILABLE' | 'MALE' | 'FEMALE' | 'BLOCKED';
-  type: 'STANDARD' | 'VIP';
+interface SeatFromApi {
+  seatNumber: number;
+  status: 'AVAILABLE' | 'SOLD' | 'LOCKED';
 }
 
 function SearchResultsPageContent() {
@@ -35,11 +39,18 @@ function SearchResultsPageContent() {
   const dateStr = searchParams.get('date');
 
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
-  const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
   const [isLoadingSeats, setIsLoadingSeats] = useState<boolean>(false);
   const [isRedirectingToCheckout, setIsRedirectingToCheckout] = useState<boolean>(false);
 
-  // Mock Trip Data (usually fetched from backend)
+  // Zustand store
+  const selectedSeats = useBookingStore((s) => s.selectedSeats);
+  const addSeat = useBookingStore((s) => s.addSeat);
+  const removeSeat = useBookingStore((s) => s.removeSeat);
+  const clearSeats = useBookingStore((s) => s.clearSeats);
+  const setTrip = useBookingStore((s) => s.setTrip);
+  const totalPrice = useBookingStore((s) => s.totalPrice);
+
+  // Mock Trip Data (backend'e bağlanınca burası API'den gelecek)
   const mockTrips: Trip[] = [
     {
       id: "1",
@@ -51,7 +62,9 @@ function SearchResultsPageContent() {
       price: 450,
       availableSeats: 3,
       origin: "İstanbul",
-      destination: "Ankara"
+      destination: "Ankara",
+      layoutType: "2+1",
+      totalSeats: 30,
     },
     {
       id: "2",
@@ -63,7 +76,9 @@ function SearchResultsPageContent() {
       price: 380,
       availableSeats: 5,
       origin: "İstanbul",
-      destination: "Ankara"
+      destination: "Ankara",
+      layoutType: "2+2",
+      totalSeats: 44,
     },
     {
       id: "3",
@@ -75,48 +90,77 @@ function SearchResultsPageContent() {
       price: 480,
       availableSeats: 12,
       origin: "İstanbul",
-      destination: "Ankara"
+      destination: "Ankara",
+      layoutType: "2+1",
+      totalSeats: 30,
     }
   ];
 
-  // Mock Seat Layout 2+1 (30 seats)
-  const [mockSeats, setMockSeats] = useState<Seat[]>([]);
+  // Mock seat statuses (backend'e bağlanınca API'den gelecek)
+  const [apiSeats, setApiSeats] = useState<SeatFromApi[]>([]);
 
   useEffect(() => {
     if (selectedTrip) {
-      const isVip = selectedTrip.busType.includes('VIP');
-      const generatedSeats: Seat[] = Array.from({ length: 30 }, (_, i) => {
-        const seatNum = String(i + 1);
-        let status: Seat['status'] = 'AVAILABLE';
+      // Simulate API: generate random sold/locked seats
+      const seats: SeatFromApi[] = Array.from({ length: selectedTrip.totalSeats }, (_, i) => {
+        const seatNum = i + 1;
+        let status: SeatFromApi['status'] = 'AVAILABLE';
         const rand = Math.random();
-        if (rand > 0.85) status = 'MALE';
-        else if (rand > 0.70) status = 'FEMALE';
-        else if (rand > 0.95) status = 'BLOCKED';
-
-        return {
-          id: `seat-${seatNum}`,
-          seatNumber: seatNum,
-          status,
-          type: isVip ? 'VIP' : 'STANDARD'
-        };
+        if (rand > 0.82) status = 'SOLD';
+        else if (rand > 0.95) status = 'LOCKED';
+        return { seatNumber: seatNum, status };
       });
-      setMockSeats(generatedSeats);
-      setSelectedSeat(null); // Reset when trip changes
+      setApiSeats(seats);
+      clearSeats();
     }
-  }, [selectedTrip]);
+  }, [selectedTrip, clearSeats]);
+
+  // Convert API seats to engine-compatible status map
+  const seatStatusMap = useMemo(() => {
+    const map = new Map<number, SeatStatus>();
+    apiSeats.forEach((s) => {
+      if (s.status === 'SOLD') map.set(s.seatNumber, 'sold');
+      else if (s.status === 'LOCKED') map.set(s.seatNumber, 'locked');
+    });
+    return map;
+  }, [apiSeats]);
+
+  // Generate seat layout from engine
+  const seatLayout = useMemo(() => {
+    if (!selectedTrip) return null;
+    return generateSeatLayout(selectedTrip.layoutType, selectedTrip.totalSeats, seatStatusMap);
+  }, [selectedTrip, seatStatusMap]);
 
   const handleSelectTrip = (trip: Trip) => {
-    // 1. First trigger overlay so layout stays intact underneath
     setIsLoadingSeats(true);
-    
-    // 2. Save to sessionStorage for back-navigation persistence
     sessionStorage.setItem('tempSelectedTrip', JSON.stringify(trip));
 
-    // 3. Set timeout so selection mounts exactly when preloader is fully visible
     setTimeout(() => {
       setSelectedTrip(trip);
+      // Zustand store'a trip bilgisini yaz
+      setTrip({
+        tripId: trip.id,
+        origin: trip.origin,
+        destination: trip.destination,
+        date: dateStr || '',
+        departureTime: trip.departureTime,
+        arrivalTime: trip.arrivalTime,
+        busType: trip.busType,
+        basePrice: trip.price,
+      });
       setIsLoadingSeats(false);
-    }, 1500); // 1.5 seconds delay for smoother appearance
+    }, 1500);
+  };
+
+  const handleToggleSeat = (seatNumber: number) => {
+    const seatStatus = seatStatusMap.get(seatNumber);
+    if (seatStatus === 'sold' || seatStatus === 'locked') return;
+
+    if (selectedSeats.includes(seatNumber)) {
+      removeSeat(seatNumber);
+    } else if (selectedSeats.length < MAX_SEATS) {
+      addSeat(seatNumber);
+    }
   };
 
   // Restore selectedTrip from sessionStorage on mount (for back-nav from checkout)
@@ -126,13 +170,40 @@ function SearchResultsPageContent() {
       try {
         const parsed = JSON.parse(saved) as Trip;
         setSelectedTrip(parsed);
+        setTrip({
+          tripId: parsed.id,
+          origin: parsed.origin,
+          destination: parsed.destination,
+          date: dateStr || '',
+          departureTime: parsed.departureTime,
+          arrivalTime: parsed.arrivalTime,
+          busType: parsed.busType,
+          basePrice: parsed.price,
+        });
       } catch { /* ignore parse errors */ }
     }
-  }, []);
+  }, [dateStr, setTrip]);
+
+  // Seat button style logic
+  const getSeatStyle = (seatNumber: number) => {
+    const isSelected = selectedSeats.includes(seatNumber);
+    const status = seatStatusMap.get(seatNumber);
+
+    if (isSelected) {
+      return 'bg-indigo-600 text-white border-indigo-600 scale-105 shadow-sm ring-2 ring-indigo-300 dark:ring-indigo-400/50';
+    }
+    if (status === 'sold') {
+      return 'bg-red-100 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-400 dark:text-red-600 cursor-not-allowed opacity-90';
+    }
+    if (status === 'locked') {
+      return 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-400 dark:text-amber-600 cursor-not-allowed opacity-90';
+    }
+    return 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-indigo-400 dark:hover:border-indigo-500 text-slate-700 dark:text-zinc-300 cursor-pointer';
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-50 transition-colors">
-      
+
       {/* Redirect to Checkout Preloader */}
       {isRedirectingToCheckout && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md transition-all duration-300 animate-in fade-in">
@@ -151,7 +222,7 @@ function SearchResultsPageContent() {
       {isLoadingSeats && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md transition-all duration-300 animate-in fade-in">
           <div className="flex flex-col items-center gap-4">
-            
+
             {/* Pulsing Back Glow behind Animated Bus */}
             <div className="relative flex items-center justify-center">
               <div className="absolute inset-0 bg-indigo-500/20 dark:bg-indigo-500/10 rounded-full blur-3xl animate-pulse" style={{ width: '150px', height: '150px' }} />
@@ -169,7 +240,7 @@ function SearchResultsPageContent() {
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           {selectedTrip ? (
             <button
-              onClick={() => { setSelectedTrip(null); sessionStorage.removeItem('tempSelectedTrip'); }}
+              onClick={() => { setSelectedTrip(null); clearSeats(); sessionStorage.removeItem('tempSelectedTrip'); }}
               className="inline-flex items-center gap-2 text-slate-600 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -184,7 +255,7 @@ function SearchResultsPageContent() {
               <span className="text-sm font-semibold">Ana Sayfaya Dön</span>
             </button>
           )}
-          
+
           <div className="flex flex-col items-center text-center">
             <h1 className="text-lg font-bold text-slate-900 dark:text-white">Gidiş Seferleri</h1>
             <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold flex items-center gap-1.5 mt-0.5">
@@ -204,21 +275,21 @@ function SearchResultsPageContent() {
           <span className={`w-5 h-5 rounded-full flex items-center justify-center border font-semibold ${!selectedTrip ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/50' : 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/50'}`}>1</span>
           <span>Sefer Seçimi</span>
         </div>
-        <div className="w-8 h-px bg-slate-200 dark:bg-zinc-800" />
-        <div className={`flex items-center gap-1.5 ${selectedTrip && !selectedSeat ? 'text-indigo-600 dark:text-indigo-400' : selectedSeat ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
-          <span className={`w-5 h-5 rounded-full flex items-center justify-center border font-semibold ${selectedTrip && !selectedSeat ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/50' : 'bg-slate-100 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700'}`}>2</span>
+        <div className={`w-8 h-px ${selectedTrip ? 'bg-emerald-300 dark:bg-emerald-800' : 'bg-slate-200 dark:bg-zinc-800'}`} />
+        <div className={`flex items-center gap-1.5 ${selectedTrip && selectedSeats.length === 0 ? 'text-indigo-600 dark:text-indigo-400' : selectedSeats.length > 0 ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
+          <span className={`w-5 h-5 rounded-full flex items-center justify-center border font-semibold ${selectedTrip && selectedSeats.length === 0 ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/50' : selectedSeats.length > 0 ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/50' : 'bg-slate-100 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700'}`}>2</span>
           <span>Koltuk Seçimi</span>
         </div>
-        <div className="w-8 h-px bg-slate-200 dark:bg-zinc-800" />
-        <div className={`flex items-center gap-1.5 ${selectedSeat ? 'text-indigo-600 dark:text-indigo-400' : ''}`}>
-          <span className={`w-5 h-5 rounded-full flex items-center justify-center border font-semibold ${selectedSeat ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/50' : 'bg-slate-100 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700'}`}>3</span>
+        <div className={`w-8 h-px ${selectedSeats.length > 0 ? 'bg-emerald-300 dark:bg-emerald-800' : 'bg-slate-200 dark:bg-zinc-800'}`} />
+        <div className={`flex items-center gap-1.5 ${selectedSeats.length > 0 ? 'text-indigo-600 dark:text-indigo-400' : ''}`}>
+          <span className={`w-5 h-5 rounded-full flex items-center justify-center border font-semibold ${selectedSeats.length > 0 ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/50' : 'bg-slate-100 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700'}`}>3</span>
           <span>Ödeme</span>
         </div>
       </div>
 
       {/* Main Layout Grid */}
       <main className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        
+
         {/* Column 1: Trips List OR Selected Summary */}
         <div className={`space-y-4 ${selectedTrip ? 'lg:col-span-1' : 'lg:col-span-3'}`}>
           {!selectedTrip ? (
@@ -229,14 +300,14 @@ function SearchResultsPageContent() {
               <div className="flex flex-col gap-6">
                 {mockTrips.map((trip) => (
                   <div key={trip.id} className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col xl:flex-row items-center w-full gap-6 hover:shadow-md hover:-translate-y-1 transition-all duration-300">
-                    
+
                     {/* 1. Time & Route Group */}
                     <div className="flex-1 flex items-center w-full gap-4">
                       <div className="w-24 flex-shrink-0 text-center md:text-left">
                         <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{trip.departureTime}</span>
                         <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 mt-0.5 truncate">{trip.origin}</p>
                       </div>
-                      
+
                       <div className="flex-1 flex flex-col items-center gap-1 w-full">
                         <span className="text-xs text-slate-400 dark:text-zinc-500 font-bold">{trip.duration}</span>
                         <div className="w-full h-0.5 border-b-2 border-dashed border-slate-300 dark:border-zinc-700 relative flex items-center justify-center">
@@ -249,7 +320,7 @@ function SearchResultsPageContent() {
                         <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 mt-0.5 truncate">{trip.destination}</p>
                       </div>
                     </div>
-                    
+
                     {/* 2. Bus Info Box */}
                     <div className="w-56 flex-shrink-0 flex items-center gap-3 bg-slate-50 dark:bg-zinc-800/40 px-4 py-3 rounded-xl justify-start overflow-hidden">
                       <Bus className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
@@ -259,15 +330,15 @@ function SearchResultsPageContent() {
                       </div>
                     </div>
 
-                    {/* 3. Price & Action (Redesigned) */}
+                    {/* 3. Price & Action */}
                     <div className="w-52 flex-shrink-0 flex items-center justify-end gap-4 border-t xl:border-t-0 xl:border-l border-slate-100 dark:border-zinc-800 pt-4 xl:pt-0 xl:pl-4 h-full">
                       <div className="flex flex-col items-end gap-1">
                         <span className="bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider">Son {trip.availableSeats} Koltuk</span>
                         <span className="text-2xl font-black text-slate-900 dark:text-white">₺{trip.price}</span>
                       </div>
-                      <Button 
-                        onClick={() => handleSelectTrip(trip)} 
-                        size="sm" 
+                      <Button
+                        onClick={() => handleSelectTrip(trip)}
+                        size="sm"
                         className="bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl font-bold px-4 active:scale-95 transition-all duration-150"
                       >
                         Koltuk Seç
@@ -284,7 +355,7 @@ function SearchResultsPageContent() {
               <div className="p-5 border-b border-slate-100 dark:border-zinc-800">
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Seçilen Sefer</h3>
-                  <Button variant="ghost" size="sm" onClick={() => { setSelectedTrip(null); sessionStorage.removeItem('tempSelectedTrip'); }} className="text-xs text-indigo-600 dark:text-indigo-400 font-bold h-7">Değiştir</Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setSelectedTrip(null); clearSeats(); sessionStorage.removeItem('tempSelectedTrip'); }} className="text-xs text-indigo-600 dark:text-indigo-400 font-bold h-7">Değiştir</Button>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -319,7 +390,7 @@ function SearchResultsPageContent() {
                 </div>
               </div>
 
-              {/* 3. Taller Real Interactive Map Section (Bottom) */}
+              {/* 3. Real Interactive Map Section (Bottom) */}
               <div className="h-96 relative w-full bg-slate-50 dark:bg-zinc-800/50 border-t border-slate-100 dark:border-zinc-800">
                 <iframe
                   width="100%"
@@ -335,59 +406,99 @@ function SearchResultsPageContent() {
           )}
         </div>
 
-        {/* Column 2: Seat Map Selection */}
-        {selectedTrip && (
+        {/* Column 2: Dynamic Seat Map Selection */}
+        {selectedTrip && seatLayout && (
           <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-md min-h-[500px] flex flex-col transition-all duration-300">
-            <h3 className="text-sm font-bold text-slate-400 dark:text-zinc-500 mb-6 font-semibold">Koltuk Seçimi</h3>
-            
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-sm font-bold text-slate-400 dark:text-zinc-500 font-semibold">Koltuk Seçimi</h3>
+              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{selectedSeats.length}/{MAX_SEATS}</span>
+            </div>
+
+            {/* Legend */}
             <div className="grid grid-cols-2 gap-2 justify-center mb-6 text-xs font-bold text-slate-500 dark:text-zinc-400">
               <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded bg-slate-100 border border-slate-200 dark:bg-zinc-800 dark:border-zinc-700" /> Boş</div>
-              <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded bg-blue-100 border border-blue-200 dark:bg-blue-950/40 dark:border-blue-800" /> Erkek</div>
-              <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded bg-pink-100 border border-pink-200 dark:bg-pink-950/40 dark:border-pink-800" /> Bayan</div>
+              <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded bg-red-100 border border-red-200 dark:bg-red-950/40 dark:border-red-800" /> Dolu</div>
+              <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800" /> Rezerve</div>
               <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded bg-indigo-600 dark:bg-indigo-500" /> Seçili</div>
             </div>
 
+            {/* Multi-select badge */}
+            {selectedSeats.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 mb-4"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                    {selectedSeats.length} koltuk seçildi
+                  </span>
+                </div>
+                <button
+                  onClick={clearSeats}
+                  className="text-[10px] font-bold text-red-500 hover:text-red-600 dark:text-red-400"
+                >
+                  Temizle
+                </button>
+              </motion.div>
+            )}
+
+            {/* Dynamic Bus Seat Map */}
             <div className="border border-slate-100 dark:border-zinc-800 rounded-xl p-4 bg-slate-100/50 dark:bg-zinc-950 max-w-xs mx-auto w-full">
-              <div className="flex justify-end mb-4"><div className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm"><Bus className="w-5 h-5 text-slate-400 dark:text-zinc-500 rotate-90" /></div></div>
+              {/* Driver area */}
+              <div className="flex justify-end mb-4">
+                <div className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm">
+                  <Bus className="w-5 h-5 text-slate-400 dark:text-zinc-500 rotate-90" />
+                </div>
+              </div>
+
+              {/* Seat rows - dynamically generated */}
               <div className="flex flex-col gap-2">
-                {Array.from({ length: 10 }, (_, rowIndex) => (
-                  <div key={rowIndex} className="flex items-center justify-between">
-                    {mockSeats[rowIndex * 3] && (
-                      <button 
-                        disabled={mockSeats[rowIndex * 3].status !== 'AVAILABLE'} 
-                        onClick={() => setSelectedSeat(mockSeats[rowIndex * 3].seatNumber)}
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs border transition-all ${
-                          selectedSeat === mockSeats[rowIndex * 3].seatNumber ? 'bg-indigo-600 text-white border-indigo-600 scale-105 shadow-sm' :
-                          mockSeats[rowIndex * 3].status === 'MALE' ? 'bg-blue-100 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 cursor-not-allowed opacity-90' :
-                          mockSeats[rowIndex * 3].status === 'FEMALE' ? 'bg-pink-100 dark:bg-pink-950/40 border-pink-200 dark:border-pink-800 text-pink-800 dark:text-pink-300 cursor-not-allowed opacity-90' :
-                          mockSeats[rowIndex * 3].status === 'BLOCKED' ? 'bg-slate-200 dark:bg-zinc-800 border-slate-300 dark:border-zinc-700 text-slate-400 cursor-not-allowed' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-slate-400 text-slate-700 dark:text-zinc-300'
-                        }`}
-                      >
-                        {mockSeats[rowIndex * 3].seatNumber}
-                      </button>
-                    )}
-                    <div className="w-8" />
+                {seatLayout.rows.map((row) => (
+                  <div
+                    key={row.rowIndex}
+                    className={`flex items-center justify-between ${row.isBackRow ? 'mt-2 pt-3 border-t border-dashed border-slate-200 dark:border-zinc-800' : ''}`}
+                  >
+                    {/* Left side seats */}
                     <div className="flex items-center gap-2">
-                      {[1, 2].map((offset) => {
-                        const seat = mockSeats[rowIndex * 3 + offset];
-                        if (!seat) return null;
-                        return (
-                          <button 
-                            key={seat.id}
-                            disabled={seat.status !== 'AVAILABLE'} 
-                            onClick={() => setSelectedSeat(seat.seatNumber)}
-                            className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs border transition-all ${
-                              selectedSeat === seat.seatNumber ? 'bg-indigo-600 text-white border-indigo-600 scale-105 shadow-sm' :
-                              seat.status === 'MALE' ? 'bg-blue-100 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-300 cursor-not-allowed opacity-90' :
-                              seat.status === 'FEMALE' ? 'bg-pink-100 dark:bg-pink-950/40 border-pink-200 dark:border-pink-800 text-pink-800 dark:text-pink-300 cursor-not-allowed opacity-90' :
-                              seat.status === 'BLOCKED' ? 'bg-slate-200 dark:bg-zinc-800 border-slate-300 dark:border-zinc-700 text-slate-400 cursor-not-allowed' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-slate-400 text-slate-700 dark:text-zinc-300'
-                            }`}
+                      {row.seats.slice(0, seatLayout.leftCols).map((seat) =>
+                        seat ? (
+                          <motion.button
+                            key={seat.seatNumber}
+                            whileTap={seat.status === 'sold' || seat.status === 'locked' ? undefined : { scale: 0.9 }}
+                            disabled={seat.status === 'sold' || seat.status === 'locked'}
+                            onClick={() => handleToggleSeat(seat.seatNumber)}
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs border transition-all ${getSeatStyle(seat.seatNumber)}`}
                           >
                             {seat.seatNumber}
-                          </button>
-                        );
-                      })}
+                          </motion.button>
+                        ) : null
+                      )}
                     </div>
+
+                    {/* Aisle gap */}
+                    <div className="w-8" />
+
+                    {/* Right side seats */}
+                    <div className="flex items-center gap-2">
+                      {row.seats.slice(seatLayout.leftCols + 1).map((seat) =>
+                        seat ? (
+                          <motion.button
+                            key={seat.seatNumber}
+                            whileTap={seat.status === 'sold' || seat.status === 'locked' ? undefined : { scale: 0.9 }}
+                            disabled={seat.status === 'sold' || seat.status === 'locked'}
+                            onClick={() => handleToggleSeat(seat.seatNumber)}
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs border transition-all ${getSeatStyle(seat.seatNumber)}`}
+                          >
+                            {seat.seatNumber}
+                          </motion.button>
+                        ) : null
+                      )}
+                    </div>
+
+                    {/* Back row: fill full width */}
+                    {row.isBackRow && row.seats.length > seatLayout.leftCols + 1 + seatLayout.rightCols && null}
                   </div>
                 ))}
               </div>
@@ -398,45 +509,57 @@ function SearchResultsPageContent() {
         {/* Column 3: Checkout Summary OR Trust Banner */}
         {selectedTrip && (
           <div className="lg:col-span-1 space-y-4 animate-in fade-in-50 duration-300">
-            {selectedSeat ? (
+            {selectedSeats.length > 0 ? (
               <>
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-lg space-y-5">
                   <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
                     <CheckCircle2 className="w-5 h-5" />
-                    <span>Koltuk Seçildi</span>
+                    <span>{selectedSeats.length > 1 ? 'Koltuklar Seçildi' : 'Koltuk Seçildi'}</span>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-500 dark:text-zinc-400 font-semibold">Kapasite</span>
-                      <span className="font-bold text-slate-800 dark:text-white">1 Yolcu</span>
+                      <span className="text-slate-500 dark:text-zinc-400 font-semibold">Yolcu Sayısı</span>
+                      <span className="font-bold text-slate-800 dark:text-white">{selectedSeats.length} Yolcu</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500 dark:text-zinc-400 font-semibold">Koltuk Numarası</span>
-                      <span className="font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md">{selectedSeat}</span>
+                    <div className="flex justify-between text-sm items-start">
+                      <span className="text-slate-500 dark:text-zinc-400 font-semibold">Koltuk No</span>
+                      <div className="flex flex-wrap gap-1 justify-end">
+                        <AnimatePresence>
+                          {selectedSeats.map((seat) => (
+                            <motion.span
+                              key={seat}
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              exit={{ scale: 0 }}
+                              className="font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md text-xs"
+                            >
+                              {seat}
+                            </motion.span>
+                          ))}
+                        </AnimatePresence>
+                      </div>
                     </div>
+
+                    {/* Price breakdown */}
+                    {selectedSeats.length > 1 && (
+                      <div className="flex justify-between text-sm text-slate-400 dark:text-zinc-500">
+                        <span>{selectedSeats.length} x ₺{selectedTrip.price}</span>
+                        <span>₺{totalPrice()}</span>
+                      </div>
+                    )}
+
                     <div className="flex justify-between text-base border-t border-slate-100 dark:border-zinc-800 pt-3">
                       <span className="text-slate-800 dark:text-white font-bold">Toplam Tutar</span>
-                      <span className="font-black text-xl text-slate-900 dark:text-white">₺{selectedTrip.price}</span>
+                      <span className="font-black text-xl text-slate-900 dark:text-white">₺{totalPrice()}</span>
                     </div>
                   </div>
 
                   <Button
                     onClick={() => {
                       setIsRedirectingToCheckout(true);
-                      const params = new URLSearchParams({
-                        tripId: selectedTrip!.id,
-                        seat: selectedSeat!,
-                        price: String(selectedTrip!.price),
-                        origin: selectedTrip!.origin,
-                        destination: selectedTrip!.destination,
-                        date: dateStr || '',
-                        departureTime: selectedTrip!.departureTime,
-                        arrivalTime: selectedTrip!.arrivalTime,
-                        busType: selectedTrip!.busType,
-                      });
                       setTimeout(() => {
-                        router.push(`/checkout?${params.toString()}`);
+                        router.push('/checkout');
                       }, 1200);
                     }}
                     className="w-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl py-6 font-bold text-base shadow-md"
@@ -467,7 +590,7 @@ function SearchResultsPageContent() {
                   </div>
                 </div>
 
-                {/* Highly Prominent Branding Filler */}
+                {/* Branding Filler */}
                 <div className="flex flex-col items-center justify-center py-16 animate-in fade-in-50 duration-500">
                   <Bus className="w-16 h-16 mb-4 text-slate-300 dark:text-zinc-600" />
                   <p className="text-5xl font-black text-zinc-950 dark:text-zinc-100 tracking-tight">TransitIQ</p>

@@ -3,13 +3,10 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -23,21 +20,37 @@ import {
   Lock,
   ShieldCheck,
   LifeBuoy,
-  User,
-  Mail,
-  Phone,
   CreditCard,
   MapPin,
   Armchair,
   FileText,
-  Car,
-  Truck,
   CheckCircle,
+  AlertTriangle,
+  Timer,
 } from "lucide-react";
-import Link from "next/link";
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
+import { useBookingStore } from '@/store/useBookingStore';
+import { PassengerForm } from '@/components/checkout/passenger-form';
 
+// ─── Countdown Timer Hook ───
+function useCountdown(minutes: number) {
+  const [secondsLeft, setSecondsLeft] = useState(minutes * 60);
+
+  useEffect(() => {
+    if (secondsLeft <= 0) return;
+    const interval = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearInterval(interval);
+  }, [secondsLeft]);
+
+  const mins = Math.floor(secondsLeft / 60);
+  const secs = secondsLeft % 60;
+  const isUrgent = secondsLeft < 120;
+
+  return { mins, secs, isUrgent, isExpired: secondsLeft <= 0 };
+}
+
+// ─── KVKK Content (memoized) ───
 const KvkkContent = memo(() => (
   <div className="space-y-5 text-sm text-slate-600 dark:text-zinc-300 leading-relaxed max-w-none">
     <h3 className="text-base font-bold text-slate-800 dark:text-white text-center mb-4">KİŞİSEL VERİLERİN KORUNMASI KANUNU KAPSAMINDA AYDINLATMA METNİ</h3>
@@ -68,7 +81,7 @@ const KvkkContent = memo(() => (
       <ul className="list-disc pl-5 mt-2 space-y-1">
         <li>Şehirlerarası otobüs bileti satış sözleşmesinin kurulması ve ifası</li>
         <li>Sefer ve koltuk rezervasyonlarının oluşturulması, yönetilmesi ve güncellenmesi</li>
-        <li>4925 sayılı Karayolu Taşıma Kanunu ve Karayolu Taşıma Yönetmeliği kapsamında Ulaştırma ve Altyapı Bakanlığı&apos;na yapılması zorunlu olan UETDS (Ulaşım Elektronik Takip ve Denetim Sistemi) bildirimleri</li>
+        <li>4925 sayılı Karayolu Taşıma Kanunu ve Karayolu Taşıma Yönetmeliği kapsamında Ulaştırma ve Altyapı Bakanlığı&apos;na yapılması zorunlu olan UETDS bildirimleri</li>
         <li>Ödeme işlemlerinin Iyzico güvenli ödeme altyapısı üzerinden gerçekleştirilmesi</li>
         <li>Fatura ve mali belgelerin düzenlenmesi, 213 sayılı Vergi Usul Kanunu kapsamındaki yasal yükümlülüklerin yerine getirilmesi</li>
         <li>Bilet iptali, değişikliği ve iade süreçlerinin yönetimi</li>
@@ -215,103 +228,141 @@ const AgreementContent = memo(() => (
 ));
 AgreementContent.displayName = "AgreementContent";
 
+// ─── Validation ───
+function validatePassengers(passengers: { tcKimlik: string; firstName: string; lastName: string }[]) {
+  return passengers.every(
+    (p) => p.tcKimlik.length === 11 && p.firstName.trim().length >= 2 && p.lastName.trim().length >= 2
+  );
+}
+
+function validateContact(email: string, phone: string) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^05\d{9}$/;
+  return emailRegex.test(email) && phoneRegex.test(phone.replace(/\s/g, ''));
+}
+
+// ─── Main Checkout Content ───
 function CheckoutContent() {
-  const searchParams = useSearchParams();
   const router = useRouter();
 
-  const tripId = searchParams.get('tripId') || '';
-  const seat = searchParams.get('seat') || '';
-  const price = searchParams.get('price') || '0';
-  const origin = searchParams.get('origin') || 'İstanbul';
-  const destination = searchParams.get('destination') || 'Ankara';
-  const dateStr = searchParams.get('date') || '';
-  const departureTime = searchParams.get('departureTime') || '';
-  const arrivalTime = searchParams.get('arrivalTime') || '';
-  const busType = searchParams.get('busType') || '';
+  // Zustand store
+  const trip = useBookingStore((s) => s.trip);
+  const selectedSeats = useBookingStore((s) => s.selectedSeats);
+  const passengers = useBookingStore((s) => s.passengers);
+  const contactEmail = useBookingStore((s) => s.contactEmail);
+  const contactPhone = useBookingStore((s) => s.contactPhone);
+  const totalPrice = useBookingStore((s) => s.totalPrice);
 
-  const [form, setForm] = useState({
-    tcKimlik: '',
-    ad: '',
-    soyad: '',
-    email: '',
-    telefon: '',
-  });
-
-  const handleChange = (field: string, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
+  // Local UI state
   const [isKvkkChecked, setIsKvkkChecked] = useState(false);
   const [isAgreementChecked, setIsAgreementChecked] = useState(false);
   const [isKvkkModalOpen, setIsKvkkModalOpen] = useState(false);
   const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
   const kvkkRef = useRef<HTMLDivElement>(null);
   const agreementRef = useRef<HTMLDivElement>(null);
-  const canSubmit = isKvkkChecked && isAgreementChecked;
   const [isApproved, setIsApproved] = useState(false);
-
   const [iyzicoScript, setIyzicoScript] = useState("");
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
+  // 10-minute seat lock countdown
+  const { mins, secs, isUrgent, isExpired } = useCountdown(10);
+
+  // Validation
+  const isFormValid = validatePassengers(passengers) && validateContact(contactEmail, contactPhone);
+  const canSubmit = isKvkkChecked && isAgreementChecked && isFormValid && !isExpired;
+
+  const formattedDate = trip?.date
+    ? new Date(trip.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+
+  // Handle empty store (direct URL access protection)
+  const hasBookingData = trip && selectedSeats.length > 0;
+
   const handlePayment = useCallback(async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || !trip) return;
     setIsPaymentLoading(true);
     setIsApproved(true);
     try {
+      const firstPassenger = passengers[0];
       const res = await fetch('http://localhost:3000/payment/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          price: price,
-          buyerName: form.ad,
-          buyerSurname: form.soyad,
-          buyerTc: form.tcKimlik,
-          buyerEmail: form.email,
-          buyerPhone: form.telefon,
+          price: String(totalPrice()),
+          paidPrice: String(totalPrice()),
+          buyerName: firstPassenger.firstName,
+          buyerSurname: firstPassenger.lastName,
+          buyerTc: firstPassenger.tcKimlik,
+          buyerEmail: contactEmail,
+          buyerPhone: contactPhone,
+          tripId: trip.tripId,
+          seats: selectedSeats,
+          passengers: passengers.map((p) => ({
+            seatNumber: p.seatNumber,
+            tcKimlik: p.tcKimlik,
+            firstName: p.firstName,
+            lastName: p.lastName,
+          })),
         }),
       });
       const data = await res.json();
       if (data.checkoutFormContent) {
         setIyzicoScript(data.checkoutFormContent);
       } else {
-        console.error('Iyzico error:', data);
-        alert('Ödeme formu yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+        setIsApproved(false);
       }
-    } catch (err) {
-      console.error('Payment init error:', err);
-      alert('Sunucuya bağlanılamadı. Lütfen tekrar deneyin.');
+    } catch {
+      setIsApproved(false);
     } finally {
       setIsPaymentLoading(false);
     }
-  }, [canSubmit, price, form]);
+  }, [canSubmit, trip, passengers, contactEmail, contactPhone, totalPrice, selectedSeats]);
 
-  // Scroll modals to top when opened
   useEffect(() => {
-    if (isKvkkModalOpen && kvkkRef.current) {
-      kvkkRef.current.scrollTop = 0;
-    }
+    if (isKvkkModalOpen && kvkkRef.current) kvkkRef.current.scrollTop = 0;
   }, [isKvkkModalOpen]);
 
   useEffect(() => {
-    if (isAgreementModalOpen && agreementRef.current) {
-      agreementRef.current.scrollTop = 0;
-    }
+    if (isAgreementModalOpen && agreementRef.current) agreementRef.current.scrollTop = 0;
   }, [isAgreementModalOpen]);
 
-  const formattedDate = dateStr
-    ? new Date(dateStr).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
-    : '23 Mart 2026';
-
-    useEffect(() => {
+  useEffect(() => {
     if (iyzicoScript) {
       const container = document.getElementById('iyzipay-checkout-form');
       if (container) {
-        container.innerHTML = ""; // Clear previous attempts
+        container.innerHTML = "";
         const scriptEl = document.createRange().createContextualFragment(iyzicoScript);
         container.appendChild(scriptEl);
       }
     }
   }, [iyzicoScript]);
+
+  // ─── Empty state: no booking data ───
+  if (!hasBookingData) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center max-w-md"
+        >
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center">
+            <AlertTriangle className="w-10 h-10 text-amber-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Rezervasyon Bulunamadı</h1>
+          <p className="text-slate-500 dark:text-zinc-400 mb-8 leading-relaxed">
+            Ödeme sayfasına geçmeden önce bir sefer seçip koltuk belirlemeniz gerekmektedir.
+          </p>
+          <Button
+            onClick={() => router.push('/')}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold"
+          >
+            Sefer Ara
+          </Button>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-50 transition-colors">
@@ -331,9 +382,7 @@ function CheckoutContent() {
               256-bit SSL ile Şifrelenmektedir
             </p>
           </div>
-          <div>
-            <ModeToggle />
-          </div>
+          <ModeToggle />
         </div>
       </header>
 
@@ -355,12 +404,35 @@ function CheckoutContent() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Seat Lock Countdown */}
+      <div className="max-w-7xl mx-auto px-4 mt-4">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl text-sm font-bold transition-colors ${
+            isExpired
+              ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50'
+              : isUrgent
+                ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50'
+                : 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50'
+          }`}
+        >
+          <Timer className="w-4 h-4" />
+          {isExpired ? (
+            <span>Rezervasyon süresi doldu. Lütfen koltuk seçimine geri dönün.</span>
+          ) : (
+            <span>
+              Koltuklar {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')} boyunca sizin için rezerve edilmiştir
+            </span>
+          )}
+        </motion.div>
+      </div>
+
       {/* Main Content */}
       <main className="max-w-[95%] xl:max-w-[1600px] mx-auto w-full px-4 py-8 pb-40 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
 
         {/* Column 1: Sipariş Özeti & Trust Badges */}
-        <div className="lg:col-span-3 space-y-5">
+        <div className="lg:col-span-3 space-y-5 lg:sticky lg:top-24">
           {/* Sipariş Özeti Card */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-lg overflow-hidden transition-all duration-300">
             <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800 bg-gradient-to-r from-indigo-50/50 to-transparent dark:from-indigo-950/20 dark:to-transparent">
@@ -375,7 +447,7 @@ function CheckoutContent() {
                 </div>
                 <div className="flex-1">
                   <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">Güzergah</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{origin} → {destination}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{trip.origin} → {trip.destination}</p>
                 </div>
               </div>
 
@@ -397,7 +469,7 @@ function CheckoutContent() {
                 </div>
                 <div className="flex-1">
                   <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">Kalkış / Varış</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{departureTime} — {arrivalTime}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{trip.departureTime} — {trip.arrivalTime}</p>
                 </div>
               </div>
 
@@ -408,28 +480,47 @@ function CheckoutContent() {
                 </div>
                 <div className="flex-1">
                   <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">Otobüs Tipi</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{busType}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{trip.busType}</p>
                 </div>
               </div>
 
-              {/* Seat */}
+              {/* Seats */}
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-slate-50 dark:bg-zinc-800">
                   <Armchair className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">Koltuk Numarası</p>
-                  <span className="inline-block font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-3 py-1 rounded-lg text-sm">{seat}</span>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">
+                    {selectedSeats.length > 1 ? 'Koltuk Numaraları' : 'Koltuk Numarası'}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {selectedSeats.map((seat) => (
+                      <span
+                        key={seat}
+                        className="inline-block font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-3 py-1 rounded-lg text-sm"
+                      >
+                        {seat}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               {/* Divider */}
               <div className="border-t border-dashed border-slate-200 dark:border-zinc-800" />
 
+              {/* Price breakdown */}
+              {selectedSeats.length > 1 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500 dark:text-zinc-400">{selectedSeats.length} x ₺{trip.basePrice}</span>
+                  <span className="font-bold text-slate-700 dark:text-zinc-300">₺{totalPrice()}</span>
+                </div>
+              )}
+
               {/* Total Price */}
               <div className="flex items-center justify-between">
                 <span className="text-base font-bold text-slate-800 dark:text-white">Toplam Tutar</span>
-                <span className="text-2xl font-black text-slate-900 dark:text-white">₺{price}</span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white">₺{totalPrice()}</span>
               </div>
             </div>
           </div>
@@ -465,113 +556,19 @@ function CheckoutContent() {
 
         {/* Column 2: Yolcu Bilgileri, Checkboxes, Submit */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Section A: Yolcu Bilgileri */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-md overflow-hidden transition-all duration-300">
-            <div className="px-6 py-5 border-b border-slate-100 dark:border-zinc-800 flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50">
-                <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">Yolcu Bilgileri</h2>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">Bilet için gerekli kişisel bilgileriniz</p>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-5">
-              {/* TC Kimlik */}
-              <div className="space-y-2">
-                <Label htmlFor="tcKimlik" className="text-sm font-bold text-slate-700 dark:text-zinc-300">T.C. Kimlik No</Label>
-                <div className="relative">
-                  <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-50" />
-                  <Input
-                    id="tcKimlik"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={11}
-                    placeholder="12345678901"
-                    value={form.tcKimlik}
-                    onChange={(e) => handleChange('tcKimlik', e.target.value.replace(/\D/g, '').slice(0, 11))}
-                    className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Ad + Soyad row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ad" className="text-sm font-bold text-slate-700 dark:text-zinc-300">Ad</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
-                    <Input
-                      id="ad"
-                      type="text"
-                      placeholder="Adınız"
-                      value={form.ad}
-                      onChange={(e) => handleChange('ad', e.target.value)}
-                      className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="soyad" className="text-sm font-bold text-slate-700 dark:text-zinc-300">Soyad</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
-                    <Input
-                      id="soyad"
-                      type="text"
-                      placeholder="Soyadınız"
-                      value={form.soyad}
-                      onChange={(e) => handleChange('soyad', e.target.value)}
-                      className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Email + Telefon row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-bold text-slate-700 dark:text-zinc-300">E-posta</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="ornek@email.com"
-                      value={form.email}
-                      onChange={(e) => handleChange('email', e.target.value)}
-                      className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="telefon" className="text-sm font-bold text-slate-700 dark:text-zinc-300">Cep Telefonu</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-zinc-500" />
-                    <Input
-                      id="telefon"
-                      type="tel"
-                      placeholder="05XX XXX XX XX"
-                      value={form.telefon}
-                      onChange={(e) => handleChange('telefon', e.target.value)}
-                      className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Dynamic Passenger Form (Zustand-powered) */}
+          <PassengerForm />
 
           {/* Legal Agreement Checkboxes */}
           <div className="space-y-4 mb-6">
             <Dialog open={isKvkkModalOpen} onOpenChange={setIsKvkkModalOpen}>
               <div className="flex items-start gap-3 mb-4 w-full">
-                <Checkbox 
-                  id="kvkk" 
-                  required 
-                  checked={isKvkkChecked} 
-                  onCheckedChange={(checked) => setIsKvkkChecked(checked === true)} 
-                  className="mt-1 flex-shrink-0 border-slate-300 dark:border-zinc-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600" 
+                <Checkbox
+                  id="kvkk"
+                  required
+                  checked={isKvkkChecked}
+                  onCheckedChange={(checked) => setIsKvkkChecked(checked === true)}
+                  className="mt-1 flex-shrink-0 border-slate-300 dark:border-zinc-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
                 />
                 <span className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                   <DialogTrigger className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline inline">KVKK Aydınlatma Metni</DialogTrigger>
@@ -599,12 +596,12 @@ function CheckoutContent() {
 
             <Dialog open={isAgreementModalOpen} onOpenChange={setIsAgreementModalOpen}>
               <div className="flex items-start gap-3 mb-6 w-full">
-                <Checkbox 
-                  id="agreement" 
-                  required 
-                  checked={isAgreementChecked} 
-                  onCheckedChange={(checked) => setIsAgreementChecked(checked === true)} 
-                  className="mt-1 flex-shrink-0 border-slate-300 dark:border-zinc-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600" 
+                <Checkbox
+                  id="agreement"
+                  required
+                  checked={isAgreementChecked}
+                  onCheckedChange={(checked) => setIsAgreementChecked(checked === true)}
+                  className="mt-1 flex-shrink-0 border-slate-300 dark:border-zinc-600 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
                 />
                 <span className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                   <DialogTrigger className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline inline">Mesafeli Satış Sözleşmesi ve Ön Bilgilendirme Formu</DialogTrigger>
@@ -632,40 +629,42 @@ function CheckoutContent() {
           </div>
 
           {/* Submit Button */}
-            <div className="mt-8 relative h-16 w-full flex items-center justify-center">
-              <AnimatePresence mode="wait">
-                {!isApproved ? (
-                  <motion.button
-                    key="default"
-                    initial={{ opacity: 1 }}
-                    exit={{ opacity: 0, y: 15, scale: 0.9 }}
-                    transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-                    onClick={handlePayment}
-                    disabled={!isKvkkChecked || !isAgreementChecked}
-                    className="w-full h-full py-4 rounded-xl text-lg font-bold flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-black dark:hover:bg-slate-200 shadow-md"
-                  >
-                    <Lock size={20} /> Bilgileri Onayla ve Ödemeye Geç
-                  </motion.button>
-                ) : (
-                  <motion.button
-                    key="approved"
-                    initial={{ opacity: 0, y: -15, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.6, ease: [0.34, 1.56, 0.64, 1], delay: 0.1 }}
-                    disabled
-                    className="w-full h-full py-4 rounded-xl text-lg font-bold flex items-center justify-center gap-2 bg-emerald-600 text-white cursor-default shadow-lg shadow-emerald-500/20"
-                  >
-                    <motion.div
-                      animate={{ scale: [1, 1.3, 1] }}
-                      transition={{ duration: 0.4, delay: 0.4 }}
-                    >
-                      <CheckCircle size={24} />
-                    </motion.div>
-                    Bilgiler Onaylandı
-                  </motion.button>
-                )}
-              </AnimatePresence>
-            </div>
+          <div className="mt-8 relative h-16 w-full flex items-center justify-center">
+            <AnimatePresence mode="wait">
+              {!isApproved ? (
+                <motion.button
+                  key="default"
+                  initial={{ opacity: 1 }}
+                  exit={{ opacity: 0, y: 15, scale: 0.9 }}
+                  transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                  onClick={handlePayment}
+                  disabled={!canSubmit || isPaymentLoading}
+                  className="w-full h-full py-4 rounded-xl text-lg font-bold flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-black dark:hover:bg-slate-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {isPaymentLoading ? (
+                    <div className="w-5 h-5 border-2 border-white dark:border-black border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Lock size={20} />
+                  )}
+                  {isPaymentLoading ? 'İşleniyor...' : 'Bilgileri Onayla ve Ödemeye Geç'}
+                </motion.button>
+              ) : (
+                <motion.button
+                  key="approved"
+                  initial={{ opacity: 0, y: -15, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.6, ease: [0.34, 1.56, 0.64, 1], delay: 0.1 }}
+                  disabled
+                  className="w-full h-full py-4 rounded-xl text-lg font-bold flex items-center justify-center gap-2 bg-emerald-600 text-white cursor-default shadow-lg shadow-emerald-500/20"
+                >
+                  <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 0.4, delay: 0.4 }}>
+                    <CheckCircle size={24} />
+                  </motion.div>
+                  Bilgiler Onaylandı
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Column 3: Ödeme Bilgileri (Iyzico Inline) */}
@@ -717,7 +716,7 @@ function CheckoutContent() {
       </main>
 
       <footer className="w-full py-6 bg-zinc-900 text-zinc-500 text-xs text-center border-t border-zinc-800">
-        © 2026 TransitIQ. Tüm Hakları Saklıdır. Güvenli Ödeme Altyapısı iyzico.
+        &copy; 2026 TransitIQ. Tüm Hakları Saklıdır. Güvenli Ödeme Altyapısı iyzico.
       </footer>
     </div>
   );
