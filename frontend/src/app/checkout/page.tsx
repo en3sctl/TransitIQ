@@ -292,21 +292,8 @@ function CheckoutContent() {
     setIsPaymentLoading(true);
 
     try {
-      // 1. Lock seats first (10-min hold)
-      const seatIds = selectedSeats.map((sn) => seatIdMap[sn]).filter(Boolean);
-      if (seatIds.length !== selectedSeats.length) {
-        toast.error('Koltuk verileri güncel değil. Koltuk seçimine yönlendiriliyorsunuz...');
-        setIsPaymentLoading(false);
-        setTimeout(() => router.back(), 1500);
-        return;
-      }
-
-      await api.post('/booking/seats/lock', {
-        tripId: trip.tripId,
-        seatIds,
-      });
-
-      // 2. Initialize Iyzico payment (with booking data for callback)
+      // Seats are already locked from search page
+      // Initialize Iyzico payment (with booking data for callback)
       const firstPassenger = passengers[0];
       const paymentRes = await api.post('/payment/initialize', {
         price: String(totalPrice()),

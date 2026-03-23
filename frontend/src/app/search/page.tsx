@@ -9,6 +9,7 @@ import { ModeToggle } from '@/components/mode-toggle';
 import { useBookingStore } from '@/store/useBookingStore';
 import { generateSeatLayout, type SeatStatus } from '@/lib/seat-engine';
 import api from '@/lib/api';
+import { toast } from 'sonner';
 
 const MAX_SEATS = 5;
 
@@ -58,7 +59,9 @@ function SearchResultsPageContent() {
   const clearSeats = useBookingStore((s) => s.clearSeats);
   const setTrip = useBookingStore((s) => s.setTrip);
   const setSeatIdMap = useBookingStore((s) => s.setSeatIdMap);
+  const seatIdMap = useBookingStore((s) => s.seatIdMap);
   const totalPrice = useBookingStore((s) => s.totalPrice);
+  const [isLocking, setIsLocking] = useState(false);
 
   // ─── Fetch trips from backend ───
   useEffect(() => {
@@ -108,6 +111,17 @@ function SearchResultsPageContent() {
       setApiSeats([]);
     }
   }, [setSeatIdMap]);
+
+  // ─── Refresh seats when tab regains focus ───
+  useEffect(() => {
+    const handleFocus = () => {
+      if (selectedTrip) {
+        fetchSeatsForTrip(selectedTrip.id);
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [selectedTrip, fetchSeatsForTrip]);
 
   // Convert API seats to engine-compatible status map
   const seatStatusMap = useMemo(() => {
@@ -571,15 +585,34 @@ function SearchResultsPageContent() {
                   </div>
 
                   <Button
-                    onClick={() => {
-                      setIsRedirectingToCheckout(true);
-                      setTimeout(() => {
-                        router.push('/checkout');
-                      }, 1200);
+                    disabled={isLocking}
+                    onClick={async () => {
+                      if (!selectedTrip) return;
+                      setIsLocking(true);
+                      try {
+                        // Lock seats before going to checkout
+                        const seatIds = selectedSeats.map((sn) => seatIdMap[sn]).filter(Boolean);
+                        if (seatIds.length === selectedSeats.length) {
+                          await api.post('/booking/seats/lock', {
+                            tripId: selectedTrip.id,
+                            seatIds,
+                          });
+                        }
+                        setIsRedirectingToCheckout(true);
+                        setTimeout(() => router.push('/checkout'), 1200);
+                      } catch (err: any) {
+                        const msg = err.response?.data?.message;
+                        toast.error(typeof msg === 'string' ? msg : 'Koltuklar başka bir kullanıcı tarafından alınmış olabilir. Lütfen farklı koltuk seçin.');
+                        // Refresh seat map to show updated statuses
+                        fetchSeatsForTrip(selectedTrip.id);
+                        clearSeats();
+                      } finally {
+                        setIsLocking(false);
+                      }
                     }}
                     className="w-full bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl py-6 font-bold text-base shadow-md"
                   >
-                    Ödemeye İlerle
+                    {isLocking ? 'Koltuklar rezerve ediliyor...' : 'Ödemeye İlerle'}
                   </Button>
                 </div>
 
