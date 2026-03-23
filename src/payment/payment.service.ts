@@ -18,24 +18,25 @@ export class PaymentService {
 
   async initializeCheckoutForm(params: {
     price: string;
+    pnrCode: string;
     buyerName: string;
     buyerSurname: string;
     buyerTc: string;
     buyerEmail: string;
     buyerPhone: string;
   }): Promise<{ checkoutFormContent: string; token: string }> {
-    const { price, buyerName, buyerSurname, buyerTc, buyerEmail, buyerPhone } =
+    const { price, pnrCode, buyerName, buyerSurname, buyerTc, buyerEmail, buyerPhone } =
       params;
 
     const request = {
       locale: Iyzipay.LOCALE.TR,
-      conversationId: `transit-${Date.now()}`,
+      conversationId: `pnr-${pnrCode}`,
       price: price,
       paidPrice: price,
       currency: Iyzipay.CURRENCY.TRY,
       basketId: `BASKET-${Date.now()}`,
       paymentGroup: Iyzipay.PAYMENT_GROUP.PRODUCT,
-      callbackUrl: 'http://localhost:3001/checkout?paymentStatus=callback',
+      callbackUrl: 'http://localhost:3000/payment/callback',
       enabledInstallments: [1, 2, 3, 6, 9],
       buyer: {
         id: `BUYER-${Date.now()}`,
@@ -89,6 +90,24 @@ export class PaymentService {
           });
         }
       });
+    });
+  }
+
+  async retrieveCheckoutForm(token: string): Promise<{ status: string; conversationId: string }> {
+    return new Promise((resolve, reject) => {
+      this.iyzipay.checkoutForm.retrieve(
+        { locale: 'tr', token },
+        (err: any, result: any) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve({
+              status: result.status,
+              conversationId: result.conversationId || '',
+            });
+          }
+        },
+      );
     });
   }
 }

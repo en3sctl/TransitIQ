@@ -25,6 +25,11 @@ export class BookingController {
     });
   }
 
+  @Get('ticket/:pnr')
+  getTicket(@Param('pnr') pnr: string) {
+    return this.bookingService.getTicketByPnr(pnr);
+  }
+
   @Post('bookings/:id/cancel')
   cancel(@Request() req: any, @Param('id') id: string) {
     const tenantId = req.user.tenantId;

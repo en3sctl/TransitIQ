@@ -7,6 +7,10 @@ export class InitializePaymentDto {
 
   @IsString()
   @IsNotEmpty()
+  pnrCode: string;
+
+  @IsString()
+  @IsNotEmpty()
   buyerName: string;
 
   @IsString()

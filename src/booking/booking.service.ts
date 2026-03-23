@@ -124,6 +124,57 @@ export class BookingService {
     });
   }
 
+  async getTicketByPnr(pnrCode: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { pnrCode },
+      include: {
+        trip: {
+          include: {
+            route: {
+              include: {
+                originStation: true,
+                destinationStation: true,
+              },
+            },
+          },
+        },
+        seat: true,
+        user: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Ticket not found');
+    }
+
+    return {
+      pnrCode: booking.pnrCode,
+      status: booking.status,
+      pricePaid: booking.pricePaid,
+      bookingTime: booking.bookingTime,
+      passenger: {
+        name: booking.user.name,
+        email: booking.user.email,
+      },
+      seat: {
+        number: booking.seat.seatNumber,
+        type: booking.seat.type,
+      },
+      trip: {
+        departureTime: booking.trip.departureTime,
+        estimatedArrival: booking.trip.estimatedArrival,
+        origin: {
+          name: booking.trip.route.originStation.name,
+          city: booking.trip.route.originStation.city,
+        },
+        destination: {
+          name: booking.trip.route.destinationStation.name,
+          city: booking.trip.route.destinationStation.city,
+        },
+      },
+    };
+  }
+
   private generatePnrCode(): string {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   }
