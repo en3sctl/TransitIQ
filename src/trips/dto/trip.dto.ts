@@ -25,5 +25,10 @@ export class CreateTripDto {
   @ApiProperty({ required: false })
   @IsISO8601()
   @IsOptional()
-  endTime?: string;
+  estimatedArrival?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }

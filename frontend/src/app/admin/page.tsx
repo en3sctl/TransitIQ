@@ -7,6 +7,7 @@ import ProtectedRoute from "@/components/protected-route";
 import Sidebar from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -67,6 +68,7 @@ interface Vehicle {
   model: string;
   year: number;
   capacity: number;
+  layoutType: string;
   status: string;
 }
 
@@ -118,10 +120,10 @@ function AdminDashboardContent() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Form States
-  const [vehicleForm, setVehicleForm] = useState({ registrationPlate: "", make: "", model: "", year: "", chassisNumber: "", capacity: "" });
+  const [vehicleForm, setVehicleForm] = useState({ registrationPlate: "", make: "", model: "", year: "", chassisNumber: "", capacity: "", layoutType: "2+1" });
   const [stationForm, setStationForm] = useState({ name: "", city: "", locationLat: "", locationLng: "" });
   const [routeForm, setRouteForm] = useState({ originStationId: "", destinationStationId: "", basePrice: "", title: "", totalDistanceKm: "" });
-  const [tripForm, setTripForm] = useState({ routeId: "", vehicleId: "", departureTime: "", driverId: "" });
+  const [tripForm, setTripForm] = useState({ routeId: "", vehicleId: "", departureTime: "", estimatedArrival: "", driverId: "" });
 
   const fetchData = async () => {
     setLoading(true);
@@ -137,7 +139,7 @@ function AdminDashboardContent() {
       setRoutes(rRes.data);
       setTrips(tRes.data);
     } catch (err: any) {
-      console.error("Error fetching data:", err);
+      toast.error("Veriler yüklenirken hata oluştu");
     } finally {
       setLoading(false);
     }
@@ -158,13 +160,15 @@ function AdminDashboardContent() {
         year: Number(vehicleForm.year),
         chassisNumber: vehicleForm.chassisNumber,
         capacity: Number(vehicleForm.capacity),
+        layoutType: vehicleForm.layoutType,
       };
       await api.post("/vehicles", payload);
-      setVehicleForm({ registrationPlate: "", make: "", model: "", year: "", chassisNumber: "", capacity: "" });
+      setVehicleForm({ registrationPlate: "", make: "", model: "", year: "", chassisNumber: "", capacity: "", layoutType: "2+1" });
       setIsDialogOpen(false);
+      toast.success("Araç başarıyla filoya eklendi");
       fetchData();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Araç eklenirken hata oluştu");
     } finally {
       setIsSubmitting(false);
     }
@@ -182,9 +186,10 @@ function AdminDashboardContent() {
       });
       setStationForm({ name: "", city: "", locationLat: "", locationLng: "" });
       setIsDialogOpen(false);
+      toast.success("İstasyon başarıyla eklendi");
       fetchData();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "İstasyon eklenirken hata oluştu");
     } finally {
       setIsSubmitting(false);
     }
@@ -204,9 +209,10 @@ function AdminDashboardContent() {
       });
       setRouteForm({ originStationId: "", destinationStationId: "", basePrice: "", title: "", totalDistanceKm: "" });
       setIsDialogOpen(false);
+      toast.success("Rota başarıyla tanımlandı");
       fetchData();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Rota tanımlanırken hata oluştu");
     } finally {
       setIsSubmitting(false);
     }
@@ -216,18 +222,22 @@ function AdminDashboardContent() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const payload = {
+      const payload: Record<string, string | undefined> = {
         routeId: tripForm.routeId,
         vehicleId: tripForm.vehicleId,
         departureTime: new Date(tripForm.departureTime).toISOString(),
         driverId: user?.id,
       };
+      if (tripForm.estimatedArrival) {
+        payload.estimatedArrival = new Date(tripForm.estimatedArrival).toISOString();
+      }
       await api.post("/trips", payload);
-      setTripForm({ routeId: "", vehicleId: "", departureTime: "", driverId: "" });
+      setTripForm({ routeId: "", vehicleId: "", departureTime: "", estimatedArrival: "", driverId: "" });
       setIsDialogOpen(false);
+      toast.success("Sefer başarıyla oluşturuldu");
       fetchData();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Sefer oluşturulurken hata oluştu");
     } finally {
       setIsSubmitting(false);
     }
@@ -438,6 +448,7 @@ function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
           <TableRow className="hover:bg-transparent border-none font-black text-[11px] uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 h-14">
             <TableHead className="px-8">Araç / Plaka</TableHead>
             <TableHead>Model</TableHead>
+            <TableHead>Düzen</TableHead>
             <TableHead>Kapasite</TableHead>
             <TableHead className="text-right px-8">Durum</TableHead>
           </TableRow>
@@ -457,6 +468,7 @@ function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
                 </div>
               </TableCell>
               <TableCell className="text-zinc-900 dark:text-zinc-100 font-semibold">{v.model} ({v.year})</TableCell>
+              <TableCell><span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">{v.layoutType || '2+1'}</span></TableCell>
               <TableCell className="text-zinc-500 dark:text-zinc-400 font-semibold">{v.capacity} Kişi</TableCell>
               <TableCell className="text-right px-8">
                 <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50">{v.status}</span>
@@ -582,10 +594,23 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
               <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="2024" value={vehicleForm.year} onChange={e => setVehicleForm({...vehicleForm, year: e.target.value})} required />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-3 gap-5">
             <div className="space-y-2">
               <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Kapasite</Label>
               <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="46" value={vehicleForm.capacity} onChange={e => setVehicleForm({...vehicleForm, capacity: e.target.value})} required />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Koltuk Düzeni</Label>
+              <Select value={vehicleForm.layoutType} onValueChange={(v) => setVehicleForm({...vehicleForm, layoutType: v})}>
+                <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold">
+                  <SelectValue placeholder="Düzen Seçin" />
+                </SelectTrigger>
+                <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2">
+                  <SelectItem value="2+1">2+1 VIP</SelectItem>
+                  <SelectItem value="2+2">2+2 Standart</SelectItem>
+                  <SelectItem value="1+1">1+1 Business</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Şasi No</Label>
@@ -733,9 +758,15 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
-          <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Zaman</Label>
-          <Input type="datetime-local" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 transition-all outline-none" value={tripForm.departureTime} onChange={e => setTripForm({...tripForm, departureTime: e.target.value})} required />
+        <div className="grid grid-cols-2 gap-5">
+          <div className="space-y-2">
+            <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Kalkış Zamanı</Label>
+            <Input type="datetime-local" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 transition-all outline-none" value={tripForm.departureTime} onChange={e => setTripForm({...tripForm, departureTime: e.target.value})} required />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Tahmini Varış</Label>
+            <Input type="datetime-local" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 transition-all outline-none" value={tripForm.estimatedArrival} onChange={e => setTripForm({...tripForm, estimatedArrival: e.target.value})} />
+          </div>
         </div>
       </div>
       <Button type="submit" disabled={isSubmitting} className="w-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white h-16 rounded-[24px] font-black text-xl shadow-xl transition-all active:scale-[0.97]">

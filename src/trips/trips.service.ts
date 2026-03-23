@@ -1,51 +1,14 @@
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { CreateTripDto } from './dto/trip.dto';
 
 @Injectable()
-export class TripsService implements OnModuleInit {
+export class TripsService {
   constructor(private prisma: PrismaService) {}
 
-  async onModuleInit() {
-    try {
-      const tenantId = 'test-firma-123';
-      const adminId = 'test-admin-id';
-
-      // Ensure Tenant
-      await (this.prisma as any).tenant.upsert({
-        where: { id: tenantId },
-        update: {},
-        create: {
-          id: tenantId,
-          name: 'Test Firma 123',
-          slug: 'test-firma-123',
-          domain: 'test-firma-123.com',
-        },
-      });
-
-      // Ensure Admin User for FK
-      await (this.prisma as any).user.upsert({
-        where: { id: adminId },
-        update: { role: 'COMPANY_ADMIN' },
-        create: {
-          id: adminId,
-          email: 'admin@test.com',
-          name: 'Mock Admin',
-          role: 'COMPANY_ADMIN',
-          passwordHash: 'mock-hash', // Using a placeholder for mock auth
-          tenantId,
-        },
-      });
-      console.log('--- Mock Admin & Tenant Seeded Successfully ---');
-    } catch (error) {
-      console.error('Failed to seed mock data in TripsService:', error);
-    }
-  }
-
   async findAll(tenantId: string) {
-    return (this.prisma as any).trip.findMany({
-      where: {
-        tenantId,
-      },
+    return this.prisma.trip.findMany({
+      where: { tenantId },
       include: {
         route: {
           include: {
@@ -62,42 +25,39 @@ export class TripsService implements OnModuleInit {
           },
         },
       },
-      orderBy: {
-        departureTime: 'asc',
+      orderBy: { departureTime: 'asc' },
+    });
+  }
+
+  async create(tenantId: string, dto: CreateTripDto) {
+    const departureTime = new Date(dto.departureTime);
+
+    return this.prisma.trip.create({
+      data: {
+        tenantId,
+        routeId: dto.routeId,
+        vehicleId: dto.vehicleId,
+        driverId: dto.driverId,
+        departureTime,
+        estimatedArrival: dto.estimatedArrival ? new Date(dto.estimatedArrival) : null,
+        notes: dto.notes || null,
+        status: 'PLANNED',
+      },
+      include: {
+        route: {
+          include: {
+            originStation: true,
+            destinationStation: true,
+          },
+        },
+        vehicle: true,
       },
     });
   }
 
-  async create(tenantId: string, dto: any) {
-    try {
-      console.log('Creating trip for tenant:', tenantId, 'with data:', dto);
-      const departureTime = new Date(dto.departureTime);
-      if (isNaN(departureTime.getTime())) {
-        throw new Error(`Invalid departureTime provided: ${dto.departureTime}`);
-      }
-
-      return await (this.prisma as any).trip.create({
-        data: {
-          tenantId,
-          routeId: dto.routeId,
-          vehicleId: dto.vehicleId,
-          driverId: dto.driverId || 'test-admin-id',
-          departureTime: departureTime,
-          status: 'PLANNED',
-        },
-      });
-    } catch (error) {
-      console.error('Error creating trip:', error);
-      throw error;
-    }
-  }
-
   async findOne(tenantId: string, id: string) {
-    const trip = await (this.prisma as any).trip.findFirst({
-      where: {
-        id,
-        tenantId,
-      },
+    const trip = await this.prisma.trip.findFirst({
+      where: { id, tenantId },
       include: {
         route: {
           include: {
