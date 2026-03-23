@@ -35,7 +35,7 @@ export class PaymentService {
       currency: Iyzipay.CURRENCY.TRY,
       basketId: `BASKET-${Date.now()}`,
       paymentGroup: Iyzipay.PAYMENT_GROUP.PRODUCT,
-      callbackUrl: 'http://localhost:3000/payment/callback',
+      callbackUrl: `${this.configService.get<string>('BACKEND_URL', 'http://localhost:3000')}/payment/callback`,
       enabledInstallments: [1, 2, 3, 6, 9],
       buyer: {
         id: `BUYER-${Date.now()}`,

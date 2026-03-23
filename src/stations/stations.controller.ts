@@ -16,6 +16,7 @@ export class StationsController {
     return this.stationsService.create(req.user.tenantId, createDto);
   }
 
+  /** Public: frontend search form needs station list without auth */
   @Get()
   findAll(@Request() req: any) {
     return this.stationsService.findAll(req.user?.tenantId);

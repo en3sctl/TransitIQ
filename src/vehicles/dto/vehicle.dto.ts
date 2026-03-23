@@ -1,4 +1,4 @@
-import { IsString, IsInt, IsNumber, IsNotEmpty, Min } from 'class-validator';
+import { IsString, IsInt, IsNotEmpty, Min, Matches } from 'class-validator';
 
 export class CreateVehicleDto {
   @IsString()
@@ -24,6 +24,10 @@ export class CreateVehicleDto {
   @IsInt()
   @Min(1)
   capacity: number;
+
+  @IsString()
+  @Matches(/^\d\+\d$/, { message: 'layoutType must be like "2+1", "2+2", or "1+1"' })
+  layoutType: string;
 }
 
 export class UpdateVehicleDto {

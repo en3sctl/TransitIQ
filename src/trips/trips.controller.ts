@@ -13,19 +13,11 @@ export class TripsController {
 
   @Get()
   async findAll(@Req() req: any) {
-    const tenantId = req.user.tenantId;
-    return this.tripsService.findAll(tenantId);
+    return this.tripsService.findAll(req.user.tenantId);
   }
 
   @Post()
   async create(@Req() req: any, @Body() createTripDto: CreateTripDto) {
-    try {
-      const tenantId = req.user.tenantId;
-      return await this.tripsService.create(tenantId, createTripDto);
-    } catch (error) {
-      console.error('--- Prisma create error in TripsController ---');
-      console.error(error);
-      throw error;
-    }
+    return this.tripsService.create(req.user.tenantId, createTripDto);
   }
 }

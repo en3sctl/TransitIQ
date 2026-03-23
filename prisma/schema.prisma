@@ -32,6 +32,7 @@ enum SeatStatus {
   AVAILABLE
   BLOCKED
   BOOKED
+  LOCKED
 }
 
 enum TripStatus {
@@ -124,6 +125,7 @@ model Vehicle {
   sigortaTarihi     DateTime?     @map("sigorta_tarihi")
   currentMileage    Int           @default(0) @map("current_mileage")
   capacity          Int
+  layoutType        String        @default("2+1") @map("layout_type")
   status            VehicleStatus @default(ACTIVE)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
@@ -137,11 +139,13 @@ model Vehicle {
 }
 
 model Seat {
-  id         String     @id @default(uuid())
-  vehicleId  String
-  seatNumber String     @map("seat_number")
-  type       SeatType   @default(STANDARD)
-  status     SeatStatus @default(AVAILABLE)
+  id          String     @id @default(uuid())
+  vehicleId   String
+  seatNumber  Int        @map("seat_number")
+  type        SeatType   @default(STANDARD)
+  status      SeatStatus @default(AVAILABLE)
+  lockedUntil DateTime?  @map("locked_until")
+  lockedBy    String?    @map("locked_by")
 
   vehicle  Vehicle   @relation(fields: [vehicleId], references: [id])
   bookings Booking[]
@@ -213,15 +217,20 @@ model Trip {
 }
 
 model Booking {
-  id          String        @id @default(uuid())
-  tenantId    String
-  tripId      String
-  userId      String
-  seatId      String
-  pricePaid   Decimal       @map("price_paid")
-  bookingTime DateTime      @default(now()) @map("booking_time")
-  pnrCode     String        @unique @map("pnr_code")
-  status      BookingStatus @default(CONFIRMED)
+  id              String        @id @default(uuid())
+  tenantId        String
+  tripId          String
+  userId          String
+  seatId          String
+  passengerTcNo   String        @map("passenger_tc_no")
+  passengerName   String        @map("passenger_name")
+  contactEmail    String        @map("contact_email")
+  contactPhone    String        @map("contact_phone")
+  pricePaid       Decimal       @map("price_paid")
+  bookingTime     DateTime      @default(now()) @map("booking_time")
+  pnrCode         String        @unique @map("pnr_code")
+  paymentId       String?       @map("payment_id")
+  status          BookingStatus @default(CONFIRMED)
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   trip   Trip   @relation(fields: [tripId], references: [id])
