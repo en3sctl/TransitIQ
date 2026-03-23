@@ -1,19 +1,72 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const Iyzipay = require('iyzipay');
+
+export interface PendingBookingData {
+  tripId: string;
+  passengers: {
+    tcKimlik: string;
+    firstName: string;
+    lastName: string;
+    seatId: string;
+  }[];
+  contactEmail: string;
+  contactPhone: string;
+  price: string;
+}
 
 @Injectable()
 export class PaymentService {
   private iyzipay: any;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private prisma: PrismaService,
+  ) {
     this.iyzipay = new Iyzipay({
       apiKey: this.configService.get<string>('IYZICO_API_KEY'),
       secretKey: this.configService.get<string>('IYZICO_SECRET_KEY'),
       uri: this.configService.get<string>('IYZICO_BASE_URL'),
     });
+  }
+
+  async storePendingBooking(token: string, conversationId: string, data: PendingBookingData) {
+    await this.prisma.pendingPayment.create({
+      data: {
+        paymentToken: token,
+        conversationId,
+        tripId: data.tripId,
+        passengersJson: JSON.stringify(data.passengers),
+        contactEmail: data.contactEmail,
+        contactPhone: data.contactPhone,
+        price: data.price,
+      },
+    });
+  }
+
+  async getPendingBookingByToken(token: string): Promise<PendingBookingData | null> {
+    const record = await this.prisma.pendingPayment.findUnique({
+      where: { paymentToken: token },
+    });
+
+    if (!record) return null;
+
+    return {
+      tripId: record.tripId,
+      passengers: JSON.parse(record.passengersJson),
+      contactEmail: record.contactEmail,
+      contactPhone: record.contactPhone,
+      price: record.price,
+    };
+  }
+
+  async removePendingBookingByToken(token: string) {
+    await this.prisma.pendingPayment.delete({
+      where: { paymentToken: token },
+    }).catch(() => {});
   }
 
   async initializeCheckoutForm(params: {
@@ -23,14 +76,15 @@ export class PaymentService {
     buyerTc: string;
     buyerEmail: string;
     buyerPhone: string;
-  }): Promise<{ checkoutFormContent: string; token: string }> {
-    const { price, buyerName, buyerSurname, buyerTc, buyerEmail, buyerPhone } =
-      params;
+  }): Promise<{ checkoutFormContent: string; token: string; conversationId: string }> {
+    const { price, buyerName, buyerSurname, buyerTc, buyerEmail, buyerPhone } = params;
+
+    const conversationId = `transit-${Date.now()}`;
 
     const request = {
       locale: Iyzipay.LOCALE.TR,
-      conversationId: `transit-${Date.now()}`,
-      price: price,
+      conversationId,
+      price,
       paidPrice: price,
       currency: Iyzipay.CURRENCY.TRY,
       basketId: `BASKET-${Date.now()}`,
@@ -73,7 +127,7 @@ export class PaymentService {
           category1: 'Ulaşım',
           category2: 'Şehirlerarası',
           itemType: Iyzipay.BASKET_ITEM_TYPE.VIRTUAL,
-          price: price,
+          price,
         },
       ],
     };
@@ -86,13 +140,14 @@ export class PaymentService {
           resolve({
             checkoutFormContent: result.checkoutFormContent,
             token: result.token,
+            conversationId,
           });
         }
       });
     });
   }
 
-  async retrieveCheckoutForm(token: string): Promise<{ status: string; conversationId: string }> {
+  async retrieveCheckoutForm(token: string): Promise<{ status: string; conversationId: string; paymentId: string }> {
     return new Promise((resolve, reject) => {
       this.iyzipay.checkoutForm.retrieve(
         { locale: 'tr', token },
@@ -103,6 +158,7 @@ export class PaymentService {
             resolve({
               status: result.status,
               conversationId: result.conversationId || '',
+              paymentId: result.paymentId || '',
             });
           }
         },

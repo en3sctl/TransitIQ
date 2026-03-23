@@ -10,14 +10,14 @@ import {
   CheckCircle, MapPin, CalendarDays, Bus, User, Armchair,
   CreditCard, Clock, Ticket, Loader2, Download, Printer,
   ShieldCheck, Headphones, Smartphone, CloudSun, ChevronRight, QrCode,
-  Sun, Moon, CloudRain, Snowflake, Cloud
+  Sun, Moon, CloudRain, Snowflake, Cloud, Users
 } from "lucide-react";
 
 /* ── Types ── */
 interface TD {
   pnrCode: string; status: string; pricePaid: string; bookingTime: string;
-  passenger: { name: string; email: string };
-  seat: { number: string; type: string };
+  passenger: { name: string; tcNo: string; contactEmail: string; contactPhone: string };
+  seat: { number: number; type: string };
   trip: {
     departureTime: string; estimatedArrival: string | null;
     origin: { name: string; city: string }; destination: { name: string; city: string };
@@ -33,38 +33,35 @@ function fDate(i: string) {
 function fTime(i: string) {
   return new Date(i).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
 }
-function fSeat(t: string) {
-  return t === "VIP" ? "VIP 2+1" : t === "STANDARD" ? "Standart 2+1" : t;
-}
 
 /* ══════════════════════════════════════
    MAIN
    ══════════════════════════════════════ */
 function SuccessContent() {
   const searchParams = useSearchParams();
-  const pnr = searchParams.get("pnr");
-  const [ticketData, setTicketData] = useState<TD | null>(null);
+  const pnrParam = searchParams.get("pnr");
+  const totalParam = searchParams.get("total");
+  const [tickets, setTickets] = useState<TD[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isTorn, setIsTorn] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [activeTicket, setActiveTicket] = useState(0);
   const [weather, setWeather] = useState<{temp: number, desc: string, isDay: boolean, code: number} | null>(null);
 
   /* Weather Fetch */
   useEffect(() => {
-    if (!ticketData) return;
-    const city = ticketData.trip.destination.city;
+    if (tickets.length === 0) return;
+    const city = tickets[0].trip.destination.city;
     (async () => {
       try {
         const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=tr&format=json`);
         const geoData = await geoRes.json();
         if (!geoData.results?.length) return;
         const { latitude, longitude } = geoData.results[0];
-        
         const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
         const wData = await wRes.json();
         const cw = wData.current_weather;
-        
         const wmo: Record<number, string> = {
           0: "Açık", 1: "Çoğunlukla Açık", 2: "Parçalı Bulutlu", 3: "Kapalı",
           45: "Sisli", 48: "Puslu", 51: "Hafif Çisenti", 61: "Hafif Yağmurlu",
@@ -72,9 +69,9 @@ function SuccessContent() {
           80: "Sağanak", 95: "Fırtına"
         };
         setWeather({ temp: Math.round(cw.temperature), desc: wmo[cw.weathercode] || "Parçalı Bulutlu", isDay: cw.is_day === 1, code: cw.weathercode });
-      } catch (err) { console.error(err); }
+      } catch { /* silent */ }
     })();
-  }, [ticketData]);
+  }, [tickets]);
 
   const getWeatherIcon = () => {
     if (!weather) return <CloudSun className="w-5 h-5 text-slate-400" />;
@@ -85,41 +82,43 @@ function SuccessContent() {
     return weather.isDay ? <Sun className="w-5 h-5 text-amber-500 dark:text-amber-400" /> : <Moon className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />;
   };
 
-  /* Fetch */
+  /* Fetch tickets */
   useEffect(() => {
-    if (!pnr) { setError("PNR kodu bulunamadı."); setIsLoading(false); return; }
-    const fb: TD = {
-      pnrCode: pnr, status: "CONFIRMED", pricePaid: "450",
-      bookingTime: new Date().toISOString(),
-      passenger: { name: "Enes Çatal", email: "enes@transitiq.com" },
-      seat: { number: "9", type: "VIP" },
-      trip: {
-        departureTime: "2026-03-26T10:00:00.000Z",
-        estimatedArrival: "2026-03-26T15:30:00.000Z",
-        origin: { name: "İstanbul Otogarı", city: "İstanbul" },
-        destination: { name: "Ankara AŞTİ", city: "Ankara" },
-      },
-    };
+    if (!pnrParam) { setError("PNR kodu bulunamadı."); setIsLoading(false); return; }
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const pnrList = pnrParam.split(',').map(p => p.trim()).filter(Boolean);
+
     (async () => {
       try {
-        const r = await fetch(`http://localhost:3000/booking/ticket/${encodeURIComponent(pnr)}`);
-        if (!r.ok) throw 0;
-        setTicketData(await r.json());
-      } catch { setTicketData(fb); }
-      finally { setIsLoading(false); }
+        if (pnrList.length === 1) {
+          const r = await fetch(`${apiUrl}/booking/ticket/${encodeURIComponent(pnrList[0])}`);
+          if (!r.ok) throw new Error('Bilet bulunamadı');
+          const data = await r.json();
+          setTickets([data]);
+        } else {
+          const r = await fetch(`${apiUrl}/booking/tickets?pnrs=${pnrList.map(p => encodeURIComponent(p)).join(',')}`);
+          if (!r.ok) throw new Error('Biletler bulunamadı');
+          const data = await r.json();
+          setTickets(Array.isArray(data) ? data : [data]);
+        }
+      } catch {
+        setError("Bilet bilgileri yüklenemedi. PNR kodunuzu kontrol edin.");
+      } finally {
+        setIsLoading(false);
+      }
     })();
-  }, [pnr]);
+  }, [pnrParam]);
 
   /* Confetti + tear */
   useEffect(() => {
-    if (!ticketData) return;
+    if (tickets.length === 0) return;
     const b = (o: confetti.Options) => confetti({ zIndex: 9999, ...o });
     b({ particleCount: 80, spread: 70, startVelocity: 45, origin: { x: 0.35, y: 0.4 }, colors: ["#10b981", "#34d399", "#6ee7b7", "#fff"] });
     b({ particleCount: 60, spread: 100, startVelocity: 38, origin: { x: 0.65, y: 0.4 }, colors: ["#059669", "#047857", "#10b981", "#fff"] });
     const t1 = setTimeout(() => setIsTorn(true), 1200);
     const t2 = setTimeout(() => setShowQR(true), 1500);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [ticketData]);
+  }, [tickets]);
 
   /* Loading */
   if (isLoading) return (
@@ -135,7 +134,7 @@ function SuccessContent() {
   );
 
   /* Error */
-  if (error || !ticketData) return (
+  if (error || tickets.length === 0) return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex flex-col items-center justify-center gap-4">
       <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
         <Ticket className="w-8 h-8 text-red-400" />
@@ -144,22 +143,23 @@ function SuccessContent() {
     </div>
   );
 
-  const d = ticketData;
+  const d = tickets[activeTicket];
+  const totalPaid = totalParam ? Number(totalParam) : tickets.reduce((sum, t) => sum + Number(t.pricePaid), 0);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 flex flex-col transition-colors relative overflow-hidden">
-      {/* ── Background Pattern ── */}
-      <div 
-        className="absolute inset-0 pointer-events-none z-0 opacity-40 dark:opacity-20 hidden md:block" 
-        style={{ 
-          backgroundImage: `radial-gradient(circle at 1.5px 1.5px, #10b981 1.5px, transparent 0)`, 
+      {/* Background Pattern */}
+      <div
+        className="absolute inset-0 pointer-events-none z-0 opacity-40 dark:opacity-20 hidden md:block"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1.5px 1.5px, #10b981 1.5px, transparent 0)`,
           backgroundSize: '32px 32px',
           maskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)',
           WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)'
-        }} 
+        }}
       />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-zinc-800 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -179,7 +179,7 @@ function SuccessContent() {
         </div>
       </header>
 
-      {/* ── Steps indicator ── */}
+      {/* Steps indicator */}
       <div className="relative z-10 max-w-4xl mx-auto px-4 pt-6 flex items-center justify-center gap-4 text-xs font-bold text-slate-400 dark:text-zinc-500">
         <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
           <span className="w-5 h-5 rounded-full flex items-center justify-center border border-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 font-semibold text-[11px]">1</span>
@@ -197,17 +197,40 @@ function SuccessContent() {
         </div>
       </div>
 
-      {/* ── Content ── */}
+      {/* Content */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 space-y-6 z-10 relative">
 
-        {/* ════════════════════════════════════
-            HORIZONTAL BOARDING PASS
-            Sol: büyük parça (tüm bilgiler)
-            Sağ: küçük kopar, QR belirir
-            ════════════════════════════════════ */}
+        {/* Multi-ticket selector */}
+        {tickets.length > 1 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-center gap-3"
+          >
+            <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-1.5 shadow-sm">
+              <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400 ml-2" />
+              <span className="text-xs font-bold text-slate-600 dark:text-zinc-300 mr-1">{tickets.length} Yolcu</span>
+              {tickets.map((t, i) => (
+                <button
+                  key={t.pnrCode}
+                  onClick={() => setActiveTicket(i)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    activeTicket === i
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  Koltuk {t.seat.number}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* HORIZONTAL BOARDING PASS */}
         <div className="relative" style={{ height: 310 }}>
 
-          {/* QR REVEAL — sağ tarafta, kopan parçanın yerine */}
+          {/* QR REVEAL */}
           <AnimatePresence>
             {showQR && (
               <motion.div
@@ -243,7 +266,7 @@ function SuccessContent() {
             )}
           </AnimatePresence>
 
-          {/* ── SOL BÜYÜK PARÇA (tüm bilgiler) — açıldığında sola kayar ── */}
+          {/* LEFT MAIN PIECE */}
           <motion.div
             initial={{ x: 0 }}
             animate={{ x: isTorn ? -150 : 0 }}
@@ -252,7 +275,7 @@ function SuccessContent() {
             style={{ width: "calc(100% - 160px)", height: "100%" }}
           >
             <div className="h-full bg-white dark:bg-zinc-900 rounded-l-2xl border border-r-0 border-slate-200 dark:border-zinc-800 shadow-sm transition-colors">
-              {/* Sağ kenar perforation */}
+              {/* Perforation */}
               <div className="absolute top-3 right-0 bottom-3 w-[4px] z-10 flex flex-col justify-between">
                 {Array.from({ length: 22 }).map((_, i) => (
                   <div key={i} className="w-[5px] h-[5px] rounded-full bg-slate-50 dark:bg-zinc-950 flex-shrink-0" />
@@ -304,7 +327,7 @@ function SuccessContent() {
                   </div>
                 </div>
 
-                {/* Alt bilgiler: Tarih, Saat, Yolcu, Koltuk, Toplam */}
+                {/* Bottom info row */}
                 <div className="flex gap-2">
                   <div className="flex-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-zinc-800/60">
                     <div className="flex items-center gap-1 mb-0.5">
@@ -337,16 +360,20 @@ function SuccessContent() {
                   <div className="flex-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-zinc-800/60">
                     <div className="flex items-center gap-1 mb-0.5">
                       <CreditCard className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
-                      <span className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-zinc-400 font-medium">Toplam</span>
+                      <span className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-zinc-400 font-medium">
+                        {tickets.length > 1 ? 'Toplam' : 'Ücret'}
+                      </span>
                     </div>
-                    <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{Number(d.pricePaid).toFixed(0)} TL</p>
+                    <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                      {tickets.length > 1 ? `${totalPaid} TL` : `${Number(d.pricePaid).toFixed(0)} TL`}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
           </motion.div>
 
-          {/* ── SAĞ KÜÇÜK PARÇA (kopar, sağa kayar) ── */}
+          {/* RIGHT TEAR-OFF PIECE */}
           <motion.div
             initial={{ x: 0 }}
             animate={{ x: isTorn ? 150 : 0 }}
@@ -355,14 +382,13 @@ function SuccessContent() {
             style={{ width: 160, height: "100%" }}
           >
             <div className="h-full bg-white dark:bg-zinc-900 rounded-r-2xl border border-l-0 border-slate-200 dark:border-zinc-800 shadow-sm transition-colors">
-              {/* Sol kenar perforation */}
+              {/* Perforation */}
               <div className="absolute top-3 left-0 bottom-3 w-[4px] z-10 flex flex-col justify-between">
                 {Array.from({ length: 22 }).map((_, i) => (
                   <div key={i} className="w-[5px] h-[5px] rounded-full bg-slate-50 dark:bg-zinc-950 flex-shrink-0" />
                 ))}
               </div>
 
-              {/* Kopmadan önceki kupon içeriği */}
               <div className="h-full flex flex-col items-center justify-center pl-5 pr-5 gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
                   <Ticket className="w-5 h-5 text-emerald-500" />
@@ -380,9 +406,7 @@ function SuccessContent() {
           </motion.div>
         </div>
 
-        {/* ════════════════════════════════════
-            ACTION BUTTONS
-            ════════════════════════════════════ */}
+        {/* ACTION BUTTONS */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: isTorn ? 1 : 0, y: isTorn ? 0 : 16 }}
@@ -399,16 +423,14 @@ function SuccessContent() {
           </button>
         </motion.div>
 
-        {/* ════════════════════════════════════
-            BOTTOM WIDGETS (Trust / Weather / App)
-            ════════════════════════════════════ */}
+        {/* BOTTOM WIDGETS */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: isTorn ? 1 : 0, y: isTorn ? 0 : 16 }}
           transition={{ delay: 0.45, ...sp }}
           className="grid grid-cols-1 md:grid-cols-3 gap-5"
         >
-          {/* 1. Güvenli İşlem Kartı */}
+          {/* Trust Card */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5 shadow-sm transition-all flex flex-col justify-center">
             <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-3">
               <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -419,7 +441,7 @@ function SuccessContent() {
                 <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30">
                   <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <span>Biletiniz rezerve edildi.</span>
+                <span>{tickets.length > 1 ? `${tickets.length} biletiniz rezerve edildi.` : 'Biletiniz rezerve edildi.'}</span>
               </div>
               <div className="flex items-center gap-3 text-xs font-semibold text-slate-600 dark:text-zinc-300">
                 <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/30">
@@ -436,7 +458,7 @@ function SuccessContent() {
             </div>
           </div>
 
-          {/* 2. Hava Durumu Kartı */}
+          {/* Weather Card */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5 shadow-sm transition-all relative group overflow-hidden flex flex-col justify-between">
             <div className={`absolute -left-6 -top-6 w-24 h-24 ${weather?.isDay ? 'bg-amber-500/10' : 'bg-indigo-500/10'} rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700`} />
             <div className="relative z-10">
@@ -449,7 +471,6 @@ function SuccessContent() {
                   <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium tracking-wide">Varış Noktası Hava</p>
                 </div>
               </div>
-              
               <div className="flex items-end gap-2 mb-2">
                 <span className="text-4xl font-black text-slate-800 dark:text-white tracking-tighter leading-none">
                   {weather ? `${weather.temp}°` : <Loader2 className="w-6 h-6 animate-spin text-slate-400" />}
@@ -457,32 +478,29 @@ function SuccessContent() {
                 {weather && <span className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 mb-1">{weather.desc}</span>}
               </div>
             </div>
-            
             <p className="text-[11px] font-medium text-slate-500 dark:text-zinc-500 leading-relaxed relative z-10 mt-2">
-              {weather ? (weather.temp > 20 ? "Sıcak bir hava sizi bekliyor. İnce giyinmenizi tavsiye ederiz." : weather.temp < 10 ? "Hava soğuk, kalın giyinmeyi unutmayın. 🧥" : "Harika bir hava sizi bekliyor. İyi yolculuklar! ✨") : "Hava durumu bilgisi alınıyor..."}
+              {weather ? (weather.temp > 20 ? "Sıcak bir hava sizi bekliyor. İnce giyinmenizi tavsiye ederiz." : weather.temp < 10 ? "Hava soğuk, kalın giyinmeyi unutmayın." : "Harika bir hava sizi bekliyor. İyi yolculuklar!") : "Hava durumu bilgisi alınıyor..."}
             </p>
           </div>
 
-          {/* 3. Mobil Uygulama Kartı */}
+          {/* Mobile App Card */}
           <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 dark:from-emerald-800 dark:to-emerald-950 rounded-2xl p-5 shadow-sm transition-all relative overflow-hidden flex flex-col justify-between group">
             <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-emerald-400/20 rounded-full blur-2xl group-hover:bg-emerald-400/30 transition-colors" />
             <div className="absolute right-0 top-0 w-full h-full opacity-10" style={{ backgroundImage: 'radial-gradient(circle at center, white 1px, transparent 1px)', backgroundSize: '12px 12px' }} />
-            
             <div className="relative z-10">
-               <div className="flex items-center gap-3 mb-3">
-                 <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 backdrop-blur-md border border-white/20">
-                   <Smartphone className="w-5 h-5 text-white" />
-                 </div>
-                 <div>
-                   <h3 className="text-sm font-bold text-white leading-tight mb-0.5">Mobil Uygulama</h3>
-                   <p className="text-[10px] text-emerald-100 font-medium tracking-wide">TransitIQ Cebinizde</p>
-                 </div>
-               </div>
-               <p className="text-[11px] text-emerald-50 mb-3 leading-relaxed opacity-90">
-                 Biletlerinizi yönetmek ve otobüsünüzü canlı takip etmek için uygulamamızı indirin.
-               </p>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 backdrop-blur-md border border-white/20">
+                  <Smartphone className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white leading-tight mb-0.5">Mobil Uygulama</h3>
+                  <p className="text-[10px] text-emerald-100 font-medium tracking-wide">TransitIQ Cebinizde</p>
+                </div>
+              </div>
+              <p className="text-[11px] text-emerald-50 mb-3 leading-relaxed opacity-90">
+                Biletlerinizi yönetmek ve otobüsünüzü canlı takip etmek için uygulamamızı indirin.
+              </p>
             </div>
-            
             <div className="flex items-center justify-between bg-black/20 backdrop-blur-md rounded-xl p-2.5 border border-white/10 relative z-10 mt-auto">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 bg-white rounded flex items-center justify-center shrink-0 p-1">
@@ -498,7 +516,7 @@ function SuccessContent() {
         </motion.div>
       </main>
 
-      {/* ── Footer ── */}
+      {/* Footer */}
       <footer className="w-full py-6 text-center text-sm text-slate-500 dark:text-zinc-500 border-t border-slate-200 dark:border-zinc-800 mt-12">
         © 2026 TransitIQ. Tüm Hakları Saklıdır.
       </footer>

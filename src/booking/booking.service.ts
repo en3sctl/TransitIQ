@@ -213,17 +213,22 @@ export class BookingService {
   }
 
   // ─── Create Multi-Seat Reservation ───
-  async createReservation(createDto: CreateReservationDto & { tenantId: string; userId: string }) {
-    const { tenantId, tripId, passengers, contactEmail, contactPhone, userId } = createDto;
+  async createReservation(createDto: CreateReservationDto & { tenantId?: string; userId?: string }) {
+    const { tripId, passengers, contactEmail, contactPhone } = createDto;
 
+    // Find trip - if tenantId provided, scope to it; otherwise find by ID only
     const trip = await this.prisma.trip.findFirst({
-      where: { id: tripId, tenantId },
+      where: createDto.tenantId ? { id: tripId, tenantId: createDto.tenantId } : { id: tripId },
       include: { vehicle: true, route: true },
     });
 
     if (!trip) {
       throw new NotFoundException('Trip not found');
     }
+
+    // Use trip's tenantId and driverId as fallback userId
+    const resolvedTenantId = createDto.tenantId || trip.tenantId;
+    const resolvedUserId = createDto.userId || trip.driverId;
 
     const seatIds = passengers.map((p) => p.seatId);
 
@@ -258,9 +263,9 @@ export class BookingService {
 
         const booking = await tx.booking.create({
           data: {
-            tenantId,
+            tenantId: resolvedTenantId,
             tripId,
-            userId,
+            userId: resolvedUserId,
             seatId: passenger.seatId,
             passengerTcNo: passenger.tcKimlik,
             passengerName: `${passenger.firstName} ${passenger.lastName}`,

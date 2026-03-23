@@ -240,6 +240,20 @@ model Booking {
   @@map("bookings")
 }
 
+model PendingPayment {
+  id              String   @id @default(uuid())
+  conversationId  String?  @map("conversation_id")
+  paymentToken    String?  @unique @map("payment_token")
+  tripId          String   @map("trip_id")
+  passengersJson  String   @map("passengers_json")
+  contactEmail    String   @map("contact_email")
+  contactPhone    String   @map("contact_phone")
+  price           String
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("pending_payments")
+}
+
 model AuditLog {
   id         String   @id @default(uuid())
   tenantId   String

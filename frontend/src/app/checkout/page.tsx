@@ -32,6 +32,8 @@ import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useBookingStore } from '@/store/useBookingStore';
 import { PassengerForm } from '@/components/checkout/passenger-form';
+import api from '@/lib/api';
+import { toast } from 'sonner';
 
 // ─── Countdown Timer Hook ───
 function useCountdown(minutes: number) {
@@ -271,6 +273,11 @@ function CheckoutContent() {
   const isFormValid = validatePassengers(passengers) && validateContact(contactEmail, contactPhone);
   const canSubmit = isKvkkChecked && isAgreementChecked && isFormValid && !isExpired;
 
+  const formatTime = (str: string) => {
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? str : d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  };
+
   const formattedDate = trip?.date
     ? new Date(trip.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
     : '';
@@ -278,45 +285,65 @@ function CheckoutContent() {
   // Handle empty store (direct URL access protection)
   const hasBookingData = trip && selectedSeats.length > 0;
 
+  const seatIdMap = useBookingStore((s) => s.seatIdMap);
+
   const handlePayment = useCallback(async () => {
     if (!canSubmit || !trip) return;
     setIsPaymentLoading(true);
-    setIsApproved(true);
+
     try {
-      const firstPassenger = passengers[0];
-      const res = await fetch('http://localhost:3000/payment/initialize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          price: String(totalPrice()),
-          paidPrice: String(totalPrice()),
-          buyerName: firstPassenger.firstName,
-          buyerSurname: firstPassenger.lastName,
-          buyerTc: firstPassenger.tcKimlik,
-          buyerEmail: contactEmail,
-          buyerPhone: contactPhone,
-          tripId: trip.tripId,
-          seats: selectedSeats,
-          passengers: passengers.map((p) => ({
-            seatNumber: p.seatNumber,
-            tcKimlik: p.tcKimlik,
-            firstName: p.firstName,
-            lastName: p.lastName,
-          })),
-        }),
-      });
-      const data = await res.json();
-      if (data.checkoutFormContent) {
-        setIyzicoScript(data.checkoutFormContent);
-      } else {
-        setIsApproved(false);
+      // 1. Lock seats first (10-min hold)
+      const seatIds = selectedSeats.map((sn) => seatIdMap[sn]).filter(Boolean);
+      if (seatIds.length !== selectedSeats.length) {
+        toast.error('Koltuk verileri güncel değil. Koltuk seçimine yönlendiriliyorsunuz...');
+        setIsPaymentLoading(false);
+        setTimeout(() => router.back(), 1500);
+        return;
       }
-    } catch {
+
+      await api.post('/booking/seats/lock', {
+        tripId: trip.tripId,
+        seatIds,
+      });
+
+      // 2. Initialize Iyzico payment (with booking data for callback)
+      const firstPassenger = passengers[0];
+      const paymentRes = await api.post('/payment/initialize', {
+        price: String(totalPrice()),
+        buyerName: firstPassenger.firstName,
+        buyerSurname: firstPassenger.lastName,
+        buyerTc: firstPassenger.tcKimlik,
+        buyerEmail: contactEmail,
+        buyerPhone: contactPhone,
+        tripId: trip.tripId,
+        passengers: passengers.map((p) => ({
+          tcKimlik: p.tcKimlik,
+          firstName: p.firstName,
+          lastName: p.lastName,
+          seatId: seatIdMap[p.seatNumber],
+        })),
+      });
+
+      if (paymentRes.data.checkoutFormContent) {
+        setIsApproved(true);
+        setIyzicoScript(paymentRes.data.checkoutFormContent);
+      } else {
+        toast.error('Ödeme formu yüklenemedi. Lütfen tekrar deneyin.');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message;
+      if (typeof msg === 'string') {
+        toast.error(msg);
+      } else if (Array.isArray(msg)) {
+        toast.error(msg[0]);
+      } else {
+        toast.error('Ödeme başlatılırken bir hata oluştu');
+      }
       setIsApproved(false);
     } finally {
       setIsPaymentLoading(false);
     }
-  }, [canSubmit, trip, passengers, contactEmail, contactPhone, totalPrice, selectedSeats]);
+  }, [canSubmit, trip, passengers, contactEmail, contactPhone, totalPrice, selectedSeats, seatIdMap]);
 
   useEffect(() => {
     if (isKvkkModalOpen && kvkkRef.current) kvkkRef.current.scrollTop = 0;
@@ -469,7 +496,7 @@ function CheckoutContent() {
                 </div>
                 <div className="flex-1">
                   <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold">Kalkış / Varış</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">{trip.departureTime} — {trip.arrivalTime}</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{formatTime(trip.departureTime)} — {formatTime(trip.arrivalTime)}</p>
                 </div>
               </div>
 
