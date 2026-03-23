@@ -20,7 +20,7 @@ export class BookingService {
 
     const trips = await this.prisma.trip.findMany({
       where: {
-        tenantId,
+        ...(tenantId && { tenantId }),
         status: TripStatus.PLANNED,
         departureTime: {
           gte: searchDate,

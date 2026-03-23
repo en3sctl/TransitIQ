@@ -8,6 +8,7 @@ import { MapPin, Calendar, MoveRight } from 'lucide-react';
 interface Station {
   id: string;
   name: string;
+  city: string;
 }
 
 export default function SearchForm() {
@@ -48,7 +49,11 @@ export default function SearchForm() {
       alert("Lütfen gidiş tarihi seçin.");
       return;
     }
-    router.push(`/search?originId=${origin}&destinationId=${destination}&date=${date}`);
+    const originStation = stations.find(s => s.id === origin);
+    const destStation = stations.find(s => s.id === destination);
+    const originName = encodeURIComponent(originStation?.city || originStation?.name || '');
+    const destName = encodeURIComponent(destStation?.city || destStation?.name || '');
+    router.push(`/search?originId=${origin}&destinationId=${destination}&date=${date}&from=${originName}&to=${destName}`);
   };
 
   return (

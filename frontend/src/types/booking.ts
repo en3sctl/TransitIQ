@@ -11,9 +11,14 @@ export interface TripInfo {
   tripId: string;
   origin: string;
   destination: string;
+  originStation: string;
+  destinationStation: string;
   date: string;
   departureTime: string;
   arrivalTime: string;
   busType: string;
+  busModel: string;
+  layoutType: string;
+  totalSeats: number;
   basePrice: number;
 }

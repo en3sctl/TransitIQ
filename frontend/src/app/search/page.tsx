@@ -1,46 +1,55 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Bus, Calendar, Clock, Lock, CheckCircle2, ShieldCheck, LifeBuoy, RefreshCcw, Armchair, Users } from "lucide-react";
+import { ArrowLeft, Bus, Calendar, Clock, Lock, CheckCircle2, ShieldCheck, LifeBuoy, RefreshCcw, Users } from "lucide-react";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useBookingStore } from '@/store/useBookingStore';
 import { generateSeatLayout, type SeatStatus } from '@/lib/seat-engine';
+import api from '@/lib/api';
 
 const MAX_SEATS = 5;
 
 interface Trip {
   id: string;
   departureTime: string;
-  arrivalTime: string;
-  duration: string;
+  estimatedArrival: string | null;
   busType: string;
   busModel: string;
   price: number;
   availableSeats: number;
   origin: string;
   destination: string;
+  originStation: string;
+  destinationStation: string;
   layoutType: string;
   totalSeats: number;
+  stops: { name: string; city: string; offsetMinutes: number }[];
 }
 
 interface SeatFromApi {
+  id: string;
   seatNumber: number;
-  status: 'AVAILABLE' | 'SOLD' | 'LOCKED';
+  type: string;
+  status: 'AVAILABLE' | 'SOLD' | 'LOCKED' | 'BLOCKED';
 }
 
 function SearchResultsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const originId = searchParams.get('originId');
-  const destinationId = searchParams.get('destinationId');
+  const fromCity = searchParams.get('from') || '';
+  const toCity = searchParams.get('to') || '';
   const dateStr = searchParams.get('date');
 
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [isLoadingTrips, setIsLoadingTrips] = useState(true);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [apiSeats, setApiSeats] = useState<SeatFromApi[]>([]);
   const [isLoadingSeats, setIsLoadingSeats] = useState<boolean>(false);
   const [isRedirectingToCheckout, setIsRedirectingToCheckout] = useState<boolean>(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   // Zustand store
   const selectedSeats = useBookingStore((s) => s.selectedSeats);
@@ -48,72 +57,57 @@ function SearchResultsPageContent() {
   const removeSeat = useBookingStore((s) => s.removeSeat);
   const clearSeats = useBookingStore((s) => s.clearSeats);
   const setTrip = useBookingStore((s) => s.setTrip);
+  const setSeatIdMap = useBookingStore((s) => s.setSeatIdMap);
   const totalPrice = useBookingStore((s) => s.totalPrice);
 
-  // Mock Trip Data (backend'e bağlanınca burası API'den gelecek)
-  const mockTrips: Trip[] = [
-    {
-      id: "1",
-      departureTime: "10:00",
-      arrivalTime: "15:30",
-      duration: "5s 30dk",
-      busType: "2+1 VIP",
-      busModel: "Mercedes-Benz Travego Premium XL",
-      price: 450,
-      availableSeats: 3,
-      origin: "İstanbul",
-      destination: "Ankara",
-      layoutType: "2+1",
-      totalSeats: 30,
-    },
-    {
-      id: "2",
-      departureTime: "13:30",
-      arrivalTime: "20:00",
-      duration: "6s 30dk",
-      busType: "2+2 Standart",
-      busModel: "Setra S 516 HDX",
-      price: 380,
-      availableSeats: 5,
-      origin: "İstanbul",
-      destination: "Ankara",
-      layoutType: "2+2",
-      totalSeats: 44,
-    },
-    {
-      id: "3",
-      departureTime: "22:00",
-      arrivalTime: "03:30",
-      duration: "5s 30dk",
-      busType: "2+1 VIP",
-      busModel: "MAN Lion's Coach Supreme",
-      price: 480,
-      availableSeats: 12,
-      origin: "İstanbul",
-      destination: "Ankara",
-      layoutType: "2+1",
-      totalSeats: 30,
-    }
-  ];
-
-  // Mock seat statuses (backend'e bağlanınca API'den gelecek)
-  const [apiSeats, setApiSeats] = useState<SeatFromApi[]>([]);
-
+  // ─── Fetch trips from backend ───
   useEffect(() => {
-    if (selectedTrip) {
-      // Simulate API: generate random sold/locked seats
-      const seats: SeatFromApi[] = Array.from({ length: selectedTrip.totalSeats }, (_, i) => {
-        const seatNum = i + 1;
-        let status: SeatFromApi['status'] = 'AVAILABLE';
-        const rand = Math.random();
-        if (rand > 0.82) status = 'SOLD';
-        else if (rand > 0.95) status = 'LOCKED';
-        return { seatNumber: seatNum, status };
+    const fetchTrips = async () => {
+      if (!fromCity || !toCity || !dateStr) {
+        setSearchError('Arama parametreleri eksik');
+        setIsLoadingTrips(false);
+        return;
+      }
+
+      try {
+        setIsLoadingTrips(true);
+        setSearchError(null);
+        const res = await api.get('/booking/search', {
+          params: {
+            startLocation: decodeURIComponent(fromCity),
+            endLocation: decodeURIComponent(toCity),
+            date: dateStr,
+          },
+        });
+        setTrips(res.data);
+      } catch {
+        setSearchError('Seferler yüklenirken bir hata oluştu');
+        setTrips([]);
+      } finally {
+        setIsLoadingTrips(false);
+      }
+    };
+
+    fetchTrips();
+  }, [fromCity, toCity, dateStr]);
+
+  // ─── Fetch seats when trip selected ───
+  const fetchSeatsForTrip = useCallback(async (tripId: string) => {
+    try {
+      const res = await api.get(`/booking/trips/${tripId}/seats`);
+      const data = res.data;
+      setApiSeats(data.seats);
+
+      // Build seatNumber → seatId mapping for checkout
+      const idMap: Record<number, string> = {};
+      data.seats.forEach((s: SeatFromApi) => {
+        idMap[s.seatNumber] = s.id;
       });
-      setApiSeats(seats);
-      clearSeats();
+      setSeatIdMap(idMap);
+    } catch {
+      setApiSeats([]);
     }
-  }, [selectedTrip, clearSeats]);
+  }, [setSeatIdMap]);
 
   // Convert API seats to engine-compatible status map
   const seatStatusMap = useMemo(() => {
@@ -121,6 +115,7 @@ function SearchResultsPageContent() {
     apiSeats.forEach((s) => {
       if (s.status === 'SOLD') map.set(s.seatNumber, 'sold');
       else if (s.status === 'LOCKED') map.set(s.seatNumber, 'locked');
+      else if (s.status === 'BLOCKED') map.set(s.seatNumber, 'sold');
     });
     return map;
   }, [apiSeats]);
@@ -131,25 +126,49 @@ function SearchResultsPageContent() {
     return generateSeatLayout(selectedTrip.layoutType, selectedTrip.totalSeats, seatStatusMap);
   }, [selectedTrip, seatStatusMap]);
 
+  // ─── Format time helper ───
+  const formatTime = (isoStr: string) => {
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDuration = (departure: string, arrival: string | null) => {
+    if (!arrival) return '';
+    const dep = new Date(departure).getTime();
+    const arr = new Date(arrival).getTime();
+    const diff = arr - dep;
+    if (diff <= 0) return '';
+    const hours = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    return `${hours}s ${mins}dk`;
+  };
+
   const handleSelectTrip = (trip: Trip) => {
     setIsLoadingSeats(true);
-    sessionStorage.setItem('tempSelectedTrip', JSON.stringify(trip));
+    clearSeats();
 
-    setTimeout(() => {
+    // Write to Zustand store
+    setTrip({
+      tripId: trip.id,
+      origin: trip.origin,
+      destination: trip.destination,
+      originStation: trip.originStation,
+      destinationStation: trip.destinationStation,
+      date: dateStr || '',
+      departureTime: trip.departureTime,
+      arrivalTime: trip.estimatedArrival || trip.departureTime,
+      busType: trip.busType,
+      busModel: trip.busModel,
+      layoutType: trip.layoutType,
+      totalSeats: trip.totalSeats,
+      basePrice: trip.price,
+    });
+
+    // Fetch real seat data
+    fetchSeatsForTrip(trip.id).then(() => {
       setSelectedTrip(trip);
-      // Zustand store'a trip bilgisini yaz
-      setTrip({
-        tripId: trip.id,
-        origin: trip.origin,
-        destination: trip.destination,
-        date: dateStr || '',
-        departureTime: trip.departureTime,
-        arrivalTime: trip.arrivalTime,
-        busType: trip.busType,
-        basePrice: trip.price,
-      });
       setIsLoadingSeats(false);
-    }, 1500);
+    });
   };
 
   const handleToggleSeat = (seatNumber: number) => {
@@ -162,27 +181,6 @@ function SearchResultsPageContent() {
       addSeat(seatNumber);
     }
   };
-
-  // Restore selectedTrip from sessionStorage on mount (for back-nav from checkout)
-  useEffect(() => {
-    const saved = sessionStorage.getItem('tempSelectedTrip');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as Trip;
-        setSelectedTrip(parsed);
-        setTrip({
-          tripId: parsed.id,
-          origin: parsed.origin,
-          destination: parsed.destination,
-          date: dateStr || '',
-          departureTime: parsed.departureTime,
-          arrivalTime: parsed.arrivalTime,
-          busType: parsed.busType,
-          basePrice: parsed.price,
-        });
-      } catch { /* ignore parse errors */ }
-    }
-  }, [dateStr, setTrip]);
 
   // Seat button style logic
   const getSeatStyle = (seatNumber: number) => {
@@ -218,17 +216,14 @@ function SearchResultsPageContent() {
         </div>
       )}
 
-      {/* Şekilli Şukullu Full Screen Preloader */}
+      {/* Seat Loading Preloader */}
       {isLoadingSeats && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md transition-all duration-300 animate-in fade-in">
           <div className="flex flex-col items-center gap-4">
-
-            {/* Pulsing Back Glow behind Animated Bus */}
             <div className="relative flex items-center justify-center">
               <div className="absolute inset-0 bg-indigo-500/20 dark:bg-indigo-500/10 rounded-full blur-3xl animate-pulse" style={{ width: '150px', height: '150px' }} />
               <Bus className="w-20 h-20 text-indigo-600 dark:text-indigo-400 animate-bounce relative z-10" />
             </div>
-
             <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-2 animate-pulse">Koltuk haritası hazırlanıyor...</p>
             <p className="text-xs text-slate-500 dark:text-zinc-400 font-bold">En uygun koltuklar sizin için listeleniyor.</p>
           </div>
@@ -240,7 +235,7 @@ function SearchResultsPageContent() {
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           {selectedTrip ? (
             <button
-              onClick={() => { setSelectedTrip(null); clearSeats(); sessionStorage.removeItem('tempSelectedTrip'); }}
+              onClick={() => { setSelectedTrip(null); clearSeats(); }}
               className="inline-flex items-center gap-2 text-slate-600 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -248,7 +243,7 @@ function SearchResultsPageContent() {
             </button>
           ) : (
             <button
-              onClick={() => { sessionStorage.removeItem('tempSelectedTrip'); router.push('/'); }}
+              onClick={() => router.push('/')}
               className="inline-flex items-center gap-2 text-slate-600 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -260,7 +255,7 @@ function SearchResultsPageContent() {
             <h1 className="text-lg font-bold text-slate-900 dark:text-white">Gidiş Seferleri</h1>
             <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold flex items-center gap-1.5 mt-0.5">
               <Calendar className="w-3.5 h-3.5" strokeWidth={2.5} />
-              {dateStr ? new Date(dateStr).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }) : '23 Mart 2026'}
+              {dateStr ? new Date(dateStr).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
             </p>
           </div>
           <div>
@@ -294,74 +289,95 @@ function SearchResultsPageContent() {
         <div className={`space-y-4 ${selectedTrip ? 'lg:col-span-1' : 'lg:col-span-3'}`}>
           {!selectedTrip ? (
             <>
-              <div className="flex justify-between items-center text-sm font-bold text-slate-500 dark:text-zinc-400">
-                <span>Mevcut Seferler ({mockTrips.length})</span>
-              </div>
-              <div className="flex flex-col gap-6">
-                {mockTrips.map((trip) => (
-                  <div key={trip.id} className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col xl:flex-row items-center w-full gap-6 hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+              {isLoadingTrips ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">Seferler aranıyor...</p>
+                </div>
+              ) : searchError ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <p className="text-sm font-bold text-red-500">{searchError}</p>
+                  <Button variant="outline" onClick={() => router.push('/')}>Yeni Arama Yap</Button>
+                </div>
+              ) : trips.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <Bus className="w-16 h-16 text-slate-300 dark:text-zinc-600" />
+                  <p className="text-lg font-bold text-slate-500 dark:text-zinc-400">Bu tarih için sefer bulunamadı</p>
+                  <p className="text-sm text-slate-400 dark:text-zinc-500">Farklı bir tarih veya güzergah deneyin</p>
+                  <Button variant="outline" onClick={() => router.push('/')}>Yeni Arama Yap</Button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-between items-center text-sm font-bold text-slate-500 dark:text-zinc-400">
+                    <span>Mevcut Seferler ({trips.length})</span>
+                  </div>
+                  <div className="flex flex-col gap-6">
+                    {trips.map((trip) => (
+                      <div key={trip.id} className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col xl:flex-row items-center w-full gap-6 hover:shadow-md hover:-translate-y-1 transition-all duration-300">
 
-                    {/* 1. Time & Route Group */}
-                    <div className="flex-1 flex items-center w-full gap-4">
-                      <div className="w-24 flex-shrink-0 text-center md:text-left">
-                        <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{trip.departureTime}</span>
-                        <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 mt-0.5 truncate">{trip.origin}</p>
-                      </div>
+                        {/* 1. Time & Route Group */}
+                        <div className="flex-1 flex items-center w-full gap-4">
+                          <div className="w-24 flex-shrink-0 text-center md:text-left">
+                            <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{formatTime(trip.departureTime)}</span>
+                            <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 mt-0.5 truncate">{trip.origin}</p>
+                          </div>
 
-                      <div className="flex-1 flex flex-col items-center gap-1 w-full">
-                        <span className="text-xs text-slate-400 dark:text-zinc-500 font-bold">{trip.duration}</span>
-                        <div className="w-full h-0.5 border-b-2 border-dashed border-slate-300 dark:border-zinc-700 relative flex items-center justify-center">
-                          <Clock className="w-4 h-4 text-slate-400 dark:text-zinc-500 bg-white dark:bg-zinc-900 px-0.5" />
+                          <div className="flex-1 flex flex-col items-center gap-1 w-full">
+                            <span className="text-xs text-slate-400 dark:text-zinc-500 font-bold">{formatDuration(trip.departureTime, trip.estimatedArrival)}</span>
+                            <div className="w-full h-0.5 border-b-2 border-dashed border-slate-300 dark:border-zinc-700 relative flex items-center justify-center">
+                              <Clock className="w-4 h-4 text-slate-400 dark:text-zinc-500 bg-white dark:bg-zinc-900 px-0.5" />
+                            </div>
+                          </div>
+
+                          <div className="w-24 flex-shrink-0 text-center md:text-left">
+                            <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{trip.estimatedArrival ? formatTime(trip.estimatedArrival) : '--:--'}</span>
+                            <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 mt-0.5 truncate">{trip.destination}</p>
+                          </div>
+                        </div>
+
+                        {/* 2. Bus Info Box */}
+                        <div className="w-56 flex-shrink-0 flex items-center gap-3 bg-slate-50 dark:bg-zinc-800/40 px-4 py-3 rounded-xl justify-start overflow-hidden">
+                          <Bus className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                          <div className="truncate">
+                            <div className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full mb-0.5 inline-block">{trip.busType}</div>
+                            <p className="text-xs font-bold text-slate-600 dark:text-zinc-300 truncate">{trip.busModel}</p>
+                          </div>
+                        </div>
+
+                        {/* 3. Price & Action */}
+                        <div className="w-52 flex-shrink-0 flex items-center justify-end gap-4 border-t xl:border-t-0 xl:border-l border-slate-100 dark:border-zinc-800 pt-4 xl:pt-0 xl:pl-4 h-full">
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider">Son {trip.availableSeats} Koltuk</span>
+                            <span className="text-2xl font-black text-slate-900 dark:text-white">₺{trip.price}</span>
+                          </div>
+                          <Button
+                            onClick={() => handleSelectTrip(trip)}
+                            size="sm"
+                            className="bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl font-bold px-4 active:scale-95 transition-all duration-150"
+                          >
+                            Koltuk Seç
+                          </Button>
                         </div>
                       </div>
-
-                      <div className="w-24 flex-shrink-0 text-center md:text-left">
-                        <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{trip.arrivalTime}</span>
-                        <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 mt-0.5 truncate">{trip.destination}</p>
-                      </div>
-                    </div>
-
-                    {/* 2. Bus Info Box */}
-                    <div className="w-56 flex-shrink-0 flex items-center gap-3 bg-slate-50 dark:bg-zinc-800/40 px-4 py-3 rounded-xl justify-start overflow-hidden">
-                      <Bus className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                      <div className="truncate">
-                        <div className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full mb-0.5 inline-block">{trip.busType}</div>
-                        <p className="text-xs font-bold text-slate-600 dark:text-zinc-300 truncate">{trip.busModel}</p>
-                      </div>
-                    </div>
-
-                    {/* 3. Price & Action */}
-                    <div className="w-52 flex-shrink-0 flex items-center justify-end gap-4 border-t xl:border-t-0 xl:border-l border-slate-100 dark:border-zinc-800 pt-4 xl:pt-0 xl:pl-4 h-full">
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider">Son {trip.availableSeats} Koltuk</span>
-                        <span className="text-2xl font-black text-slate-900 dark:text-white">₺{trip.price}</span>
-                      </div>
-                      <Button
-                        onClick={() => handleSelectTrip(trip)}
-                        size="sm"
-                        className="bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl font-bold px-4 active:scale-95 transition-all duration-150"
-                      >
-                        Koltuk Seç
-                      </Button>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </>
+              )}
             </>
           ) : (
-            /* Merged Single Elegant Card for Selected Trip - REORDERED */
+            /* Selected Trip Summary Card */
             <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-md overflow-hidden transition-all duration-300">
-              {/* 1. Trip Summary Header (Top) */}
+              {/* Trip Summary Header */}
               <div className="p-5 border-b border-slate-100 dark:border-zinc-800">
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Seçilen Sefer</h3>
-                  <Button variant="ghost" size="sm" onClick={() => { setSelectedTrip(null); clearSeats(); sessionStorage.removeItem('tempSelectedTrip'); }} className="text-xs text-indigo-600 dark:text-indigo-400 font-bold h-7">Değiştir</Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setSelectedTrip(null); clearSeats(); }} className="text-xs text-indigo-600 dark:text-indigo-400 font-bold h-7">Değiştir</Button>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xl font-black text-slate-900 dark:text-white">{selectedTrip.departureTime}</span>
+                    <span className="text-xl font-black text-slate-900 dark:text-white">{formatTime(selectedTrip.departureTime)}</span>
                     <ArrowLeft className="w-4 h-4 text-slate-400 dark:text-zinc-500 rotate-180" />
-                    <span className="text-xl font-black text-slate-900 dark:text-white">{selectedTrip.arrivalTime}</span>
+                    <span className="text-xl font-black text-slate-900 dark:text-white">{selectedTrip.estimatedArrival ? formatTime(selectedTrip.estimatedArrival) : '--:--'}</span>
                   </div>
                   <p className="text-xs font-bold text-slate-500 dark:text-zinc-400 text-center">{selectedTrip.origin} - {selectedTrip.destination}</p>
                   <div className="border-t border-dashed border-slate-100 dark:border-zinc-800 pt-2 flex justify-between items-center text-sm mt-1">
@@ -371,26 +387,28 @@ function SearchResultsPageContent() {
                 </div>
               </div>
 
-              {/* 2. Minimalist Timeline for Stops/Breaks (Middle) */}
+              {/* Route Stops */}
               <div className="p-5 space-y-4">
                 <h4 className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Güzergah ve Molalar</h4>
                 <div className="space-y-5 relative pl-4 before:absolute before:left-1 before:top-1 before:bottom-1 before:w-0 before:border-l before:border-dashed before:border-slate-300 dark:before:border-zinc-700">
                   <div className="relative flex items-center gap-2">
                     <div className="absolute -left-5 w-2 h-2 rounded-full bg-slate-400 dark:bg-zinc-500 border border-white dark:border-zinc-900 shadow-sm" />
-                    <span className="text-xs font-bold text-slate-700 dark:text-zinc-200">{selectedTrip.origin}</span>
+                    <span className="text-xs font-bold text-slate-700 dark:text-zinc-200">{selectedTrip.originStation || selectedTrip.origin}</span>
                   </div>
-                  <div className="relative flex items-center gap-2">
-                    <div className="absolute -left-5 w-2 h-2 rounded-full bg-amber-500 border border-white dark:border-zinc-900 shadow-sm" />
-                    <span className="text-xs font-bold text-slate-700 dark:text-zinc-200">Bolu Dağı Tesisleri <span className="text-amber-600 dark:text-amber-400 font-medium">(30 dk mola)</span></span>
-                  </div>
+                  {selectedTrip.stops && selectedTrip.stops.map((stop, i) => (
+                    <div key={i} className="relative flex items-center gap-2">
+                      <div className="absolute -left-5 w-2 h-2 rounded-full bg-amber-500 border border-white dark:border-zinc-900 shadow-sm" />
+                      <span className="text-xs font-bold text-slate-700 dark:text-zinc-200">{stop.name} <span className="text-amber-600 dark:text-amber-400 font-medium">({stop.offsetMinutes} dk)</span></span>
+                    </div>
+                  ))}
                   <div className="relative flex items-center gap-2">
                     <div className="absolute -left-5 w-2 h-2 rounded-full bg-indigo-600 border border-white dark:border-zinc-900 shadow-sm" />
-                    <span className="text-xs font-bold text-slate-700 dark:text-zinc-200">{selectedTrip.destination}</span>
+                    <span className="text-xs font-bold text-slate-700 dark:text-zinc-200">{selectedTrip.destinationStation || selectedTrip.destination}</span>
                   </div>
                 </div>
               </div>
 
-              {/* 3. Real Interactive Map Section (Bottom) */}
+              {/* Map */}
               <div className="h-96 relative w-full bg-slate-50 dark:bg-zinc-800/50 border-t border-slate-100 dark:border-zinc-800">
                 <iframe
                   width="100%"
@@ -398,7 +416,7 @@ function SearchResultsPageContent() {
                   frameBorder="0"
                   style={{ border: 0 }}
                   allowFullScreen
-                  src={`https://maps.google.com/maps?q=${selectedTrip.origin}+to+${selectedTrip.destination}&t=&z=6&ie=UTF8&iwloc=&output=embed`}
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(selectedTrip.origin)}+to+${encodeURIComponent(selectedTrip.destination)}&t=&z=6&ie=UTF8&iwloc=&output=embed`}
                   className="filter contrast-[0.9] saturate-[0.9] dark:invert"
                 />
               </div>
@@ -410,7 +428,7 @@ function SearchResultsPageContent() {
         {selectedTrip && seatLayout && (
           <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-md min-h-[500px] flex flex-col transition-all duration-300">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-bold text-slate-400 dark:text-zinc-500 font-semibold">Koltuk Seçimi</h3>
+              <h3 className="text-sm font-bold text-slate-400 dark:text-zinc-500">Koltuk Seçimi</h3>
               <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{selectedSeats.length}/{MAX_SEATS}</span>
             </div>
 
@@ -453,7 +471,7 @@ function SearchResultsPageContent() {
                 </div>
               </div>
 
-              {/* Seat rows - dynamically generated */}
+              {/* Seat rows */}
               <div className="flex flex-col gap-2">
                 {seatLayout.rows.map((row) => (
                   <div
@@ -496,9 +514,6 @@ function SearchResultsPageContent() {
                         ) : null
                       )}
                     </div>
-
-                    {/* Back row: fill full width */}
-                    {row.isBackRow && row.seats.length > seatLayout.leftCols + 1 + seatLayout.rightCols && null}
                   </div>
                 ))}
               </div>
@@ -568,7 +583,7 @@ function SearchResultsPageContent() {
                   </Button>
                 </div>
 
-                {/* Secondary Secure Transaction Card */}
+                {/* Secure Transaction Card */}
                 <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-2xl p-6 shadow-sm space-y-4">
                   <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
                     <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -590,7 +605,7 @@ function SearchResultsPageContent() {
                   </div>
                 </div>
 
-                {/* Branding Filler */}
+                {/* Branding */}
                 <div className="flex flex-col items-center justify-center py-16 animate-in fade-in-50 duration-500">
                   <Bus className="w-16 h-16 mb-4 text-slate-300 dark:text-zinc-600" />
                   <p className="text-5xl font-black text-zinc-950 dark:text-zinc-100 tracking-tight">TransitIQ</p>
@@ -598,7 +613,7 @@ function SearchResultsPageContent() {
                 </div>
               </>
             ) : (
-              /* Trust Banner to fill space when no seat selected */
+              /* Trust Banner */
               <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 shadow-sm space-y-4">
                 <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -626,8 +641,6 @@ function SearchResultsPageContent() {
     </div>
   );
 }
-
-import { Suspense } from "react";
 
 export default function SearchResultsPage() {
   return (

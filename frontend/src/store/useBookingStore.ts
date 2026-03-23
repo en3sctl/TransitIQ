@@ -10,9 +10,11 @@ interface BookingStore {
 
   // Seat state
   selectedSeats: number[];
+  seatIdMap: Record<number, string>; // seatNumber → backend UUID
   addSeat: (seat: number) => void;
   removeSeat: (seat: number) => void;
   clearSeats: () => void;
+  setSeatIdMap: (map: Record<number, string>) => void;
 
   // Passenger state (1 passenger per seat)
   passengers: Passenger[];
@@ -26,15 +28,17 @@ interface BookingStore {
 
   // Computed
   totalPrice: () => number;
+  getSeatId: (seatNumber: number) => string | undefined;
 
   // Reset
   reset: () => void;
 }
 
 const initialState = {
-  trip: null,
-  selectedSeats: [],
-  passengers: [],
+  trip: null as TripInfo | null,
+  selectedSeats: [] as number[],
+  seatIdMap: {} as Record<number, string>,
+  passengers: [] as Passenger[],
   contactEmail: '',
   contactPhone: '',
 };
@@ -84,6 +88,9 @@ export const useBookingStore = create<BookingStore>()(
       clearSeats: () =>
         set({ selectedSeats: [], passengers: [] }, false, 'clearSeats'),
 
+      setSeatIdMap: (map) =>
+        set({ seatIdMap: map }, false, 'setSeatIdMap'),
+
       // Passenger actions
       updatePassenger: (seatNumber, data) =>
         set(
@@ -106,6 +113,8 @@ export const useBookingStore = create<BookingStore>()(
         if (!trip) return 0;
         return selectedSeats.length * trip.basePrice;
       },
+
+      getSeatId: (seatNumber) => get().seatIdMap[seatNumber],
 
       // Reset
       reset: () => set(initialState, false, 'reset'),
