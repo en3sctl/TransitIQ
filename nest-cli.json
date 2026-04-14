@@ -5,7 +5,10 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "assets": [
-      { "include": "tickets/fonts/**/*", "outDir": "dist" }
+      {
+        "include": "tickets/fonts/*.ttf",
+        "outDir": "dist/src"
+      }
     ],
     "watchAssets": true
   }

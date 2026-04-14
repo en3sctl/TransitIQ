@@ -4,9 +4,22 @@ import { BookingStatus } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import * as QRCode from 'qrcode';
 import * as path from 'path';
+import * as fs from 'fs';
 
-const FONT_REGULAR = path.join(__dirname, 'fonts', 'Regular.ttf');
-const FONT_BOLD = path.join(__dirname, 'fonts', 'Bold.ttf');
+function resolveFont(filename: string): string {
+  const candidates = [
+    path.join(__dirname, 'fonts', filename),
+    path.join(process.cwd(), 'src', 'tickets', 'fonts', filename),
+    path.join(process.cwd(), 'dist', 'src', 'tickets', 'fonts', filename),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return candidates[0];
+}
+
+const FONT_REGULAR = resolveFont('Regular.ttf');
+const FONT_BOLD = resolveFont('Bold.ttf');
 
 const COLORS = {
   primary: '#4f46e5',
