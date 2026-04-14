@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
-import { Mail, MapPin, Twitter, Instagram, Facebook, Linkedin } from "lucide-react";
+import { Mail, Phone, MapPin, Twitter, Instagram, Facebook, Linkedin } from "lucide-react";
 
 const SECTIONS = [
   {
@@ -9,22 +9,34 @@ const SECTIONS = [
       { label: 'Rotalar', href: '/rotalar' },
       { label: 'Fiyatlandırma', href: '/fiyatlandirma' },
       { label: 'Bilet Takibi', href: '/bilet-takip' },
-    ],
-  },
-  {
-    title: 'Hesap',
-    links: [
-      { label: 'Giriş Yap', href: '/hesap/giris' },
-      { label: 'Hesap Oluştur', href: '/hesap/kayit' },
-      { label: 'Biletlerim', href: '/hesap/biletlerim' },
+      { label: 'Mobil Uygulama', href: '/blog' },
     ],
   },
   {
     title: 'Kurumsal',
     links: [
       { label: 'Hakkımızda', href: '/hakkimizda' },
+      { label: 'Kariyer', href: '/kariyer' },
+      { label: 'Basın Merkezi', href: '/basin' },
+      { label: 'Blog', href: '/blog' },
+    ],
+  },
+  {
+    title: 'Destek',
+    links: [
+      { label: 'Yardım Merkezi', href: '/yardim' },
+      { label: 'SSS', href: '/sss' },
       { label: 'İletişim', href: '/iletisim' },
-      { label: 'Firma Girişi', href: '/login' },
+      { label: 'İade Politikası', href: '/iade-politikasi' },
+    ],
+  },
+  {
+    title: 'Yasal',
+    links: [
+      { label: 'KVKK Aydınlatma', href: '/kvkk' },
+      { label: 'Gizlilik Politikası', href: '/gizlilik' },
+      { label: 'Kullanım Şartları', href: '/sartlar' },
+      { label: 'Çerez Politikası', href: '/cerez' },
     ],
   },
 ];
@@ -42,7 +54,7 @@ export function SiteFooter() {
     <footer className="border-t border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-950 relative z-20">
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Top grid */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-10">
           {/* Brand col */}
           <div className="col-span-2">
             <BrandLogo width={220} height={120} className="h-11 w-auto mb-4" />
@@ -53,6 +65,10 @@ export function SiteFooter() {
               <div className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5" />
                 <a href="mailto:destek@transitiq.com" className="hover:text-indigo-600 dark:hover:text-indigo-400">destek@transitiq.com</a>
+              </div>
+              <div className="flex items-center gap-2">
+                <Phone className="w-3.5 h-3.5" />
+                <a href="tel:+48881730681" className="hover:text-indigo-600 dark:hover:text-indigo-400">+48 881 730 681</a>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5" />

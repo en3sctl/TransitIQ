@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, MapPin, Clock, Send, Loader2, CheckCircle2, MessageSquare, Headphones, Building2, Sparkles } from "lucide-react";
+import { Mail, Phone, MapPin, Clock, Send, Loader2, CheckCircle2, MessageSquare, Headphones, Building2, Sparkles } from "lucide-react";
 import { LandingNav } from "@/components/landing-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { toast } from "sonner";
@@ -17,11 +17,11 @@ const CONTACT_METHODS = [
     link: 'mailto:destek@transitiq.com',
   },
   {
-    icon: MessageSquare,
-    title: 'Form',
-    value: 'Hızlı İletişim',
-    description: 'Aşağıdaki formu doldurarak yaz',
-    link: null,
+    icon: Phone,
+    title: 'Telefon / WhatsApp',
+    value: '+48 881 730 681',
+    description: 'Arama veya WhatsApp mesajı',
+    link: 'https://wa.me/48881730681',
   },
   {
     icon: MapPin,
@@ -228,11 +228,19 @@ export default function ContactPage() {
 
             <div className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-2xl p-5">
               <Headphones className="w-6 h-6 mb-3 opacity-90" />
-              <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Erken Aşama</p>
-              <p className="text-base font-black mb-2">Geri bildirimin değerli</p>
-              <p className="text-xs opacity-90 leading-relaxed">
-                TransitIQ şu an erken geliştirme aşamasında. Fark ettiğin hatalar, eksiklikler veya özellik önerilerini bana yazarsan ürünü birlikte daha iyi hale getirebiliriz.
+              <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Hızlı İletişim</p>
+              <p className="text-base font-black mb-2">WhatsApp ile yaz</p>
+              <p className="text-xs opacity-90 mb-3 leading-relaxed">
+                Acil konularda veya hızlı sorular için WhatsApp üzerinden ulaşabilirsin:
               </p>
+              <a
+                href="https://wa.me/48881730681"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur border border-white/20 rounded-lg px-3 py-2 text-xs font-bold hover:bg-white/25 transition-colors"
+              >
+                <Phone className="w-3 h-3" /> +48 881 730 681
+              </a>
             </div>
 
             <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5">
