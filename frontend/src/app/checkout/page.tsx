@@ -32,6 +32,7 @@ import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useBookingStore } from '@/store/useBookingStore';
 import { PassengerForm } from '@/components/checkout/passenger-form';
+import { useAuth } from '@/context/auth-context';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -246,6 +247,7 @@ function validateContact(email: string, phone: string) {
 // ─── Main Checkout Content ───
 function CheckoutContent() {
   const router = useRouter();
+  const { user } = useAuth();
 
   // Zustand store
   const trip = useBookingStore((s) => s.trip);
@@ -254,6 +256,23 @@ function CheckoutContent() {
   const contactEmail = useBookingStore((s) => s.contactEmail);
   const contactPhone = useBookingStore((s) => s.contactPhone);
   const totalPrice = useBookingStore((s) => s.totalPrice);
+  const setContactEmail = useBookingStore((s) => s.setContactEmail);
+  const setContactPhone = useBookingStore((s) => s.setContactPhone);
+  const updatePassenger = useBookingStore((s) => s.updatePassenger);
+
+  // Auto-fill contact and first passenger info from logged-in user
+  useEffect(() => {
+    if (!user || user.role !== 'PASSENGER') return;
+    if (!contactEmail && user.email) setContactEmail(user.email);
+    if (!contactPhone && (user as any).phoneNumber) setContactPhone((user as any).phoneNumber);
+    if (passengers.length > 0 && !passengers[0].firstName && !passengers[0].lastName) {
+      const parts = (user.name || '').split(' ');
+      const firstName = parts.slice(0, -1).join(' ') || parts[0] || '';
+      const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
+      updatePassenger(passengers[0].seatNumber, { firstName, lastName });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // Local UI state
   const [isKvkkChecked, setIsKvkkChecked] = useState(false);

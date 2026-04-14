@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsNotEmpty, Matches, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsNotEmpty, Matches, IsOptional, ValidateIf } from 'class-validator';
 
 export class CustomerRegisterDto {
   @IsEmail({}, { message: 'Geçerli bir email giriniz' })
@@ -17,9 +17,10 @@ export class CustomerRegisterDto {
   @IsNotEmpty({ message: 'Soyad gereklidir' })
   lastName: string;
 
-  @IsString()
   @IsOptional()
-  @Matches(/^(\+90|0)?5\d{9}$/, { message: 'Geçerli bir telefon numarası giriniz' })
+  @ValidateIf((o) => o.phone !== undefined && o.phone !== null && o.phone !== '')
+  @IsString()
+  @Matches(/^(\+90|0)?5\d{9}$/, { message: 'Geçerli bir telefon numarası giriniz (örn: 05XX XXX XX XX)' })
   phone?: string;
 }
 

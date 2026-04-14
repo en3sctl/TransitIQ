@@ -9,7 +9,7 @@ import { TicketConfirmationEmail } from './templates/ticket-confirmation';
 import { TicketsService } from '../tickets/tickets.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 
-function resolveLogoBase64(): string {
+function resolveLogoBuffer(): Buffer | null {
   const candidates = [
     path.join(__dirname, 'templates', 'logo-email.png'),
     path.join(process.cwd(), 'src', 'notifications', 'templates', 'logo-email.png'),
@@ -17,14 +17,14 @@ function resolveLogoBase64(): string {
   ];
   for (const p of candidates) {
     if (fs.existsSync(p)) {
-      const buf = fs.readFileSync(p);
-      return `data:image/png;base64,${buf.toString('base64')}`;
+      return fs.readFileSync(p);
     }
   }
-  return '';
+  return null;
 }
 
-const LOGO_DATA_URL = resolveLogoBase64();
+const LOGO_BUFFER = resolveLogoBuffer();
+const LOGO_CID = 'transitiq-logo-2026';
 
 const MONTHS_TR = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -95,10 +95,10 @@ export class NotificationsService {
         })),
       );
 
-      // Render email HTML
+      // Render email HTML — use cid: reference for inline logo
       const html = await render(
         React.createElement(TicketConfirmationEmail, {
-          logoDataUrl: LOGO_DATA_URL,
+          logoDataUrl: LOGO_BUFFER ? `cid:${LOGO_CID}` : '',
           passengerName: first.passengerName,
           pnrCodes: valid.map((b) => b.pnrCode),
           origin: first.trip.route.originStation.city,
@@ -121,15 +121,36 @@ export class NotificationsService {
           ? `${valid.length} biletiniz hazır — ${first.trip.route.originStation.city} → ${first.trip.route.destinationStation.city}`
           : `Biletiniz hazır — PNR: ${first.pnrCode}`;
 
+      const allAttachments: Array<{
+        filename: string;
+        content: Buffer;
+        contentType?: string;
+        contentId?: string;
+        contentDisposition?: 'attachment' | 'inline';
+      }> = attachments.map((a) => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: 'application/pdf',
+        contentDisposition: 'attachment',
+      }));
+
+      // Inline logo via Content-ID (referenced by `cid:LOGO_CID` in HTML)
+      if (LOGO_BUFFER) {
+        allAttachments.push({
+          filename: 'transitiq-logo.png',
+          content: LOGO_BUFFER,
+          contentType: 'image/png',
+          contentId: LOGO_CID,
+          contentDisposition: 'inline',
+        });
+      }
+
       const result = await this.resend.emails.send({
         from: this.fromAddress,
         to: first.contactEmail,
         subject,
         html,
-        attachments: attachments.map((a) => ({
-          filename: a.filename,
-          content: a.content,
-        })),
+        attachments: allAttachments as any,
       });
 
       if (result.error) {

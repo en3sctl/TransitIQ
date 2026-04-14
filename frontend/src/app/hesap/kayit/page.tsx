@@ -51,10 +51,16 @@ export default function CustomerRegisterPage() {
     setError(null);
 
     try {
-      const res = await api.post("/auth/customer/register", {
-        ...formData,
-        email: formData.email.toLowerCase(),
-      });
+      const payload: Record<string, string> = {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+      };
+      const cleanPhone = formData.phone.replace(/\s/g, '');
+      if (cleanPhone) payload.phone = cleanPhone;
+
+      const res = await api.post("/auth/customer/register", payload);
       // Auto-login after successful registration
       login(res.data.access_token, res.data.user, '/hesap/biletlerim');
     } catch (err: any) {

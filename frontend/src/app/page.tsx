@@ -1,42 +1,12 @@
-import { Button } from "@/components/ui/button";
 import { MoveRight } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import SearchForm from "@/components/search-form";
-import { ModeToggle } from "@/components/mode-toggle";
+import { LandingNav } from "@/components/landing-nav";
 
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 overflow-hidden relative">
-      {/* Navigation */}
-      <nav className="flex items-center justify-between px-6 py-5 max-w-7xl mx-auto w-full border-b border-zinc-200/80 dark:border-zinc-800 relative z-30 backdrop-blur-md bg-white/80 dark:bg-zinc-950/80 sticky top-0">
-        <div className="flex items-center gap-2">
-          <Image
-            src="/yeni_logo.png"
-            alt="TransitIQ"
-            width={260}
-            height={142}
-            priority
-            className="h-14 w-auto select-none"
-          />
-        </div>
-        <div className="hidden md:flex items-center gap-8 text-sm font-bold text-zinc-600 dark:text-zinc-400">
-          <Link href="/rotalar" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Rotalar</Link>
-          <Link href="/fiyatlandirma" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Fiyatlandırma</Link>
-          <Link href="/hakkimizda" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Hakkımızda</Link>
-          <Link href="/bilet-takip" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Biletimi Bul</Link>
-        </div>
-        <div className="flex items-center gap-3">
-          <ModeToggle />
-          <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-800" />
-          <Link href="/hesap/giris">
-            <Button variant="ghost" className="text-sm rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 font-semibold">Giriş Yap</Button>
-          </Link>
-          <Link href="/hesap/kayit">
-            <Button className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white rounded-xl text-sm shadow-sm font-semibold px-5">Kayıt Ol</Button>
-          </Link>
-        </div>
-      </nav>
+      <LandingNav />
 
       {/* Hero Section with High-Res Background */}
       <main className="flex-1 relative flex flex-col items-center justify-center text-center px-6 pt-24 pb-36 z-10 w-full">
