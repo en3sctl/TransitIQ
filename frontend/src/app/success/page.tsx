@@ -166,7 +166,7 @@ function SuccessContent() {
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
             <Image
-              src="/yeni_logo.png"
+              src="/logoo.png"
               alt="TransitIQ"
               width={160}
               height={87}

@@ -126,7 +126,7 @@ export default function MyTicketsPage() {
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-zinc-800 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/">
-            <Image src="/yeni_logo.png" alt="TransitIQ" width={160} height={87} priority className="h-10 w-auto" />
+            <Image src="/logoo.png" alt="TransitIQ" width={160} height={87} priority className="h-10 w-auto" />
           </Link>
           <div className="flex items-center gap-3">
             <Link

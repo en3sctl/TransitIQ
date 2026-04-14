@@ -46,7 +46,7 @@ export default function LandingPage() {
       <footer className="px-6 py-12 border-t border-zinc-200/80 dark:border-zinc-800 max-w-7xl mx-auto w-full flex flex-col md:flex-row justify-between items-center gap-8 text-zinc-500 text-sm relative z-20 bg-white dark:bg-zinc-950">
         <div className="flex items-center gap-2">
           <Image
-            src="/yeni_logo.png"
+            src="/logoo.png"
             alt="TransitIQ"
             width={160}
             height={87}

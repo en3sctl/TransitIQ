@@ -642,7 +642,7 @@ function SearchResultsPageContent() {
                 {/* Branding */}
                 <div className="flex flex-col items-center justify-center py-16 animate-in fade-in-50 duration-500">
                   <Image
-                    src="/yeni_logo.png"
+                    src="/logoo.png"
                     alt="TransitIQ"
                     width={320}
                     height={175}

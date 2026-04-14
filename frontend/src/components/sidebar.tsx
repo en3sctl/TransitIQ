@@ -48,7 +48,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       <div className="px-6 pt-7 pb-5">
         <Link href="/admin" className="flex flex-col gap-2 group transition-all items-start">
           <Image
-            src="/yeni_logo.png"
+            src="/logoo.png"
             alt="TransitIQ"
             width={300}
             height={164}

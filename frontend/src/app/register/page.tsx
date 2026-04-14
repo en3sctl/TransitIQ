@@ -146,7 +146,7 @@ export default function RegisterPage() {
                 <div className="space-y-3">
                    <div className="lg:hidden flex items-center mb-10">
                      <Image
-                       src="/yeni_logo.png"
+                       src="/logoo.png"
                        alt="TransitIQ"
                        width={200}
                        height={109}
