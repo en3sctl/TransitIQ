@@ -282,14 +282,16 @@ function AdminDashboardContent() {
               <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-800 mx-2" />
 
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger
-                  render={
-                    <Button className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white rounded-xl h-10 px-5 text-xs font-black shadow-sm transition-all active:scale-[0.98]">
-                      <Plus className="mr-2 h-4 w-4 stroke-[3]" /> 
-                      {activeTab === 'vehicles' ? 'Araç Ekle' : activeTab === 'stations' ? 'İstasyon Ekle' : activeTab === 'routes' ? 'Rota Oluştur' : 'Sefer Ata'}
-                    </Button>
-                  }
-                />
+                {activeTab !== 'overview' && activeTab !== 'bookings' && (
+                  <DialogTrigger
+                    render={
+                      <Button className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white rounded-xl h-10 px-5 text-xs font-black shadow-sm transition-all active:scale-[0.98]">
+                        <Plus className="mr-2 h-4 w-4 stroke-[3]" />
+                        {activeTab === 'vehicles' ? 'Araç Ekle' : activeTab === 'stations' ? 'İstasyon Ekle' : activeTab === 'routes' ? 'Rota Oluştur' : 'Sefer Ata'}
+                      </Button>
+                    }
+                  />
+                )}
                 <DialogContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-[32px] sm:max-w-lg p-10 shadow-2xl overflow-hidden ring-1 ring-zinc-950/5">
                   <DialogHeader className="mb-8 p-1">
                     <DialogTitle className="text-3xl font-black tracking-tighter">
@@ -389,10 +391,10 @@ function AdminDashboardContent() {
                    </div>
                 </TabsContent>
 
-                <TabsContent value="vehicles"><TableCard title="Filo Yönetimi" count={vehicles.length}><VehiclesTable vehicles={vehicles} /></TableCard></TabsContent>
-                <TabsContent value="stations"><TableCard title="İstasyon Yönetimi" count={stations.length}><StationsTable stations={stations} /></TableCard></TabsContent>
-                <TabsContent value="routes"><TableCard title="Ağ Haritası" count={routes.length}><RoutesTable routes={routes} /></TableCard></TabsContent>
-                <TabsContent value="trips"><TableCard title="Sefer Kayıtları" count={trips.length}><TripsTable trips={trips} /></TableCard></TabsContent>
+                <TabsContent value="vehicles"><TableCard title="Filo Yönetimi" count={vehicles.length} actionLabel="Araç Ekle" onAction={() => setIsDialogOpen(true)}><VehiclesTable vehicles={vehicles} /></TableCard></TabsContent>
+                <TabsContent value="stations"><TableCard title="İstasyon Yönetimi" count={stations.length} actionLabel="İstasyon Ekle" onAction={() => setIsDialogOpen(true)}><StationsTable stations={stations} /></TableCard></TabsContent>
+                <TabsContent value="routes"><TableCard title="Ağ Haritası" count={routes.length} actionLabel="Rota Oluştur" onAction={() => setIsDialogOpen(true)}><RoutesTable routes={routes} /></TableCard></TabsContent>
+                <TabsContent value="trips"><TableCard title="Sefer Kayıtları" count={trips.length} actionLabel="Sefer Ata" onAction={() => setIsDialogOpen(true)}><TripsTable trips={trips} /></TableCard></TabsContent>
                 <TabsContent value="bookings" className="mt-6"><AdminBookingsPanel /></TabsContent>
               </Tabs>
             </div>
@@ -428,7 +430,7 @@ function StatsCard({ label, value, icon: Icon, trend, color }: any) {
   );
 }
 
-function TableCard({ title, count, children }: any) {
+function TableCard({ title, count, children, actionLabel, onAction }: { title: string; count: number; children: React.ReactNode; actionLabel?: string; onAction?: () => void }) {
   return (
     <Card className="rounded-[40px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden ring-1 ring-zinc-950/5 transition-colors duration-500">
       <CardHeader className="p-8 border-b border-zinc-100 dark:border-zinc-800 flex flex-row items-center justify-between">
@@ -436,6 +438,15 @@ function TableCard({ title, count, children }: any) {
           <CardTitle className="text-2xl font-black tracking-tighter text-zinc-900 dark:text-zinc-100">{title}</CardTitle>
           <CardDescription className="text-zinc-500 dark:text-zinc-400 font-bold uppercase text-[10px] tracking-widest">{count} Kayıt Mevcut</CardDescription>
         </div>
+        {actionLabel && onAction && (
+          <Button
+            onClick={onAction}
+            className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white rounded-xl h-10 px-5 text-xs font-black shadow-sm transition-all active:scale-[0.98]"
+          >
+            <Plus className="mr-2 h-4 w-4 stroke-[3]" />
+            {actionLabel}
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="p-0">{children}</CardContent>
     </Card>

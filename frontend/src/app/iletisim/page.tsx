@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, Phone, MapPin, Clock, Send, Loader2, CheckCircle2, MessageSquare, Headphones, Building2, Sparkles } from "lucide-react";
+import { Mail, MapPin, Clock, Send, Loader2, CheckCircle2, MessageSquare, Headphones, Building2, Sparkles } from "lucide-react";
 import { LandingNav } from "@/components/landing-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { toast } from "sonner";
@@ -17,17 +17,17 @@ const CONTACT_METHODS = [
     link: 'mailto:destek@transitiq.com',
   },
   {
-    icon: Phone,
-    title: 'Telefon',
-    value: '+90 (850) 123 45 67',
-    description: 'Hafta içi 09:00 - 18:00',
-    link: 'tel:+908501234567',
+    icon: MessageSquare,
+    title: 'Form',
+    value: 'Hızlı İletişim',
+    description: 'Aşağıdaki formu doldurarak yaz',
+    link: null,
   },
   {
     icon: MapPin,
-    title: 'Merkez Ofis',
-    value: 'Ankara, Türkiye',
-    description: 'Çankaya, Cumhuriyet Cad. No: 42',
+    title: 'Merkez',
+    value: 'İstanbul, Türkiye',
+    description: 'Uzaktan çalışan solo girişim',
     link: null,
   },
 ];
@@ -228,19 +228,11 @@ export default function ContactPage() {
 
             <div className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-2xl p-5">
               <Headphones className="w-6 h-6 mb-3 opacity-90" />
-              <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">7/24 Bilet Desteği</p>
-              <p className="text-base font-black mb-2">Yolda mısın?</p>
-              <p className="text-xs opacity-90 mb-3 leading-relaxed">
-                Sefer anındaki acil sorunlar için 7/24 WhatsApp hattımız:
+              <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Erken Aşama</p>
+              <p className="text-base font-black mb-2">Geri bildirimin değerli</p>
+              <p className="text-xs opacity-90 leading-relaxed">
+                TransitIQ şu an erken geliştirme aşamasında. Fark ettiğin hatalar, eksiklikler veya özellik önerilerini bana yazarsan ürünü birlikte daha iyi hale getirebiliriz.
               </p>
-              <a
-                href="https://wa.me/908501234567"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur border border-white/20 rounded-lg px-3 py-2 text-xs font-bold hover:bg-white/25 transition-colors"
-              >
-                <Phone className="w-3 h-3" /> 0850 123 45 67
-              </a>
             </div>
 
             <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5">

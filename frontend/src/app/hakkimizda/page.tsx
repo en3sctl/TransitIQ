@@ -30,10 +30,10 @@ const VALUES = [
 ];
 
 const MILESTONES = [
-  { year: '2024', title: 'Kuruluş', text: 'Ankara\'da 3 kişilik ekiple yola çıktık.' },
-  { year: '2025', title: 'Erken Erişim', text: '5 pilot firma ile MVP\'yi sahaya aldık.' },
-  { year: '2026', title: 'Ticari Lansman', text: 'Tam özellikli platform yayında, 12 ilde hizmet.' },
-  { year: '2027', title: 'Hedef', text: 'Türkiye genelinde 500+ firma, mobil uygulama.' },
+  { year: '2026', title: 'Fikir Tohumu', text: 'Türkiye\'de şehirlerarası otobüs biletleme süreçlerindeki boşluğu fark ettim.' },
+  { year: '2026', title: 'Kodlamaya Başlangıç', text: 'İstanbul\'da tek kişilik bir kod yolculuğu olarak TransitIQ\'nun ilk satırını yazdım.' },
+  { year: '2026', title: 'İlk Sürüm', text: 'Çekirdek platform yayında: bilet arama, koltuk seçimi, ödeme ve PDF bilet entegrasyonları.' },
+  { year: '2027', title: 'Hedef', text: 'İlk firma ortaklıkları ve gerçek yolcular. Mobil uygulama, canlı sefer takibi.' },
 ];
 
 export default function AboutPage() {
@@ -54,8 +54,9 @@ export default function AboutPage() {
             <span className="text-indigo-600 dark:text-indigo-400">Türkiye&apos;nin sesi olmak için varız.</span>
           </h1>
           <p className="text-xl text-slate-600 dark:text-zinc-400 font-medium max-w-3xl leading-relaxed">
-            TransitIQ, şehirlerarası otobüs taşımacılığını 21. yüzyıla taşıyan, yapay zeka destekli bir bilet ve filo yönetim platformudur.
-            Milyonlarca yolcunun her gün hakkı olan şeffaflık, güvenlik ve konforu dijitalleştiriyoruz.
+            TransitIQ, 2026&apos;da İstanbul&apos;da tek kişilik bir girişim olarak yola çıktı.
+            Şehirlerarası otobüs biletleme ve filo yönetiminin dijital altyapısını modern web standartlarıyla sıfırdan kurmak için çalışıyorum.
+            Hedef küçük: Türkiye&apos;nin yolculuk deneyimini biraz daha kolay, biraz daha şeffaf hale getirmek.
           </p>
         </div>
       </section>
@@ -64,10 +65,10 @@ export default function AboutPage() {
       <section className="max-w-5xl mx-auto px-6 py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { num: '150+', label: 'Aktif Rota' },
-            { num: '12', label: 'Hizmet İli' },
-            { num: '25K+', label: 'Mutlu Yolcu' },
-            { num: '%99.9', label: 'Uptime' },
+            { num: '2026', label: 'Kuruluş Yılı' },
+            { num: '1', label: 'Geliştirici' },
+            { num: 'İstanbul', label: 'Merkez' },
+            { num: 'Erken', label: 'Aşama' },
           ].map(({ num, label }) => (
             <div key={label} className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-6 text-center">
               <p className="text-4xl font-black tracking-tighter text-indigo-600 dark:text-indigo-400">{num}</p>

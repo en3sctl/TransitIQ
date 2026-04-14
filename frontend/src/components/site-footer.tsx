@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
-import { Mail, Phone, MapPin, Twitter, Instagram, Facebook, Linkedin } from "lucide-react";
+import { Mail, MapPin, Twitter, Instagram, Facebook, Linkedin } from "lucide-react";
 
 const SECTIONS = [
   {
@@ -9,34 +9,22 @@ const SECTIONS = [
       { label: 'Rotalar', href: '/rotalar' },
       { label: 'Fiyatlandırma', href: '/fiyatlandirma' },
       { label: 'Bilet Takibi', href: '/bilet-takip' },
-      { label: 'Mobil Uygulama', href: '#' },
+    ],
+  },
+  {
+    title: 'Hesap',
+    links: [
+      { label: 'Giriş Yap', href: '/hesap/giris' },
+      { label: 'Hesap Oluştur', href: '/hesap/kayit' },
+      { label: 'Biletlerim', href: '/hesap/biletlerim' },
     ],
   },
   {
     title: 'Kurumsal',
     links: [
       { label: 'Hakkımızda', href: '/hakkimizda' },
-      { label: 'Kariyer', href: '#' },
-      { label: 'Basın Merkezi', href: '#' },
-      { label: 'Blog', href: '#' },
-    ],
-  },
-  {
-    title: 'Destek',
-    links: [
-      { label: 'Yardım Merkezi', href: '#' },
-      { label: 'SSS', href: '#' },
       { label: 'İletişim', href: '/iletisim' },
-      { label: 'İade Politikası', href: '#' },
-    ],
-  },
-  {
-    title: 'Yasal',
-    links: [
-      { label: 'KVKK Aydınlatma', href: '#' },
-      { label: 'Gizlilik Politikası', href: '#' },
-      { label: 'Kullanım Şartları', href: '#' },
-      { label: 'Çerez Politikası', href: '#' },
+      { label: 'Firma Girişi', href: '/login' },
     ],
   },
 ];
@@ -54,7 +42,7 @@ export function SiteFooter() {
     <footer className="border-t border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-950 relative z-20">
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Top grid */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-10">
           {/* Brand col */}
           <div className="col-span-2">
             <BrandLogo width={220} height={120} className="h-11 w-auto mb-4" />
@@ -67,12 +55,8 @@ export function SiteFooter() {
                 <a href="mailto:destek@transitiq.com" className="hover:text-indigo-600 dark:hover:text-indigo-400">destek@transitiq.com</a>
               </div>
               <div className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5" />
-                <a href="tel:+908501234567" className="hover:text-indigo-600 dark:hover:text-indigo-400">+90 (850) 123 45 67</a>
-              </div>
-              <div className="flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5" />
-                <span>Ankara, Türkiye</span>
+                <span>İstanbul, Türkiye</span>
               </div>
             </div>
           </div>
