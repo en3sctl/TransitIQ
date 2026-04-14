@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Check, X, Sparkles, Zap, Rocket, Building2, ArrowRight, Phone, Headphones, Shield, Database, BarChart3, Users } from "lucide-react";
 import { LandingNav } from "@/components/landing-nav";
+import { SiteFooter } from "@/components/site-footer";
 
 const TIERS = [
   {
@@ -251,6 +252,8 @@ export default function PricingPage() {
           </Link>
         </div>
       </section>
+
+      <SiteFooter />
     </div>
   );
 }

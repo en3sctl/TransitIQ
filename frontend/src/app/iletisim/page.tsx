@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, Phone, MapPin, Clock, Send, Loader2, CheckCircle2, MessageSquare, Headphones, Building2, Sparkles } from "lucide-react";
 import { LandingNav } from "@/components/landing-nav";
+import { SiteFooter } from "@/components/site-footer";
 import { toast } from "sonner";
 import api from "@/lib/api";
 
@@ -258,6 +259,8 @@ export default function ContactPage() {
           </div>
         </div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

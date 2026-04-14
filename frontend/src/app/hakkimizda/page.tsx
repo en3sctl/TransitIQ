@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Sparkles, Target, Eye, Heart, TrendingUp, Users, Shield, Zap, Globe, ArrowRight } from "lucide-react";
 import { LandingNav } from "@/components/landing-nav";
+import { SiteFooter } from "@/components/site-footer";
 
 const VALUES = [
   {
@@ -195,6 +196,8 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+
+      <SiteFooter />
     </div>
   );
 }

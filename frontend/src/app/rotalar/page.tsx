@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Search, MapPin, ArrowRight, Clock, Ticket, Loader2, Bus, Sparkles } from "lucide-react";
 import { LandingNav } from "@/components/landing-nav";
+import { SiteFooter } from "@/components/site-footer";
 import api from "@/lib/api";
 
 interface PublicRoute {
@@ -195,6 +196,8 @@ export default function RoutesListingPage() {
           </div>
         </div>
       </section>
+
+      <SiteFooter />
     </div>
   );
 }

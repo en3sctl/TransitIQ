@@ -1,7 +1,7 @@
 import { MoveRight } from "lucide-react";
 import SearchForm from "@/components/search-form";
 import { LandingNav } from "@/components/landing-nav";
-import { BrandLogo } from "@/components/brand-logo";
+import { SiteFooter } from "@/components/site-footer";
 
 export default function LandingPage() {
   return (
@@ -42,18 +42,7 @@ export default function LandingPage() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="px-6 py-12 border-t border-zinc-200/80 dark:border-zinc-800 max-w-7xl mx-auto w-full flex flex-col md:flex-row justify-between items-center gap-8 text-zinc-500 text-sm relative z-20 bg-white dark:bg-zinc-950">
-        <div className="flex items-center gap-2">
-          <BrandLogo width={200} height={109} className="h-10 w-auto opacity-90" />
-        </div>
-        <div className="flex items-center gap-10 font-semibold text-zinc-600 dark:text-zinc-400">
-          <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Gizlilik Politikası</a>
-          <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Şartlar</a>
-          <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">İletişim</a>
-        </div>
-        <div className="font-semibold text-zinc-400 dark:text-zinc-500">© 2026 TransitIQ Inc. Tüm hakları saklıdır.</div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
