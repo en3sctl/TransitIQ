@@ -2,54 +2,78 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import api from '@/lib/api';
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'OPERATOR' | 'DRIVER' | 'PASSENGER';
+  tenantId: string;
+}
 
 interface AuthContextType {
-  user: any | null;
-  login: (token: string, user: any) => void;
+  user: User | null;
+  login: (token: string, user: User, redirect?: string) => void;
   logout: () => void;
   loading: boolean;
+  isPassenger: boolean;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    console.log("AuthContext - Initializing...");
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     if (token && storedUser) {
-      console.log("AuthContext - Found token and user in storage", JSON.parse(storedUser));
-      setUser(JSON.parse(storedUser));
-    } else {
-      console.log("AuthContext - No storage data found");
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
     }
     setLoading(false);
   }, []);
 
-  const login = (token: string, user: any) => {
-    console.log("AuthContext - Executing login function for:", user.email);
+  const login = (token: string, user: User, redirect?: string) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     setUser(user);
-    console.log("AuthContext - State updated, pushing to /admin");
-    router.push('/admin');
+
+    if (redirect) {
+      router.push(redirect);
+      return;
+    }
+
+    // Role-based default redirect
+    if (user.role === 'PASSENGER') {
+      router.push('/hesap/biletlerim');
+    } else if (user.role === 'DRIVER') {
+      router.push('/driver');
+    } else {
+      router.push('/admin');
+    }
   };
 
   const logout = () => {
-    console.log("AuthContext - Executing logout");
+    const wasPassenger = user?.role === 'PASSENGER';
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-    router.push('/login');
+    router.push(wasPassenger ? '/' : '/login');
   };
 
+  const isPassenger = user?.role === 'PASSENGER';
+  const isAdmin = user?.role === 'COMPANY_ADMIN' || user?.role === 'SUPER_ADMIN' || user?.role === 'OPERATOR';
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, isPassenger, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );
