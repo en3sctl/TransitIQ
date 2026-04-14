@@ -217,8 +217,13 @@ export class BookingService {
   }
 
   // ─── Create Multi-Seat Reservation ───
-  async createReservation(createDto: CreateReservationDto & { tenantId?: string; userId?: string }) {
-    const { tripId, passengers, contactEmail, contactPhone } = createDto;
+  async createReservation(createDto: CreateReservationDto & {
+    tenantId?: string;
+    userId?: string;
+    paymentId?: string;
+    paymentTransactionId?: string;
+  }) {
+    const { tripId, passengers, contactEmail, contactPhone, paymentId, paymentTransactionId } = createDto;
 
     // Find trip - if tenantId provided, scope to it; otherwise find by ID only
     const trip = await this.prisma.trip.findFirst({
@@ -278,6 +283,8 @@ export class BookingService {
             pnrCode,
             status: BookingStatus.CONFIRMED,
             pricePaid: trip.route.basePrice,
+            paymentId: paymentId || null,
+            paymentTransactionId: paymentTransactionId || null,
           },
         });
 
@@ -309,8 +316,123 @@ export class BookingService {
     return result;
   }
 
-  // ─── Cancel Booking ───
-  async cancelBooking(tenantId: string, bookingId: string) {
+  // ─── Admin: List bookings for a tenant with filters ───
+  async listTenantBookings(tenantId: string, params: {
+    status?: string;
+    from?: string;
+    to?: string;
+    q?: string;
+    skip?: number;
+    take?: number;
+  }) {
+    const { status, from, to, q, skip = 0, take = 25 } = params;
+
+    const where: any = { tenantId };
+    if (status) where.status = status;
+
+    if (from || to) {
+      where.trip = where.trip || {};
+      where.trip.departureTime = {};
+      if (from) where.trip.departureTime.gte = new Date(from);
+      if (to) where.trip.departureTime.lte = new Date(to);
+    }
+
+    if (q) {
+      where.OR = [
+        { pnrCode: { contains: q, mode: 'insensitive' } },
+        { passengerName: { contains: q, mode: 'insensitive' } },
+        { contactEmail: { contains: q, mode: 'insensitive' } },
+        { contactPhone: { contains: q, mode: 'insensitive' } },
+        { passengerTcNo: { contains: q } },
+      ];
+    }
+
+    const [total, bookings, stats] = await Promise.all([
+      this.prisma.booking.count({ where }),
+      this.prisma.booking.findMany({
+        where,
+        skip,
+        take: Math.min(take, 100),
+        orderBy: { bookingTime: 'desc' },
+        include: {
+          trip: {
+            include: {
+              route: { include: { originStation: true, destinationStation: true } },
+              vehicle: true,
+            },
+          },
+          seat: true,
+        },
+      }),
+      this.prisma.booking.groupBy({
+        by: ['status'],
+        where: { tenantId },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const statsMap = stats.reduce((acc, s) => {
+      acc[s.status] = s._count._all;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      total,
+      skip,
+      take,
+      stats: {
+        confirmed: statsMap.CONFIRMED || 0,
+        cancelled: statsMap.CANCELLED || 0,
+        noShow: statsMap.NO_SHOW || 0,
+      },
+      bookings: bookings.map((b) => ({
+        id: b.id,
+        pnrCode: b.pnrCode,
+        status: b.status,
+        pricePaid: b.pricePaid,
+        bookingTime: b.bookingTime,
+        passengerName: b.passengerName,
+        passengerTcNo: b.passengerTcNo,
+        contactEmail: b.contactEmail,
+        contactPhone: b.contactPhone,
+        paymentId: b.paymentId,
+        seat: { number: b.seat.seatNumber, type: b.seat.type },
+        trip: {
+          id: b.trip.id,
+          departureTime: b.trip.departureTime,
+          estimatedArrival: b.trip.estimatedArrival,
+          status: b.trip.status,
+          origin: { city: b.trip.route.originStation.city, name: b.trip.route.originStation.name },
+          destination: { city: b.trip.route.destinationStation.city, name: b.trip.route.destinationStation.name },
+          vehicle: { plate: b.trip.vehicle.registrationPlate, layoutType: b.trip.vehicle.layoutType },
+        },
+      })),
+    };
+  }
+
+  // ─── Admin: Get single booking detail ───
+  async getTenantBookingDetail(tenantId: string, bookingId: string) {
+    const booking = await this.prisma.booking.findFirst({
+      where: { id: bookingId, tenantId },
+      include: {
+        trip: {
+          include: {
+            route: { include: { originStation: true, destinationStation: true } },
+            vehicle: true,
+            driver: { select: { name: true, email: true, phoneNumber: true } },
+          },
+        },
+        seat: true,
+        user: { select: { id: true, email: true, name: true, role: true } },
+      },
+    });
+
+    if (!booking) throw new NotFoundException('Bilet bulunamadı');
+    return booking;
+  }
+
+  // ─── Admin Cancel Booking (with optional Iyzico refund) ───
+  async cancelBooking(tenantId: string, bookingId: string, opts?: { refund?: boolean }) {
     const booking = await this.prisma.booking.findFirst({
       where: { id: bookingId, tenantId },
     });
@@ -319,25 +441,31 @@ export class BookingService {
       throw new NotFoundException('Booking not found');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      // Cancel booking
-      const cancelled = await tx.booking.update({
-        where: { id: bookingId },
-        data: { status: BookingStatus.CANCELLED },
-      });
+    if (booking.status === BookingStatus.CANCELLED) {
+      throw new BadRequestException('Bu bilet zaten iptal edilmiş');
+    }
 
-      // Free the seat
-      await tx.seat.update({
-        where: { id: booking.seatId },
+    // 1) Cancel + free seat
+    const cancelled = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.booking.update({
+        where: { id: bookingId },
         data: {
-          status: SeatStatus.AVAILABLE,
-          lockedUntil: null,
-          lockedBy: null,
+          status: BookingStatus.CANCELLED,
+          refundStatus: opts?.refund && (booking as any).paymentTransactionId ? 'PENDING' : 'MANUAL',
         },
       });
-
-      return cancelled;
+      await tx.seat.update({
+        where: { id: booking.seatId },
+        data: { status: SeatStatus.AVAILABLE, lockedUntil: null, lockedBy: null },
+      });
+      return updated;
     });
+
+    return {
+      booking: cancelled,
+      paymentTransactionId: (booking as any).paymentTransactionId,
+      pricePaid: booking.pricePaid.toString(),
+    };
   }
 
   // ─── Get Ticket by PNR ───

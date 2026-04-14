@@ -1,10 +1,11 @@
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../common/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto, UpdateProfileDto, ChangePasswordDto } from './dto/customer-auth.dto';
 import { BadRequestException } from '@nestjs/common';
+import { PaymentService } from '../payment/payment.service';
 
 const PUBLIC_TENANT_SLUG = 'public-passengers';
 
@@ -13,6 +14,8 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    @Inject(forwardRef(() => PaymentService))
+    private paymentService: PaymentService,
   ) {}
 
   /** Ensures a shared tenant exists for all passenger accounts. */
@@ -307,7 +310,7 @@ export class AuthService {
     return { message: 'Şifre güncellendi' };
   }
 
-  // ─── Cancel own booking (customer) ───
+  // ─── Cancel own booking (customer) with Iyzico refund ───
   async cancelOwnBooking(userId: string, bookingId: string) {
     const booking = await (this.prisma as any).booking.findUnique({
       where: { id: bookingId },
@@ -332,20 +335,56 @@ export class AuthService {
       throw new BadRequestException('Kalkış saatine 6 saatten az kaldığında iptal yapılamaz');
     }
 
-    return (this.prisma as any).$transaction(async (tx: any) => {
-      const cancelled = await tx.booking.update({
+    // 1) Cancel booking + free seat in DB transaction
+    const cancelled = await (this.prisma as any).$transaction(async (tx: any) => {
+      const updated = await tx.booking.update({
         where: { id: bookingId },
-        data: { status: 'CANCELLED' },
+        data: { status: 'CANCELLED', refundStatus: 'PENDING' },
       });
       await tx.seat.update({
         where: { id: booking.seatId },
         data: { status: 'AVAILABLE', lockedUntil: null, lockedBy: null },
       });
-      return {
-        message: 'Bilet iptal edildi. İade 3-7 iş günü içinde kartınıza yansır.',
-        pnrCode: cancelled.pnrCode,
-      };
+      return updated;
     });
+
+    // 2) Try Iyzico refund (outside transaction to avoid holding DB lock on external call)
+    let refundResult: { success: boolean; refundId?: string; errorMessage?: string } = { success: false };
+    let refundMessage = 'İade 3-7 iş günü içinde kartınıza yansır.';
+
+    if (booking.paymentTransactionId) {
+      refundResult = await this.paymentService.refundPayment(
+        booking.paymentTransactionId,
+        booking.pricePaid.toString(),
+      );
+
+      await (this.prisma as any).booking.update({
+        where: { id: bookingId },
+        data: {
+          refundStatus: refundResult.success ? 'REFUNDED' : 'FAILED',
+          refundedAt: refundResult.success ? new Date() : null,
+        },
+      });
+
+      if (!refundResult.success) {
+        refundMessage = 'Bilet iptal edildi ancak otomatik iade başarısız oldu. Destek ekibimiz sizinle iletişime geçecek.';
+      } else {
+        refundMessage = `₺${booking.pricePaid} iade edildi. Kart sağlayıcınıza göre 3-7 iş günü içinde hesabınıza yansır.`;
+      }
+    } else {
+      // No paymentTransactionId stored — legacy booking, no automatic refund possible
+      refundMessage = 'Bilet iptal edildi. İade için destek ekibiyle iletişime geçin.';
+      await (this.prisma as any).booking.update({
+        where: { id: bookingId },
+        data: { refundStatus: 'MANUAL' },
+      });
+    }
+
+    return {
+      message: `Bilet iptal edildi. ${refundMessage}`,
+      pnrCode: cancelled.pnrCode,
+      refundSuccess: refundResult.success,
+    };
   }
 
   // ─── Get logged-in user's bookings ───

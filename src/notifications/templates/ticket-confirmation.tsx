@@ -71,11 +71,11 @@ export const TicketConfirmationEmail: React.FC<TicketConfirmationEmailProps> = (
                 <Img
                   src={logoDataUrl}
                   alt="TransitIQ"
-                  height="56"
+                  height="88"
                   style={{
-                    height: '56px',
+                    height: '88px',
                     width: 'auto',
-                    margin: '0 auto 8px auto',
+                    margin: '0 auto 10px auto',
                     display: 'block',
                   }}
                 />

@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import ProtectedRoute from "@/components/protected-route";
 import Sidebar from "@/components/sidebar";
+import { AdminBookingsPanel } from "@/components/admin/bookings-panel";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -351,6 +352,7 @@ function AdminDashboardContent() {
                   {/* Temporarily disabled Routes and Trips for schema alignment */}
                   <TabsTrigger value="routes" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Rotalar</TabsTrigger>
                   <TabsTrigger value="trips" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Seferler</TabsTrigger>
+                  <TabsTrigger value="bookings" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Biletler</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview">
@@ -391,6 +393,7 @@ function AdminDashboardContent() {
                 <TabsContent value="stations"><TableCard title="İstasyon Yönetimi" count={stations.length}><StationsTable stations={stations} /></TableCard></TabsContent>
                 <TabsContent value="routes"><TableCard title="Ağ Haritası" count={routes.length}><RoutesTable routes={routes} /></TableCard></TabsContent>
                 <TabsContent value="trips"><TableCard title="Sefer Kayıtları" count={trips.length}><TripsTable trips={trips} /></TableCard></TabsContent>
+                <TabsContent value="bookings" className="mt-6"><AdminBookingsPanel /></TabsContent>
               </Tabs>
             </div>
 

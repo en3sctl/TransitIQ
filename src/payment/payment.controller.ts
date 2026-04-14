@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res } from '@nestjs/common';
+import { Controller, Post, Body, Res, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { PaymentService } from './payment.service';
@@ -12,6 +12,7 @@ export class PaymentController {
 
   constructor(
     private readonly paymentService: PaymentService,
+    @Inject(forwardRef(() => BookingService))
     private readonly bookingService: BookingService,
     private readonly configService: ConfigService,
   ) {
@@ -62,12 +63,18 @@ export class PaymentController {
 
         if (pendingData) {
           try {
+            // Extract paymentTransactionId from first basket item (refund requires per-item ID)
+            const firstItemTx = result.itemTransactions?.[0];
+            const paymentTransactionId = firstItemTx?.paymentTransactionId || undefined;
+
             const bookingResult = await this.bookingService.createReservation({
               tripId: pendingData.tripId,
               passengers: pendingData.passengers,
               contactEmail: pendingData.contactEmail,
               contactPhone: pendingData.contactPhone,
               userId: pendingData.userId,
+              paymentId: result.paymentId,
+              paymentTransactionId,
             });
 
             await this.paymentService.removePendingBookingByToken(body.token);

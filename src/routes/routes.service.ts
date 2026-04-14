@@ -58,6 +58,58 @@ export class RoutesService {
     });
   }
 
+  /**
+   * Public route listing for /rotalar page.
+   * Returns all routes across tenants with origin/destination + minimum upcoming trip price.
+   */
+  async findAllPublic(q?: string) {
+    const where: any = {};
+    if (q) {
+      where.OR = [
+        { originStation: { city: { contains: q, mode: 'insensitive' } } },
+        { destinationStation: { city: { contains: q, mode: 'insensitive' } } },
+        { originStation: { name: { contains: q, mode: 'insensitive' } } },
+        { destinationStation: { name: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+
+    const routes = await this.prisma.route.findMany({
+      where,
+      include: {
+        originStation: true,
+        destinationStation: true,
+        trips: {
+          where: {
+            status: 'PLANNED',
+            departureTime: { gte: new Date() },
+          },
+          orderBy: { departureTime: 'asc' },
+          take: 1,
+        },
+      },
+    });
+
+    // Deduplicate by origin→destination city pair, pick cheapest
+    const map = new Map<string, any>();
+    for (const r of routes) {
+      const key = `${r.originStation.city}→${r.destinationStation.city}`;
+      const price = Number(r.basePrice);
+      const existing = map.get(key);
+      if (!existing || price < existing.price) {
+        map.set(key, {
+          id: r.id,
+          origin: { city: r.originStation.city, name: r.originStation.name },
+          destination: { city: r.destinationStation.city, name: r.destinationStation.name },
+          price,
+          distanceKm: r.totalDistanceKm,
+          nextDeparture: r.trips[0]?.departureTime || null,
+        });
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => a.price - b.price);
+  }
+
   async findOne(tenantId: string, id: string) {
     const route = await this.prisma.route.findFirst({
       where: {

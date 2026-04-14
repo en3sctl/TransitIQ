@@ -229,7 +229,10 @@ model Booking {
   pricePaid       Decimal       @map("price_paid")
   bookingTime     DateTime      @default(now()) @map("booking_time")
   pnrCode         String        @unique @map("pnr_code")
-  paymentId       String?       @map("payment_id")
+  paymentId              String?       @map("payment_id")
+  paymentTransactionId   String?       @map("payment_transaction_id")
+  refundStatus           String?       @map("refund_status")
+  refundedAt             DateTime?     @map("refunded_at")
   status          BookingStatus @default(CONFIRMED)
 
   tenant Tenant @relation(fields: [tenantId], references: [id])

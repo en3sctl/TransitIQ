@@ -150,7 +150,7 @@ export class PaymentService {
     });
   }
 
-  async retrieveCheckoutForm(token: string): Promise<{ status: string; conversationId: string; paymentId: string }> {
+  async retrieveCheckoutForm(token: string): Promise<{ status: string; conversationId: string; paymentId: string; itemTransactions?: any[] }> {
     return new Promise((resolve, reject) => {
       this.iyzipay.checkoutForm.retrieve(
         { locale: 'tr', token },
@@ -162,8 +162,58 @@ export class PaymentService {
               status: result.status,
               conversationId: result.conversationId || '',
               paymentId: result.paymentId || '',
+              itemTransactions: result.itemTransactions,
             });
           }
+        },
+      );
+    });
+  }
+
+  /**
+   * Refund a payment via Iyzico using the paymentTransactionId.
+   * Note: refund requires `paymentTransactionId` (per-item), NOT the top-level `paymentId`.
+   */
+  async refundPayment(paymentTransactionId: string, price: string): Promise<{ success: boolean; refundId?: string; errorMessage?: string }> {
+    return new Promise((resolve) => {
+      this.iyzipay.refund.create(
+        {
+          locale: 'tr',
+          conversationId: `refund-${Date.now()}`,
+          paymentTransactionId,
+          price,
+          currency: 'TRY',
+          ip: '85.34.78.112',
+        },
+        (err: any, result: any) => {
+          if (err) {
+            resolve({ success: false, errorMessage: err.message || 'Iyzico refund error' });
+            return;
+          }
+          if (result.status === 'success') {
+            resolve({ success: true, refundId: result.paymentId });
+          } else {
+            resolve({ success: false, errorMessage: result.errorMessage || 'Refund rejected' });
+          }
+        },
+      );
+    });
+  }
+
+  /**
+   * Retrieve full payment details via Iyzico to extract paymentTransactionId for each basket item.
+   */
+  async getPaymentDetails(paymentId: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.iyzipay.payment.retrieve(
+        {
+          locale: 'tr',
+          conversationId: `lookup-${Date.now()}`,
+          paymentId,
+        },
+        (err: any, result: any) => {
+          if (err) return reject(err);
+          resolve(result);
         },
       );
     });
