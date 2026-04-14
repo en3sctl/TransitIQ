@@ -16,6 +16,7 @@ import {
 } from '@react-email/components';
 
 interface TicketConfirmationEmailProps {
+  logoDataUrl?: string;
   passengerName: string;
   pnrCodes: string[];
   origin: string;
@@ -33,6 +34,7 @@ interface TicketConfirmationEmailProps {
 }
 
 export const TicketConfirmationEmail: React.FC<TicketConfirmationEmailProps> = ({
+  logoDataUrl,
   passengerName,
   pnrCodes,
   origin,
@@ -60,14 +62,41 @@ export const TicketConfirmationEmail: React.FC<TicketConfirmationEmailProps> = (
             {/* Header */}
             <Section
               style={{
-                background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4f46e5 100%)',
                 padding: '32px 40px',
+                textAlign: 'center',
               }}
             >
-              <Heading className="text-white text-2xl font-bold m-0" style={{ letterSpacing: '-0.5px' }}>
-                TransitIQ
-              </Heading>
-              <Text className="text-blue-100 text-xs mt-1 mb-0">
+              {logoDataUrl ? (
+                <Img
+                  src={logoDataUrl}
+                  alt="TransitIQ"
+                  height="56"
+                  style={{
+                    height: '56px',
+                    width: 'auto',
+                    margin: '0 auto 8px auto',
+                    display: 'block',
+                  }}
+                />
+              ) : (
+                <Heading
+                  className="text-white text-3xl font-bold m-0"
+                  style={{ letterSpacing: '-0.5px' }}
+                >
+                  TransitIQ
+                </Heading>
+              )}
+              <Text
+                style={{
+                  color: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  margin: '8px 0 0 0',
+                  opacity: 0.9,
+                  letterSpacing: '0.3px',
+                }}
+              >
                 Türkiye Genelinde Güvenli ve Konforlu Seyahat
               </Text>
             </Section>

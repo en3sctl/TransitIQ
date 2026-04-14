@@ -3,9 +3,28 @@ import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import * as React from 'react';
+import * as fs from 'fs';
+import * as path from 'path';
 import { TicketConfirmationEmail } from './templates/ticket-confirmation';
 import { TicketsService } from '../tickets/tickets.service';
 import { PrismaService } from '../common/prisma/prisma.service';
+
+function resolveLogoBase64(): string {
+  const candidates = [
+    path.join(__dirname, 'templates', 'logo-email.png'),
+    path.join(process.cwd(), 'src', 'notifications', 'templates', 'logo-email.png'),
+    path.join(process.cwd(), 'dist', 'src', 'notifications', 'templates', 'logo-email.png'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      const buf = fs.readFileSync(p);
+      return `data:image/png;base64,${buf.toString('base64')}`;
+    }
+  }
+  return '';
+}
+
+const LOGO_DATA_URL = resolveLogoBase64();
 
 const MONTHS_TR = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -79,6 +98,7 @@ export class NotificationsService {
       // Render email HTML
       const html = await render(
         React.createElement(TicketConfirmationEmail, {
+          logoDataUrl: LOGO_DATA_URL,
           passengerName: first.passengerName,
           pnrCodes: valid.map((b) => b.pnrCode),
           origin: first.trip.route.originStation.city,

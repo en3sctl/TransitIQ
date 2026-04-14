@@ -6,11 +6,11 @@ import * as QRCode from 'qrcode';
 import * as path from 'path';
 import * as fs from 'fs';
 
-function resolveFont(filename: string): string {
+function resolveAsset(relativeDir: string, filename: string): string {
   const candidates = [
-    path.join(__dirname, 'fonts', filename),
-    path.join(process.cwd(), 'src', 'tickets', 'fonts', filename),
-    path.join(process.cwd(), 'dist', 'src', 'tickets', 'fonts', filename),
+    path.join(__dirname, relativeDir, filename),
+    path.join(process.cwd(), 'src', 'tickets', relativeDir, filename),
+    path.join(process.cwd(), 'dist', 'src', 'tickets', relativeDir, filename),
   ];
   for (const p of candidates) {
     if (fs.existsSync(p)) return p;
@@ -18,8 +18,10 @@ function resolveFont(filename: string): string {
   return candidates[0];
 }
 
-const FONT_REGULAR = resolveFont('Regular.ttf');
-const FONT_BOLD = resolveFont('Bold.ttf');
+const FONT_REGULAR = resolveAsset('fonts', 'Regular.ttf');
+const FONT_BOLD = resolveAsset('fonts', 'Bold.ttf');
+const LOGO_PATH = resolveAsset('assets', 'logo.png');
+const LOGO_EXISTS = fs.existsSync(LOGO_PATH);
 
 const COLORS = {
   primary: '#4f46e5',
@@ -111,11 +113,14 @@ export class TicketsService {
     // ─── HEADER (Brand bar) ───
     doc.rect(0, 0, pageWidth, 90).fill(COLORS.primary);
 
-    doc.font('Bold').fontSize(28).fillColor(COLORS.white)
-      .text('TransitIQ', margin, 28);
-
-    doc.font('Regular').fontSize(10).fillColor('#dbeafe')
-      .text('Türkiye Genelinde Güvenli ve Konforlu Seyahat', margin, 60);
+    if (LOGO_EXISTS) {
+      doc.image(LOGO_PATH, margin, 18, { height: 54 });
+    } else {
+      doc.font('Bold').fontSize(28).fillColor(COLORS.white)
+        .text('TransitIQ', margin, 28);
+      doc.font('Regular').fontSize(10).fillColor('#dbeafe')
+        .text('Türkiye Genelinde Güvenli ve Konforlu Seyahat', margin, 60);
+    }
 
     doc.font('Bold').fontSize(11).fillColor(COLORS.white)
       .text('E-BİLET', margin, 30, { width: contentWidth, align: 'right' });
