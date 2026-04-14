@@ -21,4 +21,5 @@ export interface TripInfo {
   layoutType: string;
   totalSeats: number;
   basePrice: number;
+  distanceKm?: number | null;
 }

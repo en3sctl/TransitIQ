@@ -8,6 +8,7 @@ import { useAuth } from "@/context/auth-context";
 import { motion } from "framer-motion";
 import { Loader2, User, LogOut, ArrowLeft, Mail, Phone, Lock, CheckCircle2, AlertCircle, Eye, EyeOff, Ticket, Calendar, Save } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
+import { AccountLayout } from "@/components/hesap/account-layout";
 import api from "@/lib/api";
 
 interface Profile {
@@ -147,40 +148,8 @@ export default function ProfilePage() {
   const initials = (profileForm.firstName[0] || '') + (profileForm.lastName[0] || '');
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-50 transition-colors">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-zinc-800 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/">
-            <BrandLogo width={200} height={109} priority className="h-11 w-auto" />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/hesap/biletlerim"
-              className="hidden md:inline-flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-            >
-              <Ticket className="w-4 h-4" /> Biletlerim
-            </Link>
-            <ModeToggle />
-            <button
-              onClick={logout}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
-            >
-              <LogOut className="w-4 h-4" /> Çıkış
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 py-10">
-        {/* Back Link */}
-        <Link
-          href="/hesap/biletlerim"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Biletlerime Dön
-        </Link>
-
+    <AccountLayout title="Profil Ayarları" subtitle="Kişisel bilgilerini ve şifreni buradan güncelle.">
+      <>
         {/* Hero Card */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -395,7 +364,7 @@ export default function ProfilePage() {
             </form>
           </motion.div>
         </div>
-      </main>
-    </div>
+      </>
+    </AccountLayout>
   );
 }

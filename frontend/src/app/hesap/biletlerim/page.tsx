@@ -6,7 +6,8 @@ import { BrandLogo } from "@/components/brand-logo";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Ticket, LogOut, ArrowRight, CalendarDays, MapPin, Armchair, Download, Search, CheckCircle2, XCircle, Clock, User, AlertTriangle, X } from "lucide-react";
+import { Loader2, Ticket, LogOut, ArrowRight, CalendarDays, MapPin, Armchair, Download, Search, CheckCircle2, XCircle, Clock, User, AlertTriangle, X, MessageCircle } from "lucide-react";
+import { AccountLayout } from "@/components/hesap/account-layout";
 import { ModeToggle } from "@/components/mode-toggle";
 import { toast } from "sonner";
 import api from "@/lib/api";
@@ -121,55 +122,11 @@ export default function MyTicketsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-50 transition-colors">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-zinc-800 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/">
-            <BrandLogo width={200} height={109} priority className="h-11 w-auto" />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="hidden md:inline-flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-            >
-              <Search className="w-4 h-4" /> Bilet Ara
-            </Link>
-            <Link
-              href="/hesap/profil"
-              className="hidden md:inline-flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-            >
-              <User className="w-4 h-4" /> Profilim
-            </Link>
-            <ModeToggle />
-            <button
-              onClick={logout}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
-            >
-              <LogOut className="w-4 h-4" /> Çıkış
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-4 py-10">
-        {/* Welcome */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
-              <User className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white">
-                Merhaba, {user?.name?.split(' ')[0] || 'Yolcu'}
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-zinc-400 font-medium">
-                Buradan tüm biletlerini yönetebilirsin.
-              </p>
-            </div>
-          </div>
-        </div>
-
+    <AccountLayout
+      title={`Merhaba, ${user?.name?.split(' ')[0] || 'Yolcu'}`}
+      subtitle="Buradan tüm biletlerini yönetebilirsin."
+    >
+      <>
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           {[
@@ -299,6 +256,14 @@ export default function MyTicketsPage() {
                       >
                         <Download className="w-4 h-4" /> PDF
                       </button>
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(`TransitIQ Biletim\n\n${b.trip.origin.city} → ${b.trip.destination.city}\n${fDate(b.trip.departureTime)} · ${fTime(b.trip.departureTime)}\nYolcu: ${b.passengerName}\nPNR: ${b.pnrCode}\n\nBilet takibi: https://transitiq.com/bilet-takip`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold px-4 py-2.5 rounded-xl text-xs transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-500/20 border border-emerald-100 dark:border-emerald-500/20"
+                      >
+                        <MessageCircle className="w-4 h-4" /> Paylaş
+                      </a>
                       {canCancel(b) && (
                         <button
                           onClick={() => setCancelTarget(b)}
@@ -314,7 +279,7 @@ export default function MyTicketsPage() {
             ))}
           </div>
         )}
-      </main>
+      </>
 
       {/* Cancel Confirmation Modal */}
       <AnimatePresence>
@@ -396,6 +361,6 @@ export default function MyTicketsPage() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </AccountLayout>
   );
 }

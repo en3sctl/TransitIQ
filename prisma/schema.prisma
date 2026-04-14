@@ -77,17 +77,26 @@ model User {
   passwordHash String    @map("password_hash")
   role         Role      @default(COMPANY_ADMIN)
   phoneNumber  String?   @map("phone_number")
+  walletBalance Decimal  @default(0) @map("wallet_balance")
+  referralCode String?   @unique @map("referral_code")
+  referredById String?   @map("referred_by_id")
+  badges       String[]  @default([])
+  totalTrips   Int       @default(0) @map("total_trips")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
+  referredBy User? @relation("Referrer", fields: [referredById], references: [id])
+  referrals  User[] @relation("Referrer")
 
   driverTrips        Trip[]     @relation("PrimaryDriver")
   assistantDriverTrips Trip[]    @relation("AssistantDriver")
   hostessTrips       Trip[]     @relation("Hostess")
   bookings           Booking[]
   auditLogs          AuditLog[]
+  priceAlerts        PriceAlert[]
+  walletTransactions WalletTransaction[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -202,6 +211,10 @@ model Trip {
   actualArrival     DateTime?  @map("actual_arrival")
   status            TripStatus @default(PLANNED)
   notes             String?
+  currentLat        Float?     @map("current_lat")
+  currentLng        Float?     @map("current_lng")
+  currentSpeed      Float?     @map("current_speed")
+  lastLocationAt    DateTime?  @map("last_location_at")
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -256,6 +269,55 @@ model PendingPayment {
   createdAt       DateTime @default(now()) @map("created_at")
 
   @@map("pending_payments")
+}
+
+model PriceAlert {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  originCity      String   @map("origin_city")
+  destinationCity String   @map("destination_city")
+  maxPrice        Decimal  @map("max_price")
+  notifyEmail     Boolean  @default(true) @map("notify_email")
+  notifySms       Boolean  @default(false) @map("notify_sms")
+  active          Boolean  @default(true)
+  lastNotifiedAt  DateTime? @map("last_notified_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, active])
+  @@index([originCity, destinationCity, active])
+  @@map("price_alerts")
+}
+
+model WalletTransaction {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  amount     Decimal
+  type       String
+  reason     String?
+  bookingId  String?  @map("booking_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("wallet_transactions")
+}
+
+model PriceHistorySnapshot {
+  id              String   @id @default(uuid())
+  originCity      String   @map("origin_city")
+  destinationCity String   @map("destination_city")
+  minPrice        Decimal  @map("min_price")
+  avgPrice        Decimal  @map("avg_price")
+  maxPrice        Decimal  @map("max_price")
+  tripCount       Int      @map("trip_count")
+  snapshotDate    DateTime @map("snapshot_date")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([originCity, destinationCity, snapshotDate])
+  @@map("price_history_snapshots")
 }
 
 model AuditLog {

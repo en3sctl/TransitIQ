@@ -33,6 +33,7 @@ import { ModeToggle } from '@/components/mode-toggle';
 import { useBookingStore } from '@/store/useBookingStore';
 import { PassengerForm } from '@/components/checkout/passenger-form';
 import { useAuth } from '@/context/auth-context';
+import { CarbonFootprint } from '@/components/carbon-footprint';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -559,6 +560,11 @@ function CheckoutContent() {
               </div>
             </div>
           </div>
+
+          {/* Carbon Footprint */}
+          {trip.distanceKm && trip.distanceKm > 0 && (
+            <CarbonFootprint distanceKm={trip.distanceKm} />
+          )}
 
           {/* Trust Badges */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-4 transition-all duration-300">

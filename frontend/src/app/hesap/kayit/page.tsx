@@ -2,15 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/auth-context";
+import { useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
-import { Loader2, ChevronRight, Eye, EyeOff, Sparkles, CheckCircle2, Ticket, ShieldCheck, Bus } from "lucide-react";
+import { Loader2, ChevronRight, Eye, EyeOff, Sparkles, CheckCircle2, Ticket, ShieldCheck, Bus, Gift } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function CustomerRegisterPage() {
   const { login } = useAuth();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,16 @@ export default function CustomerRegisterPage() {
     email: "",
     phone: "",
     password: "",
+    referralCode: "",
   });
+
+  // Auto-fill referral code from ?ref= URL param
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      setFormData((f) => ({ ...f, referralCode: ref.toUpperCase() }));
+    }
+  }, [searchParams]);
 
   const [passwordStrength, setPasswordStrength] = useState(0);
 
@@ -59,6 +70,9 @@ export default function CustomerRegisterPage() {
       };
       const cleanPhone = formData.phone.replace(/\s/g, '');
       if (cleanPhone) payload.phone = cleanPhone;
+
+      const cleanRef = formData.referralCode.trim().toUpperCase();
+      if (cleanRef) payload.referralCode = cleanRef;
 
       const res = await api.post("/auth/customer/register", payload);
       // Auto-login after successful registration
@@ -269,6 +283,28 @@ export default function CustomerRegisterPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Referral code */}
+                <div className="relative group">
+                  <input
+                    id="referralCode"
+                    type="text"
+                    placeholder=" "
+                    value={formData.referralCode}
+                    onChange={e => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
+                    maxLength={20}
+                    className="peer w-full px-5 py-5 pt-7 pr-14 rounded-[22px] border border-zinc-200 focus:border-emerald-500 outline-none focus:ring-8 focus:ring-emerald-500/5 transition-all bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white dark:border-zinc-800 dark:placeholder-zinc-500 font-medium shadow-sm hover:border-zinc-300 dark:hover:border-zinc-700 uppercase tracking-widest"
+                  />
+                  <label htmlFor="referralCode" className="absolute left-5 top-5 text-zinc-400 text-[10px] font-black tracking-widest transition-all pointer-events-none peer-focus:top-2.5 peer-focus:text-emerald-600 peer-[:not(:placeholder-shown)]:top-2.5">
+                    REFERANS KODU (İSTEĞE BAĞLI)
+                  </label>
+                  <Gift size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-emerald-500" />
+                </div>
+                {formData.referralCode && (
+                  <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 px-2 flex items-center gap-1.5">
+                    <Sparkles size={12} /> Kayıt olunca ikinize de 50₺ kredi
+                  </p>
+                )}
 
                 <button
                   type="submit"

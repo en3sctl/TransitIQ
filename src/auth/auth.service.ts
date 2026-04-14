@@ -6,6 +6,7 @@ import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto, UpdateProfileDto, ChangePasswordDto } from './dto/customer-auth.dto';
 import { BadRequestException } from '@nestjs/common';
 import { PaymentService } from '../payment/payment.service';
+import { ReferralService } from '../passenger-features/referral.service';
 
 const PUBLIC_TENANT_SLUG = 'public-passengers';
 
@@ -16,6 +17,8 @@ export class AuthService {
     private jwtService: JwtService,
     @Inject(forwardRef(() => PaymentService))
     private paymentService: PaymentService,
+    @Inject(forwardRef(() => ReferralService))
+    private referralService: ReferralService,
   ) {}
 
   /** Ensures a shared tenant exists for all passenger accounts. */
@@ -125,6 +128,22 @@ export class AuthService {
         role: 'PASSENGER',
       },
     });
+
+    // Attach referrer if valid code provided (silent fail — registration must not break)
+    if (dto.referralCode?.trim()) {
+      try {
+        await this.referralService.attachReferrer(user.id, dto.referralCode);
+      } catch {
+        // Invalid code is non-fatal
+      }
+    }
+
+    // Pre-generate referral code so user sees it immediately
+    try {
+      await this.referralService.getOrCreateCode(user.id);
+    } catch {
+      //
+    }
 
     return this.generateToken(user);
   }

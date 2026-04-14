@@ -1,8 +1,10 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { SearchTripsDto, CreateReservationDto, LockSeatsDto } from './dto/booking.dto';
 import { BookingStatus, SeatStatus, TripStatus } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { BadgesService } from '../passenger-features/badges.service';
+import { ReferralService } from '../passenger-features/referral.service';
 
 const LOCK_DURATION_MINUTES = 10;
 
@@ -11,6 +13,10 @@ export class BookingService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    @Inject(forwardRef(() => BadgesService))
+    private badges: BadgesService,
+    @Inject(forwardRef(() => ReferralService))
+    private referral: ReferralService,
   ) {}
 
   // ─── Search Trips ───
@@ -66,6 +72,7 @@ export class BookingService {
         originStation: trip.route.originStation.name,
         destinationStation: trip.route.destinationStation.name,
         price: Number(trip.route.basePrice),
+        distanceKm: trip.route.totalDistanceKm,
         busType: `${trip.vehicle.layoutType} ${trip.vehicle.capacity <= 30 ? 'VIP' : 'Standart'}`,
         busModel: `${trip.vehicle.make} ${trip.vehicle.model}`,
         layoutType: trip.vehicle.layoutType,
@@ -312,6 +319,12 @@ export class BookingService {
     this.notifications.sendBookingConfirmation(result.pnrCodes).catch(() => {
       /* errors logged inside service */
     });
+
+    // Fire-and-forget badge + referral evaluation (don't block the response)
+    if (createDto.userId && result.bookings[0]) {
+      this.badges.evaluateForUser(createDto.userId).catch(() => { /* non-fatal */ });
+      this.referral.grantFirstBookingBonus(createDto.userId, result.bookings[0].id).catch(() => { /* non-fatal */ });
+    }
 
     return result;
   }

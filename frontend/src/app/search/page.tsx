@@ -11,6 +11,8 @@ import { useBookingStore } from '@/store/useBookingStore';
 import { generateSeatLayout, type SeatStatus } from '@/lib/seat-engine';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { CarbonFootprint } from '@/components/carbon-footprint';
+import { PriceHistoryChart } from '@/components/price-history-chart';
 
 const MAX_SEATS = 5;
 
@@ -28,6 +30,7 @@ interface Trip {
   destinationStation: string;
   layoutType: string;
   totalSeats: number;
+  distanceKm?: number | null;
   stops: { name: string; city: string; offsetMinutes: number }[];
 }
 
@@ -177,6 +180,7 @@ function SearchResultsPageContent() {
       layoutType: trip.layoutType,
       totalSeats: trip.totalSeats,
       basePrice: trip.price,
+      distanceKm: trip.distanceKm,
     });
 
     // Fetch real seat data
@@ -326,6 +330,17 @@ function SearchResultsPageContent() {
                   <div className="flex justify-between items-center text-sm font-bold text-slate-500 dark:text-zinc-400">
                     <span>Mevcut Seferler ({trips.length})</span>
                   </div>
+
+                  {/* Price history + carbon for this route (once, above trips) */}
+                  {trips[0]?.origin && trips[0]?.destination && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <PriceHistoryChart from={trips[0].origin} to={trips[0].destination} days={30} />
+                      {trips[0]?.distanceKm ? (
+                        <CarbonFootprint distanceKm={trips[0].distanceKm} />
+                      ) : null}
+                    </div>
+                  )}
+
                   <div className="flex flex-col gap-6">
                     {trips.map((trip) => (
                       <div key={trip.id} className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col xl:flex-row items-center w-full gap-6 hover:shadow-md hover:-translate-y-1 transition-all duration-300">

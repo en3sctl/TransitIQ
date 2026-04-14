@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
 import { ModeToggle } from "@/components/mode-toggle";
 import { useAuth } from "@/context/auth-context";
-import { User, Ticket, LogOut, ChevronDown, LayoutDashboard, Settings, Loader2 } from "lucide-react";
+import { User, Ticket, LogOut, ChevronDown, LayoutDashboard, Settings, Loader2, Wallet, Bell, Award, Gift } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function LandingNav() {
@@ -96,21 +96,29 @@ export function LandingNav() {
                   <div className="py-1.5">
                     {user.role === 'PASSENGER' && (
                       <>
-                        <Link
-                          href="/hesap/biletlerim"
-                          onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                        >
+                        <Link href="/hesap/biletlerim" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
                           <Ticket className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                           Biletlerim
                         </Link>
-                        <Link
-                          href="/hesap/profil"
-                          onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-                        >
+                        <Link href="/hesap/cuzdan" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                          <Wallet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          Cüzdan
+                        </Link>
+                        <Link href="/hesap/fiyat-alarmlari" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                          <Bell className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                          Fiyat Alarmları
+                        </Link>
+                        <Link href="/hesap/rozetler" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                          <Award className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                          Rozetler
+                        </Link>
+                        <Link href="/hesap/davet" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                          <Gift className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                          Arkadaş Davet Et
+                        </Link>
+                        <Link href="/hesap/profil" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
                           <User className="w-4 h-4 text-zinc-500" />
-                          Profilim
+                          Profil Ayarları
                         </Link>
                       </>
                     )}

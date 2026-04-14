@@ -22,6 +22,10 @@ export class CustomerRegisterDto {
   @IsString()
   @Matches(/^(\+90|0)?5\d{9}$/, { message: 'Geçerli bir telefon numarası giriniz (örn: 05XX XXX XX XX)' })
   phone?: string;
+
+  @IsOptional()
+  @IsString()
+  referralCode?: string;
 }
 
 export class CustomerLoginDto {

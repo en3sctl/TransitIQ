@@ -20,6 +20,8 @@ import { PaymentModule } from './payment/payment.module';
 import { TasksModule } from './tasks/tasks.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { CarbonModule } from './shared/carbon/carbon.module';
+import { PassengerFeaturesModule } from './passenger-features/passenger-features.module';
 
 @Module({
   imports: [
@@ -57,6 +59,8 @@ import { NotificationsModule } from './notifications/notifications.module';
     TasksModule,
     TicketsModule,
     NotificationsModule,
+    CarbonModule,
+    PassengerFeaturesModule,
   ],
   controllers: [AppController],
   providers: [
