@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 import { ModeToggle } from "@/components/mode-toggle";
 import { useAuth } from "@/context/auth-context";
 import { User, Ticket, LogOut, ChevronDown, LayoutDashboard, Settings, Loader2 } from "lucide-react";
@@ -36,14 +36,7 @@ export function LandingNav() {
     <nav className="flex items-center justify-between px-6 py-5 max-w-7xl mx-auto w-full border-b border-zinc-200/80 dark:border-zinc-800 relative z-30 backdrop-blur-md bg-white/80 dark:bg-zinc-950/80 sticky top-0">
       {/* Logo */}
       <Link href="/" className="flex items-center gap-2">
-        <Image
-          src="/logoo.png"
-          alt="TransitIQ"
-          width={260}
-          height={142}
-          priority
-          className="h-14 w-auto select-none"
-        />
+        <BrandLogo width={300} height={164} priority className="h-16 md:h-20 w-auto select-none" />
       </Link>
 
       {/* Center Links */}

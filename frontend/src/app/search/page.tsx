@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
-import Image from 'next/image';
+import { BrandLogo } from '@/components/brand-logo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Bus, Calendar, Clock, Lock, CheckCircle2, ShieldCheck, LifeBuoy, RefreshCcw, Users } from "lucide-react";
@@ -641,9 +641,7 @@ function SearchResultsPageContent() {
 
                 {/* Branding */}
                 <div className="flex flex-col items-center justify-center py-16 animate-in fade-in-50 duration-500">
-                  <Image
-                    src="/logoo.png"
-                    alt="TransitIQ"
+                  <BrandLogo
                     width={320}
                     height={175}
                     className="h-20 w-auto mb-3 opacity-90"

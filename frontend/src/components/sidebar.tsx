@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import { BrandLogo } from "@/components/brand-logo";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -47,9 +47,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       {/* Branding */}
       <div className="px-6 pt-7 pb-5">
         <Link href="/admin" className="flex flex-col gap-2 group transition-all items-start">
-          <Image
-            src="/logoo.png"
-            alt="TransitIQ"
+          <BrandLogo
             width={300}
             height={164}
             priority

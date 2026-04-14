@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/api";
 import Link from "next/link";
-import Image from "next/image";
+import { BrandLogo } from "@/components/brand-logo";
 import { Loader2, ChevronRight, Eye, EyeOff, Sparkles, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -145,14 +145,7 @@ export default function RegisterPage() {
               >
                 <div className="space-y-3">
                    <div className="lg:hidden flex items-center mb-10">
-                     <Image
-                       src="/logoo.png"
-                       alt="TransitIQ"
-                       width={200}
-                       height={109}
-                       priority
-                       className="h-11 w-auto"
-                     />
+                     <BrandLogo width={220} height={120} priority className="h-12 w-auto" />
                   </div>
                   <h1 className="text-4xl font-black tracking-tighter text-zinc-900 dark:text-zinc-100">Hesap Oluştur</h1>
                   <p className="text-zinc-500 dark:text-zinc-400 font-medium text-lg leading-snug">Üç dakikadan kısa sürede kurumsal kaydınızı yapın.</p>

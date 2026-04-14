@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { BrandLogo } from "@/components/brand-logo";
 import { motion, AnimatePresence } from "framer-motion";
 import QRCode from "react-qr-code";
 import confetti from "canvas-confetti";
@@ -165,14 +165,7 @@ function SuccessContent() {
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-zinc-800 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
-            <Image
-              src="/logoo.png"
-              alt="TransitIQ"
-              width={160}
-              height={87}
-              priority
-              className="h-8 w-auto transition-transform group-hover:scale-[1.03]"
-            />
+            <BrandLogo width={200} height={109} priority className="h-10 w-auto transition-transform group-hover:scale-[1.03]" />
           </Link>
 
           <div className="flex flex-col items-center text-center">

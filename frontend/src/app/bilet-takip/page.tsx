@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { BrandLogo } from "@/components/brand-logo";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Search, Ticket, ArrowRight, CalendarDays, MapPin, Armchair, Download, Printer, ShieldCheck } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -92,7 +92,7 @@ export default function GuestLookupPage() {
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-zinc-800 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/">
-            <Image src="/logoo.png" alt="TransitIQ" width={160} height={87} priority className="h-10 w-auto" />
+            <BrandLogo width={200} height={109} priority className="h-11 w-auto" />
           </Link>
           <div className="flex flex-col items-center text-center">
             <h1 className="text-base font-bold text-slate-900 dark:text-white">Bilet Takibi</h1>

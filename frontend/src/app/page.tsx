@@ -1,7 +1,7 @@
 import { MoveRight } from "lucide-react";
-import Image from "next/image";
 import SearchForm from "@/components/search-form";
 import { LandingNav } from "@/components/landing-nav";
+import { BrandLogo } from "@/components/brand-logo";
 
 export default function LandingPage() {
   return (
@@ -45,13 +45,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="px-6 py-12 border-t border-zinc-200/80 dark:border-zinc-800 max-w-7xl mx-auto w-full flex flex-col md:flex-row justify-between items-center gap-8 text-zinc-500 text-sm relative z-20 bg-white dark:bg-zinc-950">
         <div className="flex items-center gap-2">
-          <Image
-            src="/logoo.png"
-            alt="TransitIQ"
-            width={160}
-            height={87}
-            className="h-8 w-auto opacity-90"
-          />
+          <BrandLogo width={200} height={109} className="h-10 w-auto opacity-90" />
         </div>
         <div className="flex items-center gap-10 font-semibold text-zinc-600 dark:text-zinc-400">
           <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Gizlilik Politikası</a>
