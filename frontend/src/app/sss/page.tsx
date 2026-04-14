@@ -1,126 +1,127 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { ContentPage, FaqItem } from "@/components/content-page";
 
-const FAQ_GROUPS = [
-  {
-    title: 'Bilet Alma',
-    items: [
-      {
-        q: 'Nasıl bilet alabilirim?',
-        a: (
-          <>
-            Ana sayfada kalkış ve varış şehrini seç, tarih belirle, &quot;Bilet Bul&quot; butonuna bas.
-            Uygun seferleri görüp koltuk seçip ödeme yapabilirsin. İşlem 2-3 dakika sürer.
-          </>
-        ),
-      },
-      {
-        q: 'Hesap açmadan bilet alabilir miyim?',
-        a: 'Evet. Misafir olarak ödeme yapıp bileti email\'ine alabilirsin. Daha sonra "Biletimi Bul" sayfasından PNR ve email ile biletini görebilirsin.',
-      },
-      {
-        q: 'Tek seferde kaç bilet alabilirim?',
-        a: 'Bir işlemde en fazla 5 koltuk için bilet alabilirsin. Her koltuk için ayrı yolcu bilgisi (TC, ad, soyad) girmen gerekir.',
-      },
-      {
-        q: 'Fiyatlar neden değişiyor?',
-        a: 'Her otobüs firması kendi fiyatını belirler. Sezon, talep, kalkış saati fiyatı etkiler. Aynı güzergah için farklı firmaların farklı fiyatları olur.',
-      },
-    ],
-  },
-  {
-    title: 'Ödeme',
-    items: [
-      {
-        q: 'Hangi ödeme yöntemlerini kullanabilirim?',
-        a: 'Kredi kartı, banka kartı ve Iyzico destekli tüm kartlar. Kart bilgileriniz sunucularımızda saklanmaz, PCI-DSS sertifikalı Iyzico tarafından güvenle işlenir.',
-      },
-      {
-        q: '3D Secure zorunlu mu?',
-        a: 'Kartınız 3D Secure destekliyse otomatik olarak devreye girer. Güvenlik için 3D Secure\'ü açık tutmanızı öneririz.',
-      },
-      {
-        q: 'Ödeme sonrası bilet nereye gelir?',
-        a: 'Ödeme onaylandığında otomatik olarak: (1) ekranda PNR ve QR kod gösterilir, (2) email\'inize PDF bilet gelir, (3) hesabınıza kayıtlıysa \"Biletlerim\" sayfasında görünür.',
-      },
-    ],
-  },
-  {
-    title: 'İptal ve İade',
-    items: [
-      {
-        q: 'Biletimi nasıl iptal edebilirim?',
-        a: (
-          <>
-            Kayıtlıysan <Link href="/hesap/biletlerim" className="text-indigo-600 underline">Biletlerim</Link>&apos;den, misafirsen{' '}
-            <Link href="/bilet-takip" className="text-indigo-600 underline">Bilet Takibi</Link> sayfasından PNR ile giriş yap ve &quot;İptal Et&quot; butonuna bas.
-          </>
-        ),
-      },
-      {
-        q: 'Para ne zaman iade edilir?',
-        a: 'Kalkışa 6 saatten fazla süre varsa iptal sırasında Iyzico\'ya otomatik iade talebi gönderilir. Kartınıza 3-7 iş günü içinde yansır.',
-      },
-      {
-        q: 'Kalkışa 6 saatten az varsa ne olur?',
-        a: (
-          <>
-            Otomatik iade yapılmaz. Destek ekibiyle iletişime geçersen (<a href="mailto:destek@transitiq.com" className="text-indigo-600 underline">destek@transitiq.com</a>) durumu değerlendiririz.
-          </>
-        ),
-      },
-    ],
-  },
-  {
-    title: 'Yolculuk',
-    items: [
-      {
-        q: 'Kalkışta ne getirmeliyim?',
-        a: 'Kimliğiniz (T.C. kimlik kartı veya pasaport) ve biletinizin çıktısı / QR kodu. Telefondan göstermek de yeterli olur.',
-      },
-      {
-        q: 'Sefer saatinden kaç dakika önce otogarda olmalıyım?',
-        a: 'En az 15 dakika önce kalkış noktasında hazır bulununuz. Pik saatlerde ve uzak otogarlarda 30 dakika güvenli olur.',
-      },
-      {
-        q: 'Bagaj hakkım nedir?',
-        a: 'Standart bagaj hakkı 15-20 kg arası, firmaya göre değişir. Aşırı veya değerli bagajları kontrol edin. El çantası ve kişisel eşyalar serbesttir.',
-      },
-      {
-        q: 'Koltuğumu değiştirebilir miyim?',
-        a: 'Bilet aldıktan sonra koltuk değişikliği şu an desteklenmiyor. İptal edip yeniden almalısınız (iade kuralları geçerli).',
-      },
-    ],
-  },
-  {
-    title: 'Hesap',
-    items: [
-      {
-        q: 'Şifremi unuttum ne yapmalıyım?',
-        a: (
-          <>
-            Şifre sıfırlama akışı yakında eklenecek. Şu an için <a href="mailto:destek@transitiq.com" className="text-indigo-600 underline">destek@transitiq.com</a> adresine yazarak yardım alabilirsin.
-          </>
-        ),
-      },
-      {
-        q: 'Hesabımı silebilir miyim?',
-        a: (
-          <>
-            Evet. <a href="mailto:kvkk@transitiq.com" className="text-indigo-600 underline">kvkk@transitiq.com</a> adresine yazarak hesabının ve verilerinin silinmesini talep edebilirsin (KVKK kapsamında).
-          </>
-        ),
-      },
-    ],
-  },
-];
-
 export default function FaqPage() {
   const [query, setQuery] = useState('');
+
+  // Defined inside component to avoid Turbopack hydration issues with module-level JSX
+  const FAQ_GROUPS = useMemo(() => [
+    {
+      title: 'Bilet Alma',
+      items: [
+        {
+          q: 'Nasıl bilet alabilirim?',
+          a: (
+            <>
+              Ana sayfada kalkış ve varış şehrini seç, tarih belirle, &quot;Bilet Bul&quot; butonuna bas.
+              Uygun seferleri görüp koltuk seçip ödeme yapabilirsin. İşlem 2-3 dakika sürer.
+            </>
+          ),
+        },
+        {
+          q: 'Hesap açmadan bilet alabilir miyim?',
+          a: (
+            <>
+              Evet. Misafir olarak ödeme yapıp bileti email&apos;ine alabilirsin. Daha sonra{' '}
+              <Link href="/bilet-takip" className="text-indigo-600 underline">Biletimi Bul</Link>
+              {' '}sayfasından PNR ve email ile biletini görebilirsin.
+            </>
+          ),
+        },
+        {
+          q: 'Tek seferde kaç bilet alabilirim?',
+          a: <>Bir işlemde en fazla 5 koltuk için bilet alabilirsin. Her koltuk için ayrı yolcu bilgisi (TC, ad, soyad) girmen gerekir.</>,
+        },
+        {
+          q: 'Fiyatlar neden değişiyor?',
+          a: <>Her otobüs firması kendi fiyatını belirler. Sezon, talep, kalkış saati fiyatı etkiler. Aynı güzergah için farklı firmaların farklı fiyatları olur.</>,
+        },
+      ],
+    },
+    {
+      title: 'Ödeme',
+      items: [
+        {
+          q: 'Hangi ödeme yöntemlerini kullanabilirim?',
+          a: <>Kredi kartı, banka kartı ve Iyzico destekli tüm kartlar. Kart bilgileriniz sunucularımızda saklanmaz, PCI-DSS sertifikalı Iyzico tarafından güvenle işlenir.</>,
+        },
+        {
+          q: '3D Secure zorunlu mu?',
+          a: <>Kartınız 3D Secure destekliyse otomatik olarak devreye girer. Güvenlik için 3D Secure&apos;ü açık tutmanızı öneririz.</>,
+        },
+        {
+          q: 'Ödeme sonrası bilet nereye gelir?',
+          a: <>Ödeme onaylandığında otomatik olarak: (1) ekranda PNR ve QR kod gösterilir, (2) email&apos;inize PDF bilet gelir, (3) hesabınıza kayıtlıysa &quot;Biletlerim&quot; sayfasında görünür.</>,
+        },
+      ],
+    },
+    {
+      title: 'İptal ve İade',
+      items: [
+        {
+          q: 'Biletimi nasıl iptal edebilirim?',
+          a: (
+            <>
+              Kayıtlıysan <Link href="/hesap/biletlerim" className="text-indigo-600 underline">Biletlerim</Link>&apos;den, misafirsen{' '}
+              <Link href="/bilet-takip" className="text-indigo-600 underline">Bilet Takibi</Link> sayfasından PNR ile giriş yap ve &quot;İptal Et&quot; butonuna bas.
+            </>
+          ),
+        },
+        {
+          q: 'Para ne zaman iade edilir?',
+          a: <>Kalkışa 6 saatten fazla süre varsa iptal sırasında Iyzico&apos;ya otomatik iade talebi gönderilir. Kartınıza 3-7 iş günü içinde yansır.</>,
+        },
+        {
+          q: 'Kalkışa 6 saatten az varsa ne olur?',
+          a: (
+            <>
+              Otomatik iade yapılmaz. Destek ekibiyle iletişime geçersen (
+              <a href="mailto:destek@transitiq.com" className="text-indigo-600 underline">destek@transitiq.com</a>
+              ) durumu değerlendiririz.
+            </>
+          ),
+        },
+      ],
+    },
+    {
+      title: 'Yolculuk',
+      items: [
+        { q: 'Kalkışta ne getirmeliyim?', a: <>Kimliğiniz (T.C. kimlik kartı veya pasaport) ve biletinizin çıktısı / QR kodu. Telefondan göstermek de yeterli olur.</> },
+        { q: 'Sefer saatinden kaç dakika önce otogarda olmalıyım?', a: <>En az 15 dakika önce kalkış noktasında hazır bulununuz. Pik saatlerde ve uzak otogarlarda 30 dakika güvenli olur.</> },
+        { q: 'Bagaj hakkım nedir?', a: <>Standart bagaj hakkı 15-20 kg arası, firmaya göre değişir. Aşırı veya değerli bagajları kontrol edin. El çantası ve kişisel eşyalar serbesttir.</> },
+        { q: 'Koltuğumu değiştirebilir miyim?', a: <>Bilet aldıktan sonra koltuk değişikliği şu an desteklenmiyor. İptal edip yeniden almalısınız (iade kuralları geçerli).</> },
+      ],
+    },
+    {
+      title: 'Hesap',
+      items: [
+        {
+          q: 'Şifremi unuttum ne yapmalıyım?',
+          a: (
+            <>
+              Şifre sıfırlama akışı yakında eklenecek. Şu an için{' '}
+              <a href="mailto:destek@transitiq.com" className="text-indigo-600 underline">destek@transitiq.com</a>
+              {' '}adresine yazarak yardım alabilirsin.
+            </>
+          ),
+        },
+        {
+          q: 'Hesabımı silebilir miyim?',
+          a: (
+            <>
+              Evet.{' '}
+              <a href="mailto:kvkk@transitiq.com" className="text-indigo-600 underline">kvkk@transitiq.com</a>
+              {' '}adresine yazarak hesabının ve verilerinin silinmesini talep edebilirsin (KVKK kapsamında).
+            </>
+          ),
+        },
+      ],
+    },
+  ], []);
 
   const filtered = FAQ_GROUPS.map((g) => ({
     ...g,
@@ -148,7 +149,9 @@ export default function FaqPage() {
       {/* Groups */}
       {filtered.length === 0 ? (
         <div className="py-16 text-center">
-          <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">&quot;{query}&quot; için sonuç bulunamadı</p>
+          <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">
+            &quot;{query}&quot; için sonuç bulunamadı
+          </p>
         </div>
       ) : (
         <div className="space-y-10">
@@ -157,7 +160,7 @@ export default function FaqPage() {
               <h2 className="text-lg font-black tracking-tighter text-slate-900 dark:text-white mb-3">{group.title}</h2>
               <div className="space-y-2">
                 {group.items.map((item, i) => (
-                  <FaqItem key={i} q={item.q} a={item.a} />
+                  <FaqItem key={`${group.title}-${i}`} q={item.q} a={item.a} />
                 ))}
               </div>
             </div>

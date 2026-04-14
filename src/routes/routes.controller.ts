@@ -15,6 +15,12 @@ export class RoutesController {
     return this.routesService.findAllPublic(q);
   }
 
+  /** Public: popular routes for landing page */
+  @Get('public/popular')
+  findPopularPublic(@Query('limit') limit?: string) {
+    return this.routesService.findPopularPublic(limit ? Number(limit) : 8);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

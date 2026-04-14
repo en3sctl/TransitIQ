@@ -1,22 +1,21 @@
-import { MoveRight } from "lucide-react";
 import SearchForm from "@/components/search-form";
 import { LandingNav } from "@/components/landing-nav";
 import { SiteFooter } from "@/components/site-footer";
+import { PopularRoutes } from "@/components/landing/popular-routes";
+import { CheapTrips } from "@/components/landing/cheap-trips";
+import { Features } from "@/components/landing/features";
+import { B2BCta } from "@/components/landing/b2b-cta";
 
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 overflow-hidden relative">
       <LandingNav />
 
-      {/* Hero Section with High-Res Background */}
-      <main className="flex-1 relative flex flex-col items-center justify-center text-center px-6 pt-24 pb-36 z-10 w-full">
-        {/* Background Image Container */}
+      {/* Hero */}
+      <section className="relative flex flex-col items-center justify-center text-center px-6 pt-24 pb-36 z-10 w-full">
         <div className="absolute inset-0 z-0 select-none pointer-events-none">
-          {/* Top Gradient Fade to blend Navbar */}
           <div className="absolute inset-0 bg-gradient-to-b from-white via-white/40 to-white dark:from-zinc-950 dark:via-zinc-950/40 dark:to-zinc-950 z-10" />
-          <div 
-            className="w-full h-full bg-[url('/otebis.png')] bg-cover bg-center opacity-95 dark:opacity-80"
-          />
+          <div className="w-full h-full bg-[url('/otebis.png')] bg-cover bg-center opacity-95 dark:opacity-80" />
         </div>
 
         <div className="relative z-20 flex flex-col items-center w-full">
@@ -34,13 +33,18 @@ export default function LandingPage() {
             Yüzlerce rota, en iyi fiyatlar. Hemen otobüs biletini bul ve yolculuğa başla.
           </p>
 
-          {/* Floating Search Form Component */}
           <div className="w-full max-w-4xl relative px-4">
             <div className="absolute inset-0 bg-indigo-500/10 blur-3xl rounded-3xl pointer-events-none" />
             <SearchForm />
           </div>
         </div>
-      </main>
+      </section>
+
+      {/* Sections */}
+      <PopularRoutes />
+      <CheapTrips />
+      <Features />
+      <B2BCta />
 
       <SiteFooter />
     </div>

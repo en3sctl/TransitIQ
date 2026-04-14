@@ -110,6 +110,58 @@ export class RoutesService {
     return Array.from(map.values()).sort((a, b) => a.price - b.price);
   }
 
+  /**
+   * Top popular routes by confirmed booking count.
+   * Returns origin→destination city pairs with stats.
+   */
+  async findPopularPublic(limit = 8) {
+    const routes = await this.prisma.route.findMany({
+      include: {
+        originStation: true,
+        destinationStation: true,
+        trips: {
+          where: {
+            status: 'PLANNED',
+            departureTime: { gte: new Date() },
+          },
+          orderBy: { departureTime: 'asc' },
+          include: {
+            _count: { select: { bookings: { where: { status: 'CONFIRMED' } } } },
+          },
+        },
+      },
+    });
+
+    const map = new Map<string, any>();
+    for (const r of routes) {
+      const key = `${r.originStation.city}→${r.destinationStation.city}`;
+      const price = Number(r.basePrice);
+      const bookingCount = r.trips.reduce((s, t) => s + (t._count?.bookings || 0), 0);
+      const nextTrip = r.trips[0] || null;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, {
+          id: r.id,
+          origin: { city: r.originStation.city, name: r.originStation.name },
+          destination: { city: r.destinationStation.city, name: r.destinationStation.name },
+          price,
+          distanceKm: r.totalDistanceKm,
+          bookingCount,
+          tripCount: r.trips.length,
+          nextDeparture: nextTrip?.departureTime || null,
+        });
+      } else {
+        existing.bookingCount += bookingCount;
+        existing.tripCount += r.trips.length;
+        if (price < existing.price) existing.price = price;
+      }
+    }
+
+    return Array.from(map.values())
+      .sort((a, b) => b.bookingCount - a.bookingCount || a.price - b.price)
+      .slice(0, limit);
+  }
+
   async findOne(tenantId: string, id: string) {
     const route = await this.prisma.route.findFirst({
       where: {

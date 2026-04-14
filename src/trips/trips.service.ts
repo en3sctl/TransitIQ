@@ -55,6 +55,47 @@ export class TripsService {
     });
   }
 
+  /**
+   * Public: upcoming trips sorted by price (ascending) — for landing "ucuz seferler".
+   * Limited to future PLANNED trips across all tenants.
+   */
+  async findCheapPublic(limit = 6) {
+    const trips = await this.prisma.trip.findMany({
+      where: {
+        status: 'PLANNED',
+        departureTime: { gte: new Date() },
+      },
+      include: {
+        route: {
+          include: {
+            originStation: true,
+            destinationStation: true,
+          },
+        },
+        vehicle: { select: { registrationPlate: true, model: true } },
+        tenant: { select: { name: true, slug: true } },
+        _count: { select: { bookings: { where: { status: 'CONFIRMED' } } } },
+      },
+      orderBy: { departureTime: 'asc' },
+      take: 200,
+    });
+
+    const enriched = trips.map((t) => ({
+      id: t.id,
+      origin: { city: t.route.originStation.city, name: t.route.originStation.name },
+      destination: { city: t.route.destinationStation.city, name: t.route.destinationStation.name },
+      price: Number(t.route.basePrice),
+      departureTime: t.departureTime,
+      estimatedArrival: t.estimatedArrival,
+      distanceKm: t.route.totalDistanceKm,
+      tenant: t.tenant,
+      vehicle: t.vehicle,
+      bookingCount: t._count?.bookings || 0,
+    }));
+
+    return enriched.sort((a, b) => a.price - b.price).slice(0, limit);
+  }
+
   async findOne(tenantId: string, id: string) {
     const trip = await this.prisma.trip.findFirst({
       where: { id, tenantId },

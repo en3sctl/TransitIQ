@@ -25,7 +25,6 @@ export function ContentPage({ eyebrow, title, subtitle, updatedAt, crumbs, child
       <section className="relative border-b border-slate-200 dark:border-zinc-800 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/40 via-transparent to-transparent dark:from-indigo-950/20 pointer-events-none" />
         <div className={`${narrow ? 'max-w-4xl' : 'max-w-6xl'} mx-auto px-6 py-14 relative`}>
-          {/* Breadcrumbs */}
           {crumbs && crumbs.length > 0 && (
             <nav className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-zinc-400 mb-5">
               <Link href="/" className="hover:text-indigo-600 dark:hover:text-indigo-400">Ana Sayfa</Link>
@@ -86,8 +85,7 @@ export function ContentPage({ eyebrow, title, subtitle, updatedAt, crumbs, child
   );
 }
 
-/* ── Helpers for content pages ── */
-
+/* LegalSection — no hooks, pure presentational */
 export function LegalSection({ number, title, children }: { number: string; title: string; children: React.ReactNode }) {
   return (
     <section className="mb-8">
@@ -102,6 +100,7 @@ export function LegalSection({ number, title, children }: { number: string; titl
   );
 }
 
+/* FaqItem — uses native <details>, no React state */
 export function FaqItem({ q, a }: { q: string; a: React.ReactNode }) {
   return (
     <details className="group bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl px-5 py-4 cursor-pointer transition-colors hover:border-indigo-200 dark:hover:border-indigo-800">
