@@ -145,3 +145,117 @@
   color: #333 !important;
 }
 
+/* =========================================================
+   Premium scrollbar styling — WebKit (Chrome/Edge/Safari)
+   ========================================================= */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgb(99 102 241 / 0.4), rgb(139 92 246 / 0.4));
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.3s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgb(99 102 241 / 0.7), rgb(139 92 246 / 0.7));
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgb(129 140 248 / 0.5), rgb(167 139 250 / 0.5));
+  background-clip: padding-box;
+  border: 3px solid transparent;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgb(129 140 248 / 0.8), rgb(167 139 250 / 0.8));
+  background-clip: padding-box;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.4) transparent;
+}
+.dark * {
+  scrollbar-color: rgba(129, 140, 248, 0.5) transparent;
+}
+
+/* =========================================================
+   Scroll progress indicator (top bar)
+   ========================================================= */
+.scroll-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+  z-index: 9999;
+  transform-origin: 0%;
+  pointer-events: none;
+}
+
+/* =========================================================
+   Lenis smooth scroll — required classes
+   ========================================================= */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
+
+/* =========================================================
+   Skeleton shimmer
+   ========================================================= */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgb(241 245 249 / 0.6) 25%,
+    rgb(226 232 240 / 0.9) 50%,
+    rgb(241 245 249 / 0.6) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+.dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgb(39 39 42 / 0.6) 25%,
+    rgb(63 63 70 / 0.9) 50%,
+    rgb(39 39 42 / 0.6) 75%
+  );
+  background-size: 200% 100%;
+}
+
+/* =========================================================
+   Reduced motion — respect user preferences
+   ========================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

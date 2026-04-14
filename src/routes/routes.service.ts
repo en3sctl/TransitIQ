@@ -162,6 +162,30 @@ export class RoutesService {
       .slice(0, limit);
   }
 
+  /**
+   * Public platform-wide stats for landing ticker.
+   * Non-sensitive aggregates suitable for marketing display.
+   */
+  async findPublicStats() {
+    const [routes, trips, upcomingTrips, confirmedBookings, tenants, cities] = await Promise.all([
+      this.prisma.route.count(),
+      this.prisma.trip.count(),
+      this.prisma.trip.count({ where: { status: 'PLANNED', departureTime: { gte: new Date() } } }),
+      this.prisma.booking.count({ where: { status: 'CONFIRMED' } }),
+      this.prisma.tenant.count(),
+      this.prisma.station.findMany({ select: { city: true }, distinct: ['city'] }),
+    ]);
+
+    return {
+      routes,
+      trips,
+      upcomingTrips,
+      confirmedBookings,
+      tenants,
+      cities: cities.length,
+    };
+  }
+
   async findOne(tenantId: string, id: string) {
     const route = await this.prisma.route.findFirst({
       where: {

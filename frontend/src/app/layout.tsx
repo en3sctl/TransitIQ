@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 import { AuthProvider } from "@/context/auth-context";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
+import { GlobalShell } from "@/components/shell/global-shell";
 
 export default function RootLayout({
   children,
@@ -22,12 +23,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="tr" suppressHydrationWarning>
       <body className={`${jakarta.variable} font-sans antialiased text-zinc-900 bg-white dark:bg-zinc-950 dark:text-zinc-50 transition-colors duration-500`} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
             {children}
-            <Toaster richColors position="top-center" />
+            <Toaster richColors position="top-center" closeButton />
+            <GlobalShell />
           </AuthProvider>
         </ThemeProvider>
       </body>

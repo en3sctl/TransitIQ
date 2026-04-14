@@ -5,6 +5,8 @@ import { PopularRoutes } from "@/components/landing/popular-routes";
 import { CheapTrips } from "@/components/landing/cheap-trips";
 import { Features } from "@/components/landing/features";
 import { B2BCta } from "@/components/landing/b2b-cta";
+import { LiveTicker } from "@/components/landing/live-ticker";
+import { HeroSpotlight } from "@/components/landing/hero-spotlight";
 
 export default function LandingPage() {
   return (
@@ -17,6 +19,7 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-gradient-to-b from-white via-white/40 to-white dark:from-zinc-950 dark:via-zinc-950/40 dark:to-zinc-950 z-10" />
           <div className="w-full h-full bg-[url('/otebis.png')] bg-cover bg-center opacity-95 dark:opacity-80" />
         </div>
+        <HeroSpotlight />
 
         <div className="relative z-20 flex flex-col items-center w-full">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl text-zinc-600 dark:text-zinc-300 text-xs font-bold mb-8 scale-95 select-none">
@@ -41,6 +44,7 @@ export default function LandingPage() {
       </section>
 
       {/* Sections */}
+      <LiveTicker />
       <PopularRoutes />
       <CheapTrips />
       <Features />

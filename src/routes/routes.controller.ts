@@ -21,6 +21,12 @@ export class RoutesController {
     return this.routesService.findPopularPublic(limit ? Number(limit) : 8);
   }
 
+  /** Public: platform-wide aggregate stats for landing ticker */
+  @Get('public/stats')
+  findPublicStats() {
+    return this.routesService.findPublicStats();
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
