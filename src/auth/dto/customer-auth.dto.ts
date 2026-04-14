@@ -44,3 +44,29 @@ export class GuestTicketLookupDto {
   @IsNotEmpty()
   email: string;
 }
+
+export class UpdateProfileDto {
+  @IsString()
+  @IsOptional()
+  firstName?: string;
+
+  @IsString()
+  @IsOptional()
+  lastName?: string;
+
+  @IsOptional()
+  @ValidateIf((o) => o.phone !== undefined && o.phone !== null && o.phone !== '')
+  @IsString()
+  @Matches(/^(\+90|0)?5\d{9}$/, { message: 'Geçerli bir telefon numarası giriniz' })
+  phone?: string;
+}
+
+export class ChangePasswordDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Mevcut şifre gereklidir' })
+  currentPassword: string;
+
+  @IsString()
+  @MinLength(6, { message: 'Yeni şifre en az 6 karakter olmalıdır' })
+  newPassword: string;
+}

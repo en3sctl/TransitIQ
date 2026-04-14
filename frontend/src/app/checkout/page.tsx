@@ -328,6 +328,8 @@ function CheckoutContent() {
           lastName: p.lastName,
           seatId: seatIdMap[p.seatNumber],
         })),
+        // If logged in as passenger, link booking to their account
+        ...(user?.role === 'PASSENGER' && { userId: user.id }),
       });
 
       if (paymentRes.data.checkoutFormContent) {

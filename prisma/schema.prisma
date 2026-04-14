@@ -249,6 +249,7 @@ model PendingPayment {
   contactEmail    String   @map("contact_email")
   contactPhone    String   @map("contact_phone")
   price           String
+  userId          String?  @map("user_id")
   createdAt       DateTime @default(now()) @map("created_at")
 
   @@map("pending_payments")

@@ -16,6 +16,7 @@ export interface PendingBookingData {
   contactEmail: string;
   contactPhone: string;
   price: string;
+  userId?: string;
 }
 
 @Injectable()
@@ -43,6 +44,7 @@ export class PaymentService {
         contactEmail: data.contactEmail,
         contactPhone: data.contactPhone,
         price: data.price,
+        userId: data.userId || null,
       },
     });
   }
@@ -60,6 +62,7 @@ export class PaymentService {
       contactEmail: record.contactEmail,
       contactPhone: record.contactPhone,
       price: record.price,
+      userId: (record as any).userId || undefined,
     };
   }
 

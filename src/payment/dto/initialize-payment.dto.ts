@@ -55,4 +55,9 @@ export class InitializePaymentDto {
   @Type(() => PaymentPassengerDto)
   @IsOptional()
   passengers?: PaymentPassengerDto[];
+
+  // Logged-in user ID (if authenticated) — links booking to the customer account
+  @IsUUID()
+  @IsOptional()
+  userId?: string;
 }

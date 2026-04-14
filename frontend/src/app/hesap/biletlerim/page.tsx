@@ -5,9 +5,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { motion } from "framer-motion";
-import { Loader2, Ticket, LogOut, ArrowRight, CalendarDays, MapPin, Armchair, Download, Search, CheckCircle2, XCircle, Clock, User } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, Ticket, LogOut, ArrowRight, CalendarDays, MapPin, Armchair, Download, Search, CheckCircle2, XCircle, Clock, User, AlertTriangle, X } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
+import { toast } from "sonner";
 import api from "@/lib/api";
 
 interface MyBooking {
@@ -42,6 +43,8 @@ export default function MyTicketsPage() {
   const [bookings, setBookings] = useState<MyBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
+  const [cancelTarget, setCancelTarget] = useState<MyBooking | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -85,6 +88,30 @@ export default function MyTicketsPage() {
     window.open(`${apiBase}/tickets/${encodeURIComponent(pnr)}/pdf`, '_blank');
   };
 
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      const res = await api.post(`/auth/customer/bookings/${cancelTarget.id}/cancel`);
+      toast.success(res.data.message || 'Bilet iptal edildi');
+      // Refresh bookings
+      const refreshed = await api.get('/auth/customer/bookings');
+      setBookings(refreshed.data);
+      setCancelTarget(null);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'İptal başarısız oldu';
+      toast.error(Array.isArray(msg) ? msg[0] : msg);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const canCancel = (b: MyBooking) => {
+    if (b.status !== 'CONFIRMED') return false;
+    const hoursLeft = (new Date(b.trip.departureTime).getTime() - Date.now()) / 3600000;
+    return hoursLeft >= 6;
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950">
@@ -107,6 +134,12 @@ export default function MyTicketsPage() {
               className="hidden md:inline-flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
             >
               <Search className="w-4 h-4" /> Bilet Ara
+            </Link>
+            <Link
+              href="/hesap/profil"
+              className="hidden md:inline-flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            >
+              <User className="w-4 h-4" /> Profilim
             </Link>
             <ModeToggle />
             <button
@@ -259,12 +292,22 @@ export default function MyTicketsPage() {
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ödenen</p>
                       <p className="text-xl font-black text-slate-900 dark:text-white">₺{Number(b.pricePaid).toLocaleString('tr-TR')}</p>
                     </div>
-                    <button
-                      onClick={() => downloadPdf(b.pnrCode)}
-                      className="flex items-center gap-2 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 text-white font-semibold px-4 py-2.5 rounded-xl text-xs transition-colors hover:bg-black dark:hover:bg-white"
-                    >
-                      <Download className="w-4 h-4" /> PDF
-                    </button>
+                    <div className="flex lg:flex-col gap-2 lg:w-full">
+                      <button
+                        onClick={() => downloadPdf(b.pnrCode)}
+                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 text-white font-semibold px-4 py-2.5 rounded-xl text-xs transition-colors hover:bg-black dark:hover:bg-white"
+                      >
+                        <Download className="w-4 h-4" /> PDF
+                      </button>
+                      {canCancel(b) && (
+                        <button
+                          onClick={() => setCancelTarget(b)}
+                          className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 font-semibold px-4 py-2.5 rounded-xl text-xs transition-colors hover:bg-red-100 dark:hover:bg-red-500/20 border border-red-100 dark:border-red-500/20"
+                        >
+                          <XCircle className="w-4 h-4" /> İptal Et
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -272,6 +315,87 @@ export default function MyTicketsPage() {
           </div>
         )}
       </main>
+
+      {/* Cancel Confirmation Modal */}
+      <AnimatePresence>
+        {cancelTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+            onClick={() => !cancelling && setCancelTarget(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 250 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden"
+            >
+              {/* Close button */}
+              {!cancelling && (
+                <button
+                  onClick={() => setCancelTarget(null)}
+                  className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* Header */}
+              <div className="p-7 pb-5 text-center">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center mb-4">
+                  <AlertTriangle className="w-7 h-7 text-red-600 dark:text-red-400" />
+                </div>
+                <h2 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white mb-2">Bileti iptal etmek istediğine emin misin?</h2>
+                <p className="text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
+                  <span className="font-mono font-bold text-slate-700 dark:text-zinc-300">{cancelTarget.pnrCode}</span> numaralı biletin iptal edilecek ve iade süreci başlatılacak.
+                </p>
+              </div>
+
+              {/* Trip Info */}
+              <div className="mx-7 mb-5 p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-2xl">
+                <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold mb-1">Sefer</p>
+                <p className="text-sm font-black text-slate-900 dark:text-white mb-1">
+                  {cancelTarget.trip.origin.city} → {cancelTarget.trip.destination.city}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                  Koltuk {cancelTarget.seat.number} · ₺{Number(cancelTarget.pricePaid).toLocaleString('tr-TR')}
+                </p>
+              </div>
+
+              {/* Notice */}
+              <div className="mx-7 mb-5 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
+                  İade tutarı 3-7 iş günü içinde ödeme yaptığın kartına yansır. İptal işlemi geri alınamaz.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="px-7 pb-7 flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => setCancelTarget(null)}
+                  disabled={cancelling}
+                  className="flex-1 py-3 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-sm hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  onClick={confirmCancel}
+                  disabled={cancelling}
+                  className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {cancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                  {cancelling ? 'İptal ediliyor...' : 'Bileti İptal Et'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

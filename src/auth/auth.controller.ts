@@ -1,8 +1,8 @@
-import { Controller, Post, Get, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
-import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto } from './dto/customer-auth.dto';
+import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto, UpdateProfileDto, ChangePasswordDto } from './dto/customer-auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
@@ -56,5 +56,39 @@ export class AuthController {
   @ApiOperation({ summary: 'Get logged-in user bookings' })
   async getMyBookings(@Request() req: any) {
     return this.authService.getUserBookings(req.user.id);
+  }
+
+  @Get('customer/profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get user profile + stats' })
+  async getProfile(@Request() req: any) {
+    return this.authService.getCustomerProfile(req.user.id);
+  }
+
+  @Patch('customer/profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update user profile (name, phone)' })
+  async updateProfile(@Request() req: any, @Body() dto: UpdateProfileDto) {
+    return this.authService.updateCustomerProfile(req.user.id, dto);
+  }
+
+  @Post('customer/change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ short: { limit: 3, ttl: 60000 } })
+  @ApiOperation({ summary: 'Change password' })
+  async changePassword(@Request() req: any, @Body() dto: ChangePasswordDto) {
+    return this.authService.changeCustomerPassword(req.user.id, dto);
+  }
+
+  @Post('customer/bookings/:id/cancel')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Cancel own booking (customer-initiated)' })
+  async cancelMyBooking(@Request() req: any, @Param('id') id: string) {
+    return this.authService.cancelOwnBooking(req.user.id, id);
   }
 }

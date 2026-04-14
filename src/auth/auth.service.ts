@@ -3,7 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../common/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
-import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto } from './dto/customer-auth.dto';
+import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto, UpdateProfileDto, ChangePasswordDto } from './dto/customer-auth.dto';
+import { BadRequestException } from '@nestjs/common';
 
 const PUBLIC_TENANT_SLUG = 'public-passengers';
 
@@ -195,6 +196,156 @@ export class AuthService {
         busInfo: `${booking.trip.vehicle.layoutType} ${booking.trip.vehicle.registrationPlate}`,
       },
     };
+  }
+
+  // ─── Get user profile + stats ───
+  async getCustomerProfile(userId: string) {
+    const user = await (this.prisma as any).user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phoneNumber: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Kullanıcı bulunamadı');
+    }
+
+    const [totalBookings, activeBookings, pastBookings] = await Promise.all([
+      (this.prisma as any).booking.count({ where: { userId } }),
+      (this.prisma as any).booking.count({
+        where: {
+          userId,
+          status: 'CONFIRMED',
+          trip: { departureTime: { gte: new Date() } },
+        },
+      }),
+      (this.prisma as any).booking.count({
+        where: {
+          userId,
+          status: 'CONFIRMED',
+          trip: { departureTime: { lt: new Date() } },
+        },
+      }),
+    ]);
+
+    const parts = (user.name || '').split(' ');
+    const firstName = parts.slice(0, -1).join(' ') || parts[0] || '';
+    const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
+
+    return {
+      id: user.id,
+      email: user.email,
+      firstName,
+      lastName,
+      phone: user.phoneNumber || '',
+      memberSince: user.createdAt,
+      stats: {
+        totalBookings,
+        activeBookings,
+        pastBookings,
+      },
+    };
+  }
+
+  // ─── Update profile (name, phone) ───
+  async updateCustomerProfile(userId: string, dto: UpdateProfileDto) {
+    const user = await (this.prisma as any).user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Kullanıcı bulunamadı');
+
+    const data: { name?: string; phoneNumber?: string | null } = {};
+
+    if (dto.firstName !== undefined || dto.lastName !== undefined) {
+      const currentParts = (user.name || '').split(' ');
+      const currentFirst = currentParts.slice(0, -1).join(' ') || currentParts[0] || '';
+      const currentLast = currentParts.length > 1 ? currentParts[currentParts.length - 1] : '';
+      const firstName = (dto.firstName ?? currentFirst).trim();
+      const lastName = (dto.lastName ?? currentLast).trim();
+      data.name = `${firstName} ${lastName}`.trim();
+    }
+
+    if (dto.phone !== undefined) {
+      data.phoneNumber = dto.phone || null;
+    }
+
+    const updated = await (this.prisma as any).user.update({
+      where: { id: userId },
+      data,
+      select: { id: true, email: true, name: true, phoneNumber: true, role: true, tenantId: true },
+    });
+
+    return {
+      message: 'Profil güncellendi',
+      user: updated,
+    };
+  }
+
+  // ─── Change password ───
+  async changeCustomerPassword(userId: string, dto: ChangePasswordDto) {
+    const user = await (this.prisma as any).user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Kullanıcı bulunamadı');
+
+    const isValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new BadRequestException('Mevcut şifre hatalı');
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('Yeni şifre eskisinden farklı olmalı');
+    }
+
+    const newHash = await bcrypt.hash(dto.newPassword, 10);
+    await (this.prisma as any).user.update({
+      where: { id: userId },
+      data: { passwordHash: newHash },
+    });
+
+    return { message: 'Şifre güncellendi' };
+  }
+
+  // ─── Cancel own booking (customer) ───
+  async cancelOwnBooking(userId: string, bookingId: string) {
+    const booking = await (this.prisma as any).booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        trip: { select: { departureTime: true } },
+      },
+    });
+
+    if (!booking) throw new NotFoundException('Bilet bulunamadı');
+    if (booking.userId !== userId) {
+      throw new UnauthorizedException('Bu biletin sahibi siz değilsiniz');
+    }
+    if (booking.status !== 'CONFIRMED') {
+      throw new BadRequestException('Bu bilet zaten iptal edilmiş veya kullanılmış');
+    }
+
+    // Cancellation window: must be at least 6 hours before departure
+    const now = Date.now();
+    const departure = new Date(booking.trip.departureTime).getTime();
+    const hoursUntilDeparture = (departure - now) / (1000 * 60 * 60);
+    if (hoursUntilDeparture < 6) {
+      throw new BadRequestException('Kalkış saatine 6 saatten az kaldığında iptal yapılamaz');
+    }
+
+    return (this.prisma as any).$transaction(async (tx: any) => {
+      const cancelled = await tx.booking.update({
+        where: { id: bookingId },
+        data: { status: 'CANCELLED' },
+      });
+      await tx.seat.update({
+        where: { id: booking.seatId },
+        data: { status: 'AVAILABLE', lockedUntil: null, lockedBy: null },
+      });
+      return {
+        message: 'Bilet iptal edildi. İade 3-7 iş günü içinde kartınıza yansır.',
+        pnrCode: cancelled.pnrCode,
+      };
+    });
   }
 
   // ─── Get logged-in user's bookings ───

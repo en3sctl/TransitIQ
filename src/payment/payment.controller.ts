@@ -38,8 +38,9 @@ export class PaymentController {
         contactEmail: dto.buyerEmail,
         contactPhone: dto.buyerPhone,
         price: dto.price,
+        userId: dto.userId,
       });
-      console.log('[Payment Init] Stored pending booking with token:', result.token.substring(0, 20) + '...');
+      console.log('[Payment Init] Stored pending booking with token:', result.token.substring(0, 20) + '...', '| userId:', dto.userId || 'guest');
     }
 
     return { checkoutFormContent: result.checkoutFormContent };
@@ -66,6 +67,7 @@ export class PaymentController {
               passengers: pendingData.passengers,
               contactEmail: pendingData.contactEmail,
               contactPhone: pendingData.contactPhone,
+              userId: pendingData.userId,
             });
 
             await this.paymentService.removePendingBookingByToken(body.token);
