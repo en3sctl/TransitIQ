@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { MoveRight } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import SearchForm from "@/components/search-form";
 import { ModeToggle } from "@/components/mode-toggle";
 
@@ -20,15 +21,20 @@ export default function LandingPage() {
           />
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-bold text-zinc-600 dark:text-zinc-400">
-          <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Rotalar</a>
-          <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Fiyatlandırma</a>
-          <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Hakkımızda</a>
+          <Link href="/rotalar" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Rotalar</Link>
+          <Link href="/fiyatlandirma" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Fiyatlandırma</Link>
+          <Link href="/hakkimizda" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Hakkımızda</Link>
+          <Link href="/bilet-takip" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Biletimi Bul</Link>
         </div>
         <div className="flex items-center gap-3">
           <ModeToggle />
           <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-800" />
-          <Button variant="ghost" className="text-sm rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 font-semibold">Giriş Yap</Button>
-          <Button className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white rounded-xl text-sm shadow-sm font-semibold px-5">Kayıt Ol</Button>
+          <Link href="/hesap/giris">
+            <Button variant="ghost" className="text-sm rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 font-semibold">Giriş Yap</Button>
+          </Link>
+          <Link href="/hesap/kayit">
+            <Button className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white rounded-xl text-sm shadow-sm font-semibold px-5">Kayıt Ol</Button>
+          </Link>
         </div>
       </nav>
 
