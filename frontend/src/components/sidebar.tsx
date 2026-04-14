@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -44,13 +45,17 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   return (
     <aside className="w-80 h-screen bg-white dark:bg-zinc-950 border-r border-zinc-100 dark:border-zinc-800 flex flex-col transition-colors duration-500">
       {/* Branding */}
-      <div className="p-8 pb-4">
-        <Link href="/admin" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-zinc-950 flex items-center justify-center font-bold text-white shadow-lg transition-all group-hover:scale-105 active:scale-95">T</div>
-          <div className="flex flex-col">
-            <span className="text-xl font-black tracking-tighter leading-none text-zinc-900 dark:text-zinc-100 uppercase">TransitIQ</span>
-            <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mt-1.5 ml-0.5 whitespace-nowrap">Enterprise System</span>
-          </div>
+      <div className="px-6 pt-7 pb-5">
+        <Link href="/admin" className="flex flex-col gap-2 group transition-all items-start">
+          <Image
+            src="/yeni_logo.png"
+            alt="TransitIQ"
+            width={300}
+            height={164}
+            priority
+            className="h-16 w-auto transition-transform group-hover:scale-[1.02] group-active:scale-[0.98]"
+          />
+          <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.25em] whitespace-nowrap pl-1">Enterprise System</span>
         </Link>
       </div>
 

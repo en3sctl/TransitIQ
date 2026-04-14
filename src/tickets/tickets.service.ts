@@ -20,7 +20,7 @@ function resolveAsset(relativeDir: string, filename: string): string {
 
 const FONT_REGULAR = resolveAsset('fonts', 'Regular.ttf');
 const FONT_BOLD = resolveAsset('fonts', 'Bold.ttf');
-const LOGO_PATH = resolveAsset('assets', 'logo.png');
+const LOGO_PATH = resolveAsset('assets', 'logo-white.png');
 const LOGO_EXISTS = fs.existsSync(LOGO_PATH);
 
 const COLORS = {
@@ -111,10 +111,12 @@ export class TicketsService {
     const contentWidth = pageWidth - margin * 2;
 
     // ─── HEADER (Brand bar) ───
-    doc.rect(0, 0, pageWidth, 90).fill(COLORS.primary);
+    doc.rect(0, 0, pageWidth, 100).fill(COLORS.primary);
 
     if (LOGO_EXISTS) {
-      doc.image(LOGO_PATH, margin, 18, { height: 54 });
+      doc.image(LOGO_PATH, margin, 22, { height: 46 });
+      doc.font('Regular').fontSize(9).fillColor('#e0e7ff')
+        .text('Türkiye Genelinde Güvenli ve Konforlu Seyahat', margin, 72);
     } else {
       doc.font('Bold').fontSize(28).fillColor(COLORS.white)
         .text('TransitIQ', margin, 28);
@@ -123,13 +125,13 @@ export class TicketsService {
     }
 
     doc.font('Bold').fontSize(11).fillColor(COLORS.white)
-      .text('E-BİLET', margin, 30, { width: contentWidth, align: 'right' });
-    doc.font('Regular').fontSize(9).fillColor('#dbeafe')
+      .text('E-BİLET', margin, 34, { width: contentWidth, align: 'right' });
+    doc.font('Regular').fontSize(9).fillColor('#e0e7ff')
       .text(this.formatDate(booking.bookingTime) + ' tarihinde düzenlendi',
-        margin, 50, { width: contentWidth, align: 'right' });
+        margin, 54, { width: contentWidth, align: 'right' });
 
     // ─── BOARDING PASS CARD ───
-    const cardY = 120;
+    const cardY = 130;
     const cardHeight = 280;
 
     doc.roundedRect(margin, cardY, contentWidth, cardHeight, 12)

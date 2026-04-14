@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import QRCode from "react-qr-code";
 import confetti from "canvas-confetti";
@@ -162,12 +163,15 @@ function SuccessContent() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-slate-200/60 dark:border-zinc-800 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
-              <Bus className="w-[18px] h-[18px] text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <span className="font-bold text-base text-slate-900 dark:text-white">TransitIQ</span>
-          </div>
+          <Image
+            src="/yeni_logo.png"
+            alt="TransitIQ"
+            width={160}
+            height={87}
+            priority
+            className="h-8 w-auto"
+          />
+
           <div className="flex flex-col items-center text-center">
             <h1 className="text-base font-bold text-slate-900 dark:text-white">Bilet Onayı</h1>
             <p className="text-xs text-slate-500 dark:text-zinc-400 font-semibold flex items-center gap-1.5 mt-0.5">

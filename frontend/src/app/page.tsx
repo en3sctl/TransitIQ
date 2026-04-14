@@ -10,9 +10,14 @@ export default function LandingPage() {
       {/* Navigation */}
       <nav className="flex items-center justify-between px-6 py-5 max-w-7xl mx-auto w-full border-b border-zinc-200/80 dark:border-zinc-800 relative z-30 backdrop-blur-md bg-white/80 dark:bg-zinc-950/80 sticky top-0">
         <div className="flex items-center gap-2">
-          <span className="text-2xl font-black tracking-tighter text-zinc-950 dark:text-white uppercase select-none">
-            TransitIQ
-          </span>
+          <Image
+            src="/yeni_logo.png"
+            alt="TransitIQ"
+            width={260}
+            height={142}
+            priority
+            className="h-14 w-auto select-none"
+          />
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-bold text-zinc-600 dark:text-zinc-400">
           <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Rotalar</a>
@@ -64,7 +69,13 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="px-6 py-12 border-t border-zinc-200/80 dark:border-zinc-800 max-w-7xl mx-auto w-full flex flex-col md:flex-row justify-between items-center gap-8 text-zinc-500 text-sm relative z-20 bg-white dark:bg-zinc-950">
         <div className="flex items-center gap-2">
-          <span className="font-black tracking-tighter text-zinc-950 dark:text-white text-lg uppercase">TransitIQ</span>
+          <Image
+            src="/yeni_logo.png"
+            alt="TransitIQ"
+            width={160}
+            height={87}
+            className="h-8 w-auto opacity-90"
+          />
         </div>
         <div className="flex items-center gap-10 font-semibold text-zinc-600 dark:text-zinc-400">
           <a href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Gizlilik Politikası</a>
