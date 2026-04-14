@@ -2,12 +2,16 @@ import { Injectable, ConflictException, NotFoundException, BadRequestException }
 import { PrismaService } from '../common/prisma/prisma.service';
 import { SearchTripsDto, CreateReservationDto, LockSeatsDto } from './dto/booking.dto';
 import { BookingStatus, SeatStatus, TripStatus } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const LOCK_DURATION_MINUTES = 10;
 
 @Injectable()
 export class BookingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   // ─── Search Trips ───
   async searchTrips(searchDto: SearchTripsDto) {
@@ -255,7 +259,7 @@ export class BookingService {
     }
 
     // Create all bookings in a transaction
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const bookings: Array<{ id: string; pnrCode: string }> = [];
 
       for (const passenger of passengers) {
@@ -296,6 +300,13 @@ export class BookingService {
         pnrCodes: bookings.map((b) => b.pnrCode),
       };
     });
+
+    // Fire-and-forget email notification (don't block reservation response)
+    this.notifications.sendBookingConfirmation(result.pnrCodes).catch(() => {
+      /* errors logged inside service */
+    });
+
+    return result;
   }
 
   // ─── Cancel Booking ───

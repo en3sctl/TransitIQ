@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -16,10 +17,14 @@ import { BookingModule } from './booking/booking.module';
 import { AuthModule } from './auth/auth.module';
 import { StationsModule } from './stations/stations.module';
 import { PaymentModule } from './payment/payment.module';
+import { TasksModule } from './tasks/tasks.module';
+import { TicketsModule } from './tickets/tickets.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       {
         name: 'short',
@@ -49,6 +54,9 @@ import { PaymentModule } from './payment/payment.module';
     BookingModule,
     StationsModule,
     PaymentModule,
+    TasksModule,
+    TicketsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

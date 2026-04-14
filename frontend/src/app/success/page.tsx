@@ -413,11 +413,58 @@ function SuccessContent() {
           transition={{ delay: 0.3, ...sp }}
           className="flex items-center justify-center gap-3 mt-6"
         >
-          <button className="flex items-center gap-2.5 bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white font-semibold px-6 py-3 rounded-xl shadow-sm transition-colors cursor-pointer active:scale-[0.98] text-sm">
+          <button
+            onClick={() => {
+              const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+              window.open(`${apiBase}/tickets/${encodeURIComponent(d.pnrCode)}/pdf`, '_blank');
+            }}
+            className="flex items-center gap-2.5 bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white font-semibold px-6 py-3 rounded-xl shadow-sm transition-colors cursor-pointer active:scale-[0.98] text-sm"
+          >
             <Download className="w-4 h-4" />
             Bileti PDF Olarak İndir
           </button>
-          <button className="flex items-center gap-2.5 bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold px-6 py-3 rounded-xl border border-slate-200 dark:border-zinc-700 shadow-sm transition-colors cursor-pointer active:scale-[0.98] text-sm">
+          {tickets.length > 1 && (
+            <button
+              onClick={() => {
+                const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+                tickets.forEach((t, i) => {
+                  setTimeout(() => {
+                    window.open(`${apiBase}/tickets/${encodeURIComponent(t.pnrCode)}/pdf`, '_blank');
+                  }, i * 300);
+                });
+              }}
+              className="flex items-center gap-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl shadow-sm transition-colors cursor-pointer active:scale-[0.98] text-sm"
+            >
+              <Download className="w-4 h-4" />
+              Tüm Biletleri İndir ({tickets.length})
+            </button>
+          )}
+          <button
+            onClick={() => {
+              const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+              const pdfUrl = `${apiBase}/tickets/${encodeURIComponent(d.pnrCode)}/pdf`;
+              const iframe = document.createElement('iframe');
+              iframe.style.position = 'fixed';
+              iframe.style.right = '-10000px';
+              iframe.style.bottom = '-10000px';
+              iframe.style.width = '0';
+              iframe.style.height = '0';
+              iframe.style.border = '0';
+              iframe.src = pdfUrl;
+              iframe.onload = () => {
+                setTimeout(() => {
+                  try {
+                    iframe.contentWindow?.focus();
+                    iframe.contentWindow?.print();
+                  } catch {
+                    window.open(pdfUrl, '_blank');
+                  }
+                }, 500);
+              };
+              document.body.appendChild(iframe);
+            }}
+            className="flex items-center gap-2.5 bg-white hover:bg-slate-50 dark:bg-zinc-900 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold px-6 py-3 rounded-xl border border-slate-200 dark:border-zinc-700 shadow-sm transition-colors cursor-pointer active:scale-[0.98] text-sm"
+          >
             <Printer className="w-4 h-4" />
             Bileti Yazdır
           </button>
