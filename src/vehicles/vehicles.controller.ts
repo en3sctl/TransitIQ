@@ -16,31 +16,26 @@ export class VehiclesController {
 
   @Post()
   create(@Request() req: any, @Body() createVehicleDto: CreateVehicleDto) {
-    const tenantId = req.user.tenantId;
-    return this.vehiclesService.create(tenantId, createVehicleDto);
+    return this.vehiclesService.create(req.user.tenantId, createVehicleDto, req.user.id);
   }
 
   @Get()
   findAll(@Request() req: any) {
-    const tenantId = req.user.tenantId;
-    return this.vehiclesService.findAll(tenantId);
+    return this.vehiclesService.findAll(req.user.tenantId);
   }
 
   @Get(':id')
   findOne(@Request() req: any, @Param('id') id: string) {
-    const tenantId = req.user.tenantId;
-    return this.vehiclesService.findOne(tenantId, id);
+    return this.vehiclesService.findOne(req.user.tenantId, id);
   }
 
   @Patch(':id')
   update(@Request() req: any, @Param('id') id: string, @Body() updateVehicleDto: UpdateVehicleDto) {
-    const tenantId = req.user.tenantId;
-    return this.vehiclesService.update(tenantId, id, updateVehicleDto);
+    return this.vehiclesService.update(req.user.tenantId, id, updateVehicleDto, req.user.id);
   }
 
   @Delete(':id')
   remove(@Request() req: any, @Param('id') id: string) {
-    const tenantId = req.user.tenantId;
-    return this.vehiclesService.remove(tenantId, id);
+    return this.vehiclesService.remove(req.user.tenantId, id, req.user.id);
   }
 }

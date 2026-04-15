@@ -8,6 +8,8 @@ import Sidebar from "@/components/sidebar";
 import { AdminBookingsPanel } from "@/components/admin/bookings-panel";
 import { AdminDriversPanel } from "@/components/admin/drivers-panel";
 import { AdminAuditLogsPanel } from "@/components/admin/audit-logs-panel";
+import { VehicleDetailModal } from "@/components/admin/vehicle-detail-modal";
+import { OtogarPicker } from "@/components/admin/otogar-picker";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -129,6 +131,7 @@ function AdminDashboardContent() {
   const [tripForm, setTripForm] = useState({ routeId: "", vehicleId: "", departureTime: "", estimatedArrival: "", driverId: "" });
 
   const [drivers, setDrivers] = useState<any[]>([]);
+  const [vehicleDetailId, setVehicleDetailId] = useState<string | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -366,6 +369,7 @@ function AdminDashboardContent() {
                   <TabsTrigger value="trips" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Seferler</TabsTrigger>
                   <TabsTrigger value="bookings" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Biletler</TabsTrigger>
                   <TabsTrigger value="drivers" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Şoförler</TabsTrigger>
+                  <TabsTrigger value="audit" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Denetim</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview">
@@ -402,12 +406,13 @@ function AdminDashboardContent() {
                    </div>
                 </TabsContent>
 
-                <TabsContent value="vehicles"><TableCard title="Filo Yönetimi" count={vehicles.length} actionLabel="Araç Ekle" onAction={() => setIsDialogOpen(true)}><VehiclesTable vehicles={vehicles} /></TableCard></TabsContent>
+                <TabsContent value="vehicles"><TableCard title="Filo Yönetimi" count={vehicles.length} actionLabel="Araç Ekle" onAction={() => setIsDialogOpen(true)}><VehiclesTable vehicles={vehicles} onSelect={setVehicleDetailId} /></TableCard></TabsContent>
                 <TabsContent value="stations"><TableCard title="İstasyon Yönetimi" count={stations.length} actionLabel="İstasyon Ekle" onAction={() => setIsDialogOpen(true)}><StationsTable stations={stations} /></TableCard></TabsContent>
                 <TabsContent value="routes"><TableCard title="Ağ Haritası" count={routes.length} actionLabel="Rota Oluştur" onAction={() => setIsDialogOpen(true)}><RoutesTable routes={routes} /></TableCard></TabsContent>
                 <TabsContent value="trips"><TableCard title="Sefer Kayıtları" count={trips.length} actionLabel="Sefer Ata" onAction={() => setIsDialogOpen(true)}><TripsTable trips={trips} /></TableCard></TabsContent>
                 <TabsContent value="bookings" className="mt-6"><AdminBookingsPanel /></TabsContent>
                 <TabsContent value="drivers" className="mt-6"><AdminDriversPanel /></TabsContent>
+                <TabsContent value="audit" className="mt-6"><AdminAuditLogsPanel /></TabsContent>
               </Tabs>
             </div>
 
@@ -419,6 +424,9 @@ function AdminDashboardContent() {
           </motion.div>
         </div>
       </main>
+
+      {/* Vehicle detail modal */}
+      <VehicleDetailModal vehicleId={vehicleDetailId} onClose={() => setVehicleDetailId(null)} />
     </div>
   );
 }
@@ -465,7 +473,7 @@ function TableCard({ title, count, children, actionLabel, onAction }: { title: s
   );
 }
 
-function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
+function VehiclesTable({ vehicles, onSelect }: { vehicles: Vehicle[]; onSelect?: (id: string) => void }) {
   if (vehicles.length === 0) return <EmptyState icon={Bus} label="Henüz araç eklenmemiş" />;
   return (
     <div className="overflow-x-auto">
@@ -481,7 +489,11 @@ function VehiclesTable({ vehicles }: { vehicles: Vehicle[] }) {
         </TableHeader>
         <TableBody>
           {vehicles.map((v) => (
-            <TableRow key={v.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group">
+            <TableRow
+              key={v.id}
+              onClick={() => onSelect?.(v.id)}
+              className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group cursor-pointer"
+            >
               <TableCell className="py-6 px-8 text-zinc-900 dark:text-zinc-100 font-bold text-base">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center border border-zinc-200 dark:border-zinc-800 group-hover:bg-white dark:group-hover:bg-zinc-800 transition-all">
@@ -653,7 +665,17 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
 
   if (activeTab === 'stations') {
     return (
-      <form onSubmit={handleStationSubmit} className="space-y-8">
+      <form onSubmit={handleStationSubmit} className="space-y-6">
+        <OtogarPicker
+          onSelect={(o) =>
+            setStationForm({
+              name: o.name,
+              city: o.city,
+              locationLat: o.lat.toString(),
+              locationLng: o.lng.toString(),
+            })
+          }
+        />
         <div className="space-y-6">
           <div className="space-y-2">
             <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">İstasyon / Terminal Adı</Label>

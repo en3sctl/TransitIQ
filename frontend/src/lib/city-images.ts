@@ -87,3 +87,55 @@ export function getCityImages(city: string): CityImage[] {
 export function getCityImageWithFallback(city: string, seed = 0): CityImage {
   return getCityImage(city, seed) || { src: '/bogaz_kopru.jpg', alt: 'Türkiye' };
 }
+
+/**
+ * Async variant: if no curated photo exists for the city, ask the backend
+ * to fetch one from Wikipedia. Caches results in localStorage for 24 hours.
+ */
+export async function resolveCityImage(
+  city: string,
+  seed = 0,
+  apiBase?: string,
+): Promise<CityImage> {
+  const local = getCityImage(city, seed);
+  if (local) return local;
+
+  if (typeof window === 'undefined') {
+    return { src: '/bogaz_kopru.jpg', alt: 'Türkiye' };
+  }
+
+  const cacheKey = `city-img:${city.toLowerCase()}`;
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached) as { src: string | null; alt: string; at: number };
+      if (Date.now() - parsed.at < 24 * 60 * 60 * 1000 && parsed.src) {
+        return { src: parsed.src, alt: parsed.alt };
+      }
+    }
+  } catch {
+    // ignore parse errors
+  }
+
+  try {
+    const base = apiBase || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${base}/city-image?city=${encodeURIComponent(city)}`, {
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeoutId));
+    if (res.ok) {
+      const data = await res.json();
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({ src: data.url, alt: data.alt, at: Date.now() }));
+      } catch {
+        // localStorage full or unavailable, continue anyway
+      }
+      if (data.url) return { src: data.url, alt: data.alt };
+    }
+  } catch {
+    // network error, timeout, CORS, etc. — silently fall back
+  }
+
+  return { src: '/bogaz_kopru.jpg', alt: `Türkiye - ${city}` };
+}

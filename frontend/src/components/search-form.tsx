@@ -75,7 +75,7 @@ export default function SearchForm() {
               </span>
               <div className="hidden"><SelectValue /></div>
             </SelectTrigger>
-            <SelectContent className="bg-white border-slate-200 rounded-2xl shadow-xl z-50">
+            <SelectContent side="bottom" sideOffset={8} className="bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 max-h-[320px]">
               {isLoading ? (
                 <SelectItem value="loading" disabled className="text-slate-400">Yükleniyor...</SelectItem>
               ) : stations.length === 0 ? (
@@ -106,7 +106,7 @@ export default function SearchForm() {
               </span>
               <div className="hidden"><SelectValue /></div>
             </SelectTrigger>
-            <SelectContent className="bg-white border-slate-200 rounded-2xl shadow-xl z-50">
+            <SelectContent side="bottom" sideOffset={8} className="bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 max-h-[320px]">
               {isLoading ? (
                 <SelectItem value="loading" disabled className="text-slate-400">Yükleniyor...</SelectItem>
               ) : stations.length === 0 ? (

@@ -149,8 +149,50 @@ model Vehicle {
   tenant Tenant @relation(fields: [tenantId], references: [id])
   trips  Trip[]
   seats  Seat[]
+  maintenanceRecords MaintenanceRecord[]
+  fuelLogs           FuelLog[]
 
   @@map("vehicles")
+}
+
+model MaintenanceRecord {
+  id            String    @id @default(uuid())
+  vehicleId     String    @map("vehicle_id")
+  type          String    // OIL_CHANGE, TIRE, BRAKE, INSPECTION, INSURANCE, CLEANING, REPAIR, OTHER
+  description   String?
+  cost          Decimal?
+  odometerAt    Int?      @map("odometer_at")
+  performedAt   DateTime  @map("performed_at")
+  performedBy   String?   @map("performed_by")
+  nextDueAt     DateTime? @map("next_due_at")
+  nextDueKm     Int?      @map("next_due_km")
+  attachmentUrl String?   @map("attachment_url")
+  createdBy     String?   @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+
+  @@index([vehicleId, performedAt])
+  @@map("maintenance_records")
+}
+
+model FuelLog {
+  id         String   @id @default(uuid())
+  vehicleId  String   @map("vehicle_id")
+  tripId     String?  @map("trip_id")
+  liters     Decimal
+  pricePerL  Decimal  @map("price_per_l")
+  totalCost  Decimal  @map("total_cost")
+  odometerAt Int      @map("odometer_at")
+  station    String?
+  fueledAt   DateTime @map("fueled_at")
+  fueledBy   String?  @map("fueled_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+
+  @@index([vehicleId, fueledAt])
+  @@map("fuel_logs")
 }
 
 model Seat {

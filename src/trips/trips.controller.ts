@@ -26,7 +26,7 @@ export class TripsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   async create(@Req() req: any, @Body() createTripDto: CreateTripDto) {
-    return this.tripsService.create(req.user.tenantId, createTripDto);
+    return this.tripsService.create(req.user.tenantId, createTripDto, req.user.id);
   }
 
   @Patch(':id')

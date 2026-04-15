@@ -12,8 +12,12 @@ import {
   Text,
   Row,
   Column,
-  Tailwind,
+  Tailwind as TailwindRaw,
 } from '@react-email/components';
+
+// React 19 + @react-email type inference workaround: JSX children not picked up
+// as `children` prop on Tailwind in strict mode. Cast to a permissive component type.
+const Tailwind = TailwindRaw as React.ComponentType<{ children?: React.ReactNode }>;
 
 interface TicketConfirmationEmailProps {
   logoDataUrl?: string;

@@ -48,12 +48,12 @@ export class TripsService {
     });
   }
 
-  async create(tenantId: string, dto: CreateTripDto) {
+  async create(tenantId: string, dto: CreateTripDto, actorId?: string) {
     const departureTime = new Date(dto.departureTime);
 
     await this.assertTenantOwnership(tenantId, dto.routeId, dto.vehicleId, dto.driverId);
 
-    return this.prisma.trip.create({
+    const created = await this.prisma.trip.create({
       data: {
         tenantId,
         routeId: dto.routeId,
@@ -74,6 +74,20 @@ export class TripsService {
         vehicle: true,
       },
     });
+
+    this.audit.log({
+      tenantId, userId: actorId,
+      action: 'CREATE',
+      entityType: 'TRIP', entityId: created.id,
+      newValues: {
+        route: `${created.route.originStation.city} → ${created.route.destinationStation.city}`,
+        departureTime: created.departureTime,
+        driverId: created.driverId,
+        vehicleId: created.vehicleId,
+      },
+    });
+
+    return created;
   }
 
   /**

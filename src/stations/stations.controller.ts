@@ -13,7 +13,7 @@ export class StationsController {
   @Post()
   @UseGuards(JwtAuthGuard)
   create(@Request() req: any, @Body() createDto: CreateStationDto) {
-    return this.stationsService.create(req.user.tenantId, createDto);
+    return this.stationsService.create(req.user.tenantId, createDto, req.user.id);
   }
 
   /** Public: frontend search form needs station list without auth */
@@ -31,12 +31,12 @@ export class StationsController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   update(@Request() req: any, @Param('id') id: string, @Body() updateDto: UpdateStationDto) {
-    return this.stationsService.update(req.user.tenantId, id, updateDto);
+    return this.stationsService.update(req.user.tenantId, id, updateDto, req.user.id);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   remove(@Request() req: any, @Param('id') id: string) {
-    return this.stationsService.remove(req.user.tenantId, id);
+    return this.stationsService.remove(req.user.tenantId, id, req.user.id);
   }
 }

@@ -6,7 +6,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { TrendingUp, ArrowRight, Flame } from "lucide-react";
 import api from "@/lib/api";
-import { getCityImageWithFallback } from "@/lib/city-images";
+import { getCityImageWithFallback, resolveCityImage, type CityImage } from "@/lib/city-images";
 
 interface PopularRoute {
   id: string;
@@ -22,6 +22,7 @@ interface PopularRoute {
 export function PopularRoutes() {
   const [routes, setRoutes] = useState<PopularRoute[]>([]);
   const [loading, setLoading] = useState(true);
+  const [imageMap, setImageMap] = useState<Record<string, CityImage>>({});
 
   useEffect(() => {
     (async () => {
@@ -35,6 +36,29 @@ export function PopularRoutes() {
       }
     })();
   }, []);
+
+  // Resolve images for cities without curated photos (async Wikipedia fallback)
+  useEffect(() => {
+    if (routes.length === 0) return;
+    (async () => {
+      const results: Record<string, CityImage> = {};
+      await Promise.allSettled(
+        routes.map(async (r, i) => {
+          const key = r.destination.city;
+          if (imageMap[key]) return;
+          try {
+            results[key] = await resolveCityImage(r.destination.city, i);
+          } catch {
+            // Individual failure should not block others
+          }
+        }),
+      );
+      if (Object.keys(results).length > 0) {
+        setImageMap((prev) => ({ ...prev, ...results }));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routes]);
 
   if (!loading && routes.length === 0) return null;
 
@@ -71,7 +95,7 @@ export function PopularRoutes() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {routes.map((r, i) => {
-              const img = getCityImageWithFallback(r.destination.city, i);
+              const img = imageMap[r.destination.city] || getCityImageWithFallback(r.destination.city, i);
               return (
                 <motion.div
                   key={r.id}

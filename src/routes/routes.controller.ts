@@ -31,8 +31,7 @@ export class RoutesController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   create(@Request() req: any, @Body() createRouteDto: CreateRouteDto) {
-    const tenantId = req.user.tenantId;
-    return this.routesService.create(tenantId, createRouteDto);
+    return this.routesService.create(req.user.tenantId, createRouteDto, req.user.id);
   }
 
   @Get()
@@ -55,15 +54,13 @@ export class RoutesController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   update(@Request() req: any, @Param('id') id: string, @Body() updateRouteDto: UpdateRouteDto) {
-    const tenantId = req.user.tenantId;
-    return this.routesService.update(tenantId, id, updateRouteDto);
+    return this.routesService.update(req.user.tenantId, id, updateRouteDto, req.user.id);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   remove(@Request() req: any, @Param('id') id: string) {
-    const tenantId = req.user.tenantId;
-    return this.routesService.remove(tenantId, id);
+    return this.routesService.remove(req.user.tenantId, id, req.user.id);
   }
 }

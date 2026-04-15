@@ -21,6 +21,8 @@ import { TasksModule } from './tasks/tasks.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { CarbonModule } from './shared/carbon/carbon.module';
+import { CityImageModule } from './shared/city-image/city-image.module';
+import { OtogarModule } from './shared/otogar/otogar.module';
 import { PassengerFeaturesModule } from './passenger-features/passenger-features.module';
 
 @Module({
@@ -60,6 +62,8 @@ import { PassengerFeaturesModule } from './passenger-features/passenger-features
     TicketsModule,
     NotificationsModule,
     CarbonModule,
+    CityImageModule,
+    OtogarModule,
     PassengerFeaturesModule,
   ],
   controllers: [AppController],

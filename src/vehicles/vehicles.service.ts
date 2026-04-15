@@ -1,17 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { AuditService } from '../common/audit/audit.service';
 import { CreateVehicleDto, UpdateVehicleDto } from './dto/vehicle.dto';
 import { VehicleStatus, SeatType } from '@prisma/client';
 
 @Injectable()
 export class VehiclesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private audit: AuditService,
+  ) {}
 
-  async create(tenantId: string, createVehicleDto: CreateVehicleDto) {
+  async create(tenantId: string, createVehicleDto: CreateVehicleDto, actorId?: string) {
     const { capacity, layoutType, ...rest } = createVehicleDto;
 
     // Create vehicle + auto-generate seats in a transaction
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const vehicle = await tx.vehicle.create({
         data: {
           ...rest,
@@ -21,13 +25,9 @@ export class VehiclesService {
         },
       });
 
-      // Parse layout: "2+1" → left=2, right=1
       const [left, right] = layoutType.split('+').map(Number);
-
-      // Determine seat type based on layout
       const seatType = left + right <= 3 ? SeatType.VIP : SeatType.STANDARD;
 
-      // Generate seat records
       const seatData = Array.from({ length: capacity }, (_, i) => ({
         vehicleId: vehicle.id,
         seatNumber: i + 1,
@@ -36,12 +36,22 @@ export class VehiclesService {
 
       await tx.seat.createMany({ data: seatData });
 
-      // Return vehicle with seats
       return tx.vehicle.findUnique({
         where: { id: vehicle.id },
         include: { seats: { orderBy: { seatNumber: 'asc' } } },
       });
     });
+
+    if (result) {
+      this.audit.log({
+        tenantId, userId: actorId,
+        action: 'CREATE',
+        entityType: 'VEHICLE', entityId: result.id,
+        newValues: { registrationPlate: result.registrationPlate, capacity: result.capacity, layoutType: result.layoutType },
+      });
+    }
+
+    return result;
   }
 
   async findAll(tenantId: string) {
@@ -75,25 +85,44 @@ export class VehiclesService {
     return vehicle;
   }
 
-  async update(tenantId: string, id: string, updateVehicleDto: UpdateVehicleDto) {
-    await this.findOne(tenantId, id);
+  async update(tenantId: string, id: string, updateVehicleDto: UpdateVehicleDto, actorId?: string) {
+    const existing = await this.findOne(tenantId, id);
 
     const { status, ...rest } = updateVehicleDto;
-    return this.prisma.vehicle.update({
+    const updated = await this.prisma.vehicle.update({
       where: { id },
       data: {
         ...rest,
         ...(status && { status: status as VehicleStatus }),
       },
     });
+
+    this.audit.log({
+      tenantId, userId: actorId,
+      action: 'UPDATE',
+      entityType: 'VEHICLE', entityId: id,
+      oldValues: { registrationPlate: existing.registrationPlate, status: existing.status },
+      newValues: updateVehicleDto,
+    });
+
+    return updated;
   }
 
-  async remove(tenantId: string, id: string) {
-    await this.findOne(tenantId, id);
+  async remove(tenantId: string, id: string, actorId?: string) {
+    const existing = await this.findOne(tenantId, id);
 
-    return this.prisma.vehicle.update({
+    const removed = await this.prisma.vehicle.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
+
+    this.audit.log({
+      tenantId, userId: actorId,
+      action: 'DELETE',
+      entityType: 'VEHICLE', entityId: id,
+      oldValues: { registrationPlate: existing.registrationPlate },
+    });
+
+    return removed;
   }
 }

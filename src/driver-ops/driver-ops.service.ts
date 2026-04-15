@@ -10,25 +10,41 @@ export class DriverOpsService {
     private audit: AuditService,
   ) {}
 
+  /**
+   * Returns trips relevant to the driver right now:
+   * - Any ACTIVE trip (currently on the road)
+   * - PLANNED trips departing in next 7 days
+   * - COMPLETED trips from today (recent history)
+   */
   async getTodayTrips(tenantId: string, driverId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfWeek = new Date(startOfToday);
+    endOfWeek.setDate(endOfWeek.getDate() + 7);
 
     return this.prisma.trip.findMany({
       where: {
         tenantId,
         driverId,
-        departureTime: {
-          gte: today,
-          lt: tomorrow,
-        },
+        OR: [
+          { status: 'ACTIVE' },
+          { status: 'PLANNED', departureTime: { gte: startOfToday, lt: endOfWeek } },
+          { status: 'COMPLETED', departureTime: { gte: startOfToday } },
+        ],
       },
       include: {
-        route: true,
+        route: {
+          include: {
+            originStation: { select: { name: true, city: true } },
+            destinationStation: { select: { name: true, city: true } },
+          },
+        },
         vehicle: true,
       },
+      orderBy: [
+        { departureTime: 'asc' },
+      ],
     });
   }
 

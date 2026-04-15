@@ -276,7 +276,7 @@ function DriverPage() {
         {/* Today's trips */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">Bugünün Seferleri</h2>
+            <h2 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">Seferlerim</h2>
             <span className="text-xs font-bold text-slate-500 dark:text-zinc-400">{trips.length} sefer</span>
           </div>
 

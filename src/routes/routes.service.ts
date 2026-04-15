@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { AuditService } from '../common/audit/audit.service';
 import { CreateRouteDto, UpdateRouteDto } from './dto/route.dto';
 import { PricingService } from '../shared/pricing/pricing.service';
 import { LocationService } from '../shared/location/location.service';
@@ -10,9 +11,10 @@ export class RoutesService {
     private prisma: PrismaService,
     private pricingService: PricingService,
     private locationService: LocationService,
+    private audit: AuditService,
   ) {}
 
-  async create(tenantId: string, createRouteDto: CreateRouteDto) {
+  async create(tenantId: string, createRouteDto: CreateRouteDto, actorId?: string) {
     const { originStationId, destinationStationId, basePrice, taxRate = 0.18, title, totalDistanceKm: providedDistance } = createRouteDto;
 
     // Fetch stations to get names for distance mock calculation
@@ -29,7 +31,7 @@ export class RoutesService {
     const finalPrice = this.pricingService.calculateFinalPrice(basePrice, taxRate);
     console.log(`Calculated Final Price: ${finalPrice}`);
 
-    return this.prisma.route.create({
+    const created = await this.prisma.route.create({
       data: {
         title,
         originStationId,
@@ -44,6 +46,20 @@ export class RoutesService {
         destinationStation: true,
       },
     });
+
+    this.audit.log({
+      tenantId, userId: actorId,
+      action: 'CREATE',
+      entityType: 'ROUTE', entityId: created.id,
+      newValues: {
+        title: created.title,
+        origin: created.originStation.city,
+        destination: created.destinationStation.city,
+        basePrice: created.basePrice,
+      },
+    });
+
+    return created;
   }
 
   async findAll(tenantId: string) {
@@ -205,10 +221,9 @@ export class RoutesService {
     return route;
   }
 
-  async update(tenantId: string, id: string, updateRouteDto: UpdateRouteDto) {
-    await this.findOne(tenantId, id);
-
-    return this.prisma.route.update({
+  async update(tenantId: string, id: string, updateRouteDto: UpdateRouteDto, actorId?: string) {
+    const existing = await this.findOne(tenantId, id);
+    const updated = await this.prisma.route.update({
       where: { id },
       data: updateRouteDto,
       include: {
@@ -216,13 +231,27 @@ export class RoutesService {
         destinationStation: true,
       },
     });
+    this.audit.log({
+      tenantId, userId: actorId,
+      action: 'UPDATE',
+      entityType: 'ROUTE', entityId: id,
+      oldValues: { title: existing.title, basePrice: existing.basePrice },
+      newValues: updateRouteDto,
+    });
+    return updated;
   }
 
-  async remove(tenantId: string, id: string) {
-    await this.findOne(tenantId, id);
-
-    return this.prisma.route.delete({
+  async remove(tenantId: string, id: string, actorId?: string) {
+    const existing = await this.findOne(tenantId, id);
+    const removed = await this.prisma.route.delete({
       where: { id },
     });
+    this.audit.log({
+      tenantId, userId: actorId,
+      action: 'DELETE',
+      entityType: 'ROUTE', entityId: id,
+      oldValues: { title: existing.title },
+    });
+    return removed;
   }
 }
