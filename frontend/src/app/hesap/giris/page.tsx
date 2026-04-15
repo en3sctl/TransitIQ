@@ -42,8 +42,8 @@ export default function CustomerLoginPage() {
 
       <div className="hidden lg:block relative group h-full overflow-hidden">
         <img
-          src="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&q=80"
-          alt="Yolculuk"
+          src="/kapadokya.png"
+          alt="Kapadokya"
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent opacity-90" />

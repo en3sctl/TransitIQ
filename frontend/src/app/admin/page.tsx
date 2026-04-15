@@ -6,6 +6,8 @@ import { useAuth } from "@/context/auth-context";
 import ProtectedRoute from "@/components/protected-route";
 import Sidebar from "@/components/sidebar";
 import { AdminBookingsPanel } from "@/components/admin/bookings-panel";
+import { AdminDriversPanel } from "@/components/admin/drivers-panel";
+import { AdminAuditLogsPanel } from "@/components/admin/audit-logs-panel";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -126,19 +128,23 @@ function AdminDashboardContent() {
   const [routeForm, setRouteForm] = useState({ originStationId: "", destinationStationId: "", basePrice: "", title: "", totalDistanceKm: "" });
   const [tripForm, setTripForm] = useState({ routeId: "", vehicleId: "", departureTime: "", estimatedArrival: "", driverId: "" });
 
+  const [drivers, setDrivers] = useState<any[]>([]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [vRes, sRes, rRes, tRes] = await Promise.all([
+      const [vRes, sRes, rRes, tRes, dRes] = await Promise.all([
         api.get("/vehicles"),
         api.get("/stations").catch(() => ({ data: [] })),
         api.get("/routes").catch(() => ({ data: [] })),
         api.get("/trips").catch(() => ({ data: [] })),
+        api.get("/users/drivers").catch(() => ({ data: [] })),
       ]);
       setVehicles(vRes.data);
       setStations(sRes.data);
       setRoutes(rRes.data);
       setTrips(tRes.data);
+      setDrivers(dRes.data);
     } catch (err: any) {
       toast.error("Veriler yüklenirken hata oluştu");
     } finally {
@@ -221,13 +227,17 @@ function AdminDashboardContent() {
 
   const handleTripSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!tripForm.driverId) {
+      toast.error("Lütfen bir şoför seçin");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const payload: Record<string, string | undefined> = {
         routeId: tripForm.routeId,
         vehicleId: tripForm.vehicleId,
         departureTime: new Date(tripForm.departureTime).toISOString(),
-        driverId: user?.id,
+        driverId: tripForm.driverId,
       };
       if (tripForm.estimatedArrival) {
         payload.estimatedArrival = new Date(tripForm.estimatedArrival).toISOString();
@@ -306,7 +316,7 @@ function AdminDashboardContent() {
                     activeTab={activeTab}
                     forms={{ vehicleForm, stationForm, routeForm, tripForm, setVehicleForm, setStationForm, setRouteForm, setTripForm }}
                     handlers={{ handleVehicleSubmit, handleStationSubmit, handleRouteSubmit, handleTripSubmit }}
-                    data={{ routes, vehicles, stations }}
+                    data={{ routes, vehicles, stations, drivers }}
                     isSubmitting={isSubmitting}
                   />
                 </DialogContent>
@@ -355,6 +365,7 @@ function AdminDashboardContent() {
                   <TabsTrigger value="routes" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Rotalar</TabsTrigger>
                   <TabsTrigger value="trips" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Seferler</TabsTrigger>
                   <TabsTrigger value="bookings" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Biletler</TabsTrigger>
+                  <TabsTrigger value="drivers" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Şoförler</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview">
@@ -396,6 +407,7 @@ function AdminDashboardContent() {
                 <TabsContent value="routes"><TableCard title="Ağ Haritası" count={routes.length} actionLabel="Rota Oluştur" onAction={() => setIsDialogOpen(true)}><RoutesTable routes={routes} /></TableCard></TabsContent>
                 <TabsContent value="trips"><TableCard title="Sefer Kayıtları" count={trips.length} actionLabel="Sefer Ata" onAction={() => setIsDialogOpen(true)}><TripsTable trips={trips} /></TableCard></TabsContent>
                 <TabsContent value="bookings" className="mt-6"><AdminBookingsPanel /></TabsContent>
+                <TabsContent value="drivers" className="mt-6"><AdminDriversPanel /></TabsContent>
               </Tabs>
             </div>
 
@@ -582,7 +594,7 @@ function EmptyState({ icon: Icon, label }: { icon: any, label: string }) {
 function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
   const { vehicleForm, stationForm, routeForm, tripForm, setVehicleForm, setStationForm, setRouteForm, setTripForm } = forms;
   const { handleVehicleSubmit, handleStationSubmit, handleRouteSubmit, handleTripSubmit } = handlers;
-  const { routes, vehicles, stations } = data;
+  const { routes, vehicles, stations, drivers = [] } = data;
 
   if (activeTab === 'vehicles') {
     return (
@@ -771,6 +783,34 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
               </AnimatePresence>
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Şoför</Label>
+          {drivers.length === 0 ? (
+            <div className="p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl text-xs font-semibold text-amber-800 dark:text-amber-300">
+              Henüz şoför eklenmemiş. Önce <strong>Şoförler</strong> sekmesinden bir şoför oluştur.
+            </div>
+          ) : (
+            <Select value={tripForm.driverId} onValueChange={(v) => setTripForm({...tripForm, driverId: v})}>
+              <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-left outline-none text-zinc-900 dark:text-zinc-100 transition-all">
+                <SelectValue placeholder="Şoför Seçin">
+                  {drivers.find((d: any) => d.id === tripForm.driverId)?.name}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2 shadow-2xl">
+                <AnimatePresence>
+                  {drivers.map((d: any) => (
+                    <SelectItem key={d.id} value={d.id} className="rounded-xl p-3 focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-950 dark:focus:text-zinc-100 cursor-pointer">
+                      <div className="flex flex-col">
+                        <span className="font-bold">{d.name}</span>
+                        <span className="text-[10px] font-semibold text-zinc-400">{d.email}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </AnimatePresence>
+              </SelectContent>
+            </Select>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-5">
           <div className="space-y-2">

@@ -10,7 +10,9 @@ import { useBookingStore } from '@/store/useBookingStore';
 interface SeatButtonProps {
   seat: SeatData;
   isSelected: boolean;
+  isFocusedByOther?: boolean;
   onToggle: (seatNumber: number) => void;
+  onFocus?: (seatNumber: number | null) => void;
   compact?: boolean;
 }
 
@@ -60,7 +62,7 @@ function statusConfig(status: SeatStatus, isSelected: boolean) {
   }
 }
 
-function SeatButton({ seat, isSelected, onToggle, compact }: SeatButtonProps) {
+function SeatButton({ seat, isSelected, isFocusedByOther, onToggle, onFocus, compact }: SeatButtonProps) {
   const config = statusConfig(seat.status, isSelected);
   const size = compact ? 'w-10 h-10 text-xs' : 'w-12 h-12 text-sm';
 
@@ -69,19 +71,30 @@ function SeatButton({ seat, isSelected, onToggle, compact }: SeatButtonProps) {
       whileTap={config.disabled ? undefined : { scale: 0.9 }}
       whileHover={config.disabled ? undefined : { scale: 1.05 }}
       onClick={() => !config.disabled && onToggle(seat.seatNumber)}
+      onMouseEnter={() => !config.disabled && onFocus?.(seat.seatNumber)}
+      onMouseLeave={() => !config.disabled && onFocus?.(null)}
+      onFocus={() => !config.disabled && onFocus?.(seat.seatNumber)}
+      onBlur={() => !config.disabled && onFocus?.(null)}
       disabled={config.disabled}
       className={cn(
         size,
-        'rounded-xl flex items-center justify-center transition-all duration-200 select-none',
+        'relative rounded-xl flex items-center justify-center transition-all duration-200 select-none',
         config.bg,
         config.text,
         config.cursor,
         config.hover,
-        isSelected && 'shadow-lg shadow-indigo-500/25'
+        isSelected && 'shadow-lg shadow-indigo-500/25',
+        isFocusedByOther && !isSelected && !config.disabled && 'ring-2 ring-amber-400 ring-offset-1 ring-offset-white dark:ring-offset-zinc-900'
       )}
-      aria-label={`Koltuk ${seat.seatNumber}${config.disabled ? ' (dolu)' : ''}`}
+      aria-label={`Koltuk ${seat.seatNumber}${config.disabled ? ' (dolu)' : ''}${isFocusedByOther ? ' (başka biri bakıyor)' : ''}`}
     >
       {seat.seatNumber}
+      {isFocusedByOther && !isSelected && !config.disabled && (
+        <span
+          aria-hidden="true"
+          className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-zinc-900 animate-pulse"
+        />
+      )}
     </motion.button>
   );
 }
@@ -99,6 +112,10 @@ interface SeatMapProps {
   seatStatuses?: Map<number, SeatStatus>;
   compact?: boolean;
   maxSelectable?: number;
+  /** Seats currently being hovered by OTHER viewers (live). */
+  focusedByOthers?: Set<number>;
+  /** Broadcast this client's current focus to other viewers. */
+  onFocus?: (seatNumber: number | null) => void;
 }
 
 export function SeatMap({
@@ -107,6 +124,8 @@ export function SeatMap({
   seatStatuses,
   compact = false,
   maxSelectable = 5,
+  focusedByOthers,
+  onFocus,
 }: SeatMapProps) {
   const selectedSeats = useBookingStore((s) => s.selectedSeats);
   const addSeat = useBookingStore((s) => s.addSeat);
@@ -173,7 +192,9 @@ export function SeatMap({
                   key={seat.seatNumber}
                   seat={seat}
                   isSelected={selectedSeats.includes(seat.seatNumber)}
+                  isFocusedByOther={focusedByOthers?.has(seat.seatNumber)}
                   onToggle={handleToggle}
+                  onFocus={onFocus}
                   compact={compact}
                 />
               )
@@ -205,6 +226,12 @@ export function SeatMap({
           <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-200 dark:border-amber-800/50" />
           <span className="text-slate-500 dark:text-zinc-400">Rezerve</span>
         </div>
+        {focusedByOthers && focusedByOthers.size > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="relative w-6 h-6 rounded-lg bg-white dark:bg-zinc-800 border-2 border-slate-200 dark:border-zinc-700 ring-2 ring-amber-400 ring-offset-1 ring-offset-white dark:ring-offset-zinc-900" />
+            <span className="text-slate-500 dark:text-zinc-400">Başka biri bakıyor</span>
+          </div>
+        )}
       </div>
     </div>
   );

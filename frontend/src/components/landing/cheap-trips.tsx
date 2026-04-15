@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Tag, ArrowRight, Clock, Bus, Calendar } from "lucide-react";
 import api from "@/lib/api";
+import { getCityImageWithFallback } from "@/lib/city-images";
 
 interface CheapTrip {
   id: string;
@@ -94,6 +96,7 @@ export function CheapTrips() {
             {trips.map((t, i) => {
               const dep = formatDate(t.departureTime);
               const dur = duration(t.departureTime, t.estimatedArrival);
+              const img = getCityImageWithFallback(t.destination.city, i);
               return (
                 <motion.div
                   key={t.id}
@@ -104,9 +107,21 @@ export function CheapTrips() {
                 >
                   <Link
                     href={`/search?from=${encodeURIComponent(t.origin.city)}&to=${encodeURIComponent(t.destination.city)}&date=${t.departureTime.split('T')[0]}`}
-                    className="group block bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-xl hover:shadow-emerald-500/5 transition-all"
+                    className="group block bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl overflow-hidden hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-xl hover:shadow-emerald-500/5 transition-all"
                   >
-                    <div className="flex items-center gap-5 flex-wrap">
+                    <div className="flex items-center gap-0 flex-wrap">
+                      {/* Destination photo thumbnail */}
+                      <div className="relative w-24 h-24 shrink-0 overflow-hidden hidden sm:block">
+                        <Image
+                          src={img.src}
+                          alt={img.alt}
+                          fill
+                          sizes="96px"
+                          className="object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-5 flex-wrap p-5 flex-1">
                       {/* Date */}
                       <div className="flex flex-col items-center w-16 shrink-0 pr-4 border-r border-slate-100 dark:border-zinc-800">
                         <span className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white leading-none">{dep.day}</span>
@@ -141,6 +156,7 @@ export function CheapTrips() {
                         <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 group-hover:bg-indigo-700 text-white font-bold text-xs transition-colors">
                           Bilet Al <ArrowRight className="w-3.5 h-3.5" />
                         </span>
+                      </div>
                       </div>
                     </div>
                   </Link>

@@ -6,7 +6,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Ticket, LogOut, ArrowRight, CalendarDays, MapPin, Armchair, Download, Search, CheckCircle2, XCircle, Clock, User, AlertTriangle, X, MessageCircle } from "lucide-react";
+import { Loader2, Ticket, LogOut, ArrowRight, CalendarDays, MapPin, Armchair, Download, Search, CheckCircle2, XCircle, Clock, User, AlertTriangle, X, MessageCircle, Navigation } from "lucide-react";
 import { AccountLayout } from "@/components/hesap/account-layout";
 import { ModeToggle } from "@/components/mode-toggle";
 import { toast } from "sonner";
@@ -256,6 +256,14 @@ export default function MyTicketsPage() {
                       >
                         <Download className="w-4 h-4" /> PDF
                       </button>
+                      {b.status === 'CONFIRMED' && (
+                        <Link
+                          href={`/bilet-takip/${b.pnrCode}`}
+                          className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 font-semibold px-4 py-2.5 rounded-xl text-xs transition-colors hover:bg-indigo-100 dark:hover:bg-indigo-500/20 border border-indigo-100 dark:border-indigo-500/20"
+                        >
+                          <Navigation className="w-4 h-4" /> Canlı Takip
+                        </Link>
+                      )}
                       <a
                         href={`https://wa.me/?text=${encodeURIComponent(`TransitIQ Biletim\n\n${b.trip.origin.city} → ${b.trip.destination.city}\n${fDate(b.trip.departureTime)} · ${fTime(b.trip.departureTime)}\nYolcu: ${b.passengerName}\nPNR: ${b.pnrCode}\n\nBilet takibi: https://transitiq.com/bilet-takip`)}`}
                         target="_blank"

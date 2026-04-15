@@ -7,6 +7,8 @@ import { Features } from "@/components/landing/features";
 import { B2BCta } from "@/components/landing/b2b-cta";
 import { LiveTicker } from "@/components/landing/live-ticker";
 import { HeroSpotlight } from "@/components/landing/hero-spotlight";
+import { HeroCarousel } from "@/components/landing/hero-carousel";
+import { DiscoverTurkey } from "@/components/landing/discover-turkey";
 
 export default function LandingPage() {
   return (
@@ -14,11 +16,8 @@ export default function LandingPage() {
       <LandingNav />
 
       {/* Hero */}
-      <section className="relative flex flex-col items-center justify-center text-center px-6 pt-24 pb-36 z-10 w-full">
-        <div className="absolute inset-0 z-0 select-none pointer-events-none">
-          <div className="absolute inset-0 bg-gradient-to-b from-white via-white/40 to-white dark:from-zinc-950 dark:via-zinc-950/40 dark:to-zinc-950 z-10" />
-          <div className="w-full h-full bg-[url('/otebis.png')] bg-cover bg-center opacity-95 dark:opacity-80" />
-        </div>
+      <section className="relative flex flex-col items-center justify-center text-center px-6 pt-24 pb-36 z-10 w-full min-h-[720px]">
+        <HeroCarousel />
         <HeroSpotlight />
 
         <div className="relative z-20 flex flex-col items-center w-full">
@@ -46,6 +45,7 @@ export default function LandingPage() {
       {/* Sections */}
       <LiveTicker />
       <PopularRoutes />
+      <DiscoverTurkey />
       <CheapTrips />
       <Features />
       <B2BCta />

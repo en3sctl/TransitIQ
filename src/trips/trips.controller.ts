@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Req, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Req, Query, UseGuards } from '@nestjs/common';
 import { TripsService } from './trips.service';
 import { CreateTripDto } from './dto/trip.dto';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
@@ -27,5 +27,12 @@ export class TripsController {
   @ApiBearerAuth()
   async create(@Req() req: any, @Body() createTripDto: CreateTripDto) {
     return this.tripsService.create(req.user.tenantId, createTripDto);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  async update(@Req() req: any, @Param('id') id: string, @Body() body: { driverId?: string; vehicleId?: string }) {
+    return this.tripsService.update(req.user.tenantId, req.user.id, id, body);
   }
 }

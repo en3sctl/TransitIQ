@@ -13,6 +13,9 @@ import api from '@/lib/api';
 import { toast } from 'sonner';
 import { CarbonFootprint } from '@/components/carbon-footprint';
 import { PriceHistoryChart } from '@/components/price-history-chart';
+import { useSeatRoom } from '@/hooks/use-seat-room';
+import { MultiLegResults } from '@/components/search/multi-leg-results';
+import { findAdjacentSeats } from '@/lib/seat-grouping';
 
 const MAX_SEATS = 5;
 
@@ -126,6 +129,15 @@ function SearchResultsPageContent() {
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [selectedTrip, fetchSeatsForTrip]);
+
+  // ─── Real-time seat room (WebSocket) ───
+  const { viewers, focusedSeats, focus: broadcastFocus } = useSeatRoom({
+    tripId: selectedTrip?.id || null,
+    onSeatsChanged: () => {
+      // Another user changed seat state — refetch to stay in sync
+      if (selectedTrip) fetchSeatsForTrip(selectedTrip.id);
+    },
+  });
 
   // Convert API seats to engine-compatible status map
   const seatStatusMap = useMemo(() => {
@@ -319,11 +331,23 @@ function SearchResultsPageContent() {
                   <Button variant="outline" onClick={() => router.push('/')}>Yeni Arama Yap</Button>
                 </div>
               ) : trips.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-4">
-                  <Bus className="w-16 h-16 text-slate-300 dark:text-zinc-600" />
-                  <p className="text-lg font-bold text-slate-500 dark:text-zinc-400">Bu tarih için sefer bulunamadı</p>
-                  <p className="text-sm text-slate-400 dark:text-zinc-500">Farklı bir tarih veya güzergah deneyin</p>
-                  <Button variant="outline" onClick={() => router.push('/')}>Yeni Arama Yap</Button>
+                <div className="space-y-6">
+                  <div className="flex flex-col items-center justify-center py-10 gap-3">
+                    <Bus className="w-12 h-12 text-slate-300 dark:text-zinc-600" />
+                    <p className="text-base font-bold text-slate-500 dark:text-zinc-400">Bu tarih için direkt sefer bulunamadı</p>
+                    <p className="text-xs text-slate-400 dark:text-zinc-500">Aşağıda aktarmalı seçenekleri kontrol ediyoruz</p>
+                  </div>
+                  <MultiLegResults
+                    from={decodeURIComponent(fromCity)}
+                    to={decodeURIComponent(toCity)}
+                    date={dateStr || ''}
+                    onSelectTrip={(tripId) => {
+                      router.push(`/search?from=${fromCity}&to=${toCity}&date=${dateStr}&tripId=${tripId}`);
+                    }}
+                  />
+                  <div className="flex justify-center">
+                    <Button variant="outline" onClick={() => router.push('/')}>Yeni Arama Yap</Button>
+                  </div>
                 </div>
               ) : (
                 <>
@@ -457,9 +481,25 @@ function SearchResultsPageContent() {
         {/* Column 2: Dynamic Seat Map Selection */}
         {selectedTrip && seatLayout && (
           <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-md min-h-[500px] flex flex-col transition-all duration-300">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
               <h3 className="text-sm font-bold text-slate-400 dark:text-zinc-500">Koltuk Seçimi</h3>
-              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{selectedSeats.length}/{MAX_SEATS}</span>
+              <div className="flex items-center gap-2">
+                {viewers > 0 && (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest"
+                    aria-live="polite"
+                  >
+                    <span className="relative flex w-1.5 h-1.5">
+                      <span className="absolute inset-0 rounded-full bg-amber-500 animate-ping opacity-75" />
+                      <span className="relative rounded-full bg-amber-500 w-1.5 h-1.5" />
+                    </span>
+                    {viewers} kişi daha bakıyor
+                  </motion.span>
+                )}
+                <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{selectedSeats.length}/{MAX_SEATS}</span>
+              </div>
             </div>
 
             {/* Legend */}
@@ -469,6 +509,33 @@ function SearchResultsPageContent() {
               <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800" /> Rezerve</div>
               <div className="flex items-center gap-1.5"><div className="w-3.5 h-3.5 rounded bg-indigo-600 dark:bg-indigo-500" /> Seçili</div>
             </div>
+
+            {/* Group pairing quick-pick (shown when nothing selected) */}
+            {selectedSeats.length === 0 && seatLayout && (
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
+                  Grupça gidiyorsan:
+                </span>
+                {[2, 3, 4].map((count) => (
+                  <button
+                    key={count}
+                    onClick={() => {
+                      const group = findAdjacentSeats(seatLayout, count);
+                      if (group.length < count) {
+                        toast.info(`${count} yan yana koltuk bulunamadı`);
+                        return;
+                      }
+                      clearSeats();
+                      group.forEach((n) => addSeat(n));
+                      toast.success(`${count} yan yana koltuk seçildi`);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:text-indigo-700 dark:hover:text-indigo-400 text-[10px] font-black transition-colors"
+                  >
+                    <Users className="w-2.5 h-2.5" /> {count}'li grup
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Multi-select badge */}
             {selectedSeats.length > 0 && (
@@ -517,9 +584,14 @@ function SearchResultsPageContent() {
                             whileTap={seat.status === 'sold' || seat.status === 'locked' ? undefined : { scale: 0.9 }}
                             disabled={seat.status === 'sold' || seat.status === 'locked'}
                             onClick={() => handleToggleSeat(seat.seatNumber)}
-                            className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs border transition-all ${getSeatStyle(seat.seatNumber)}`}
+                            onMouseEnter={() => seat.status !== 'sold' && seat.status !== 'locked' && broadcastFocus(seat.seatNumber)}
+                            onMouseLeave={() => broadcastFocus(null)}
+                            className={`relative w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs border transition-all ${getSeatStyle(seat.seatNumber)} ${focusedSeats.has(seat.seatNumber) && !selectedSeats.includes(seat.seatNumber) ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-white dark:ring-offset-zinc-900' : ''}`}
                           >
                             {seat.seatNumber}
+                            {focusedSeats.has(seat.seatNumber) && !selectedSeats.includes(seat.seatNumber) && seat.status !== 'sold' && seat.status !== 'locked' && (
+                              <span aria-hidden="true" className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-zinc-900 animate-pulse" />
+                            )}
                           </motion.button>
                         ) : null
                       )}
@@ -537,9 +609,14 @@ function SearchResultsPageContent() {
                             whileTap={seat.status === 'sold' || seat.status === 'locked' ? undefined : { scale: 0.9 }}
                             disabled={seat.status === 'sold' || seat.status === 'locked'}
                             onClick={() => handleToggleSeat(seat.seatNumber)}
-                            className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs border transition-all ${getSeatStyle(seat.seatNumber)}`}
+                            onMouseEnter={() => seat.status !== 'sold' && seat.status !== 'locked' && broadcastFocus(seat.seatNumber)}
+                            onMouseLeave={() => broadcastFocus(null)}
+                            className={`relative w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs border transition-all ${getSeatStyle(seat.seatNumber)} ${focusedSeats.has(seat.seatNumber) && !selectedSeats.includes(seat.seatNumber) ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-white dark:ring-offset-zinc-900' : ''}`}
                           >
                             {seat.seatNumber}
+                            {focusedSeats.has(seat.seatNumber) && !selectedSeats.includes(seat.seatNumber) && seat.status !== 'sold' && seat.status !== 'locked' && (
+                              <span aria-hidden="true" className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-zinc-900 animate-pulse" />
+                            )}
                           </motion.button>
                         ) : null
                       )}

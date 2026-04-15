@@ -1,10 +1,12 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { SearchTripsDto, CreateReservationDto, LockSeatsDto } from './dto/booking.dto';
 import { BookingStatus, SeatStatus, TripStatus } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { BadgesService } from '../passenger-features/badges.service';
 import { ReferralService } from '../passenger-features/referral.service';
+import { AuditService } from '../common/audit/audit.service';
+import { SeatsGateway } from './seats.gateway';
 
 const LOCK_DURATION_MINUTES = 10;
 
@@ -17,6 +19,9 @@ export class BookingService {
     private badges: BadgesService,
     @Inject(forwardRef(() => ReferralService))
     private referral: ReferralService,
+    private audit: AuditService,
+    @Inject(forwardRef(() => SeatsGateway))
+    private seatsGateway: SeatsGateway,
   ) {}
 
   // ─── Search Trips ───
@@ -85,6 +90,121 @@ export class BookingService {
         })),
       };
     }).filter((trip) => trip.availableSeats > 0);
+  }
+
+  // ─── Multi-Leg Journey Finder ───
+  /**
+   * When no direct trip exists, find indirect routes through hub cities.
+   * Returns combined itineraries (A→Hub→B) with at least 30 min transfer time
+   * and max 8 hour layover.
+   */
+  async searchMultiLeg(params: { from: string; to: string; date: string }) {
+    const { from, to, date } = params;
+    const MIN_TRANSFER_MINUTES = 30;
+    const MAX_TRANSFER_HOURS = 8;
+    const HUBS = ['İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Konya', 'Antalya', 'Adana', 'Samsun', 'Kayseri', 'Eskişehir'];
+
+    const searchDate = new Date(date);
+    searchDate.setHours(0, 0, 0, 0);
+    const nextDay = new Date(searchDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const dayAfter = new Date(searchDate);
+    dayAfter.setDate(dayAfter.getDate() + 2);
+
+    const fromLower = from.toLowerCase();
+    const toLower = to.toLowerCase();
+
+    const candidates: Array<any> = [];
+
+    for (const hub of HUBS) {
+      const hubLower = hub.toLowerCase();
+      if (hubLower === fromLower || hubLower === toLower) continue;
+
+      const leg1Trips = await this.prisma.trip.findMany({
+        where: {
+          status: TripStatus.PLANNED,
+          departureTime: { gte: new Date(), lt: nextDay },
+          route: {
+            originStation: { city: { equals: from, mode: 'insensitive' } },
+            destinationStation: { city: { equals: hub, mode: 'insensitive' } },
+          },
+        },
+        include: {
+          route: { include: { originStation: true, destinationStation: true } },
+          vehicle: true,
+          bookings: { where: { status: BookingStatus.CONFIRMED } },
+        },
+        orderBy: { departureTime: 'asc' },
+        take: 3,
+      });
+
+      if (leg1Trips.length === 0) continue;
+
+      for (const leg1 of leg1Trips) {
+        if ((leg1.vehicle.capacity - leg1.bookings.length) <= 0) continue;
+
+        const leg1Arrival = leg1.estimatedArrival || new Date(leg1.departureTime.getTime() + 6 * 3600 * 1000);
+        const minDeparture = new Date(leg1Arrival.getTime() + MIN_TRANSFER_MINUTES * 60000);
+        const maxDeparture = new Date(leg1Arrival.getTime() + MAX_TRANSFER_HOURS * 3600 * 1000);
+
+        const leg2Trips = await this.prisma.trip.findMany({
+          where: {
+            status: TripStatus.PLANNED,
+            departureTime: { gte: minDeparture, lte: maxDeparture, lt: dayAfter },
+            route: {
+              originStation: { city: { equals: hub, mode: 'insensitive' } },
+              destinationStation: { city: { equals: to, mode: 'insensitive' } },
+            },
+          },
+          include: {
+            route: { include: { originStation: true, destinationStation: true } },
+            vehicle: true,
+            bookings: { where: { status: BookingStatus.CONFIRMED } },
+          },
+          orderBy: { departureTime: 'asc' },
+          take: 2,
+        });
+
+        for (const leg2 of leg2Trips) {
+          if ((leg2.vehicle.capacity - leg2.bookings.length) <= 0) continue;
+
+          const leg2Arrival = leg2.estimatedArrival || new Date(leg2.departureTime.getTime() + 6 * 3600 * 1000);
+          const transferMinutes = Math.round((leg2.departureTime.getTime() - leg1Arrival.getTime()) / 60000);
+          const totalDurationMinutes = Math.round((leg2Arrival.getTime() - leg1.departureTime.getTime()) / 60000);
+
+          candidates.push({
+            hub,
+            leg1: this.formatTripForClient(leg1),
+            leg2: this.formatTripForClient(leg2),
+            totalPrice: Number(leg1.route.basePrice) + Number(leg2.route.basePrice),
+            transferMinutes,
+            totalDurationMinutes,
+          });
+        }
+      }
+    }
+
+    return candidates
+      .sort((a, b) => a.totalDurationMinutes - b.totalDurationMinutes)
+      .slice(0, 8);
+  }
+
+  private formatTripForClient(trip: any) {
+    const bookedCount = trip.bookings?.length || 0;
+    return {
+      id: trip.id,
+      departureTime: trip.departureTime,
+      estimatedArrival: trip.estimatedArrival,
+      origin: trip.route.originStation.city,
+      destination: trip.route.destinationStation.city,
+      originStation: trip.route.originStation.name,
+      destinationStation: trip.route.destinationStation.name,
+      price: Number(trip.route.basePrice),
+      availableSeats: trip.vehicle.capacity - bookedCount,
+      totalSeats: trip.vehicle.capacity,
+      layoutType: trip.vehicle.layoutType,
+      busModel: `${trip.vehicle.make || ''} ${trip.vehicle.model || ''}`.trim(),
+    };
   }
 
   // ─── Get Seat Map for a Trip ───
@@ -199,6 +319,12 @@ export class BookingService {
         })
       )
     );
+
+    // Broadcast to live viewers in the seat-selection room
+    this.seatsGateway.broadcastSeatsChanged(tripId, {
+      type: 'LOCKED',
+      seatNumbers: seats.map((s) => s.seatNumber),
+    });
 
     return {
       locked: true,
@@ -326,7 +452,89 @@ export class BookingService {
       this.referral.grantFirstBookingBonus(createDto.userId, result.bookings[0].id).catch(() => { /* non-fatal */ });
     }
 
+    // Broadcast newly-booked seats to live viewers
+    const bookedSeatNumbers = seats
+      .filter((s) => seatIds.includes(s.id))
+      .map((s) => s.seatNumber);
+    this.seatsGateway.broadcastSeatsChanged(tripId, {
+      type: 'BOOKED',
+      seatNumbers: bookedSeatNumbers,
+    });
+
     return result;
+  }
+
+  // ─── Passenger: Live trip tracking ───
+  async getTripLiveLocation(pnrCode: string, email: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { pnrCode: pnrCode.toUpperCase() },
+      include: {
+        trip: {
+          include: {
+            route: {
+              include: {
+                originStation: true,
+                destinationStation: true,
+              },
+            },
+            vehicle: { select: { registrationPlate: true, model: true } },
+            driver: { select: { name: true, phoneNumber: true } },
+          },
+        },
+      },
+    });
+
+    if (!booking) throw new NotFoundException('Bilet bulunamadı');
+    if (booking.contactEmail.toLowerCase() !== email.toLowerCase()) {
+      throw new ForbiddenException('Bu bilete erişim yetkiniz yok');
+    }
+
+    const trip = booking.trip;
+    const staleThreshold = 5 * 60 * 1000; // 5 min
+    const isLive = !!(trip.currentLat && trip.currentLng && trip.lastLocationAt &&
+      Date.now() - trip.lastLocationAt.getTime() < staleThreshold);
+
+    return {
+      pnr: booking.pnrCode,
+      trip: {
+        id: trip.id,
+        status: trip.status,
+        departureTime: trip.departureTime,
+        estimatedArrival: trip.estimatedArrival,
+        actualArrival: trip.actualArrival,
+        origin: {
+          city: trip.route.originStation.city,
+          name: trip.route.originStation.name,
+          lat: trip.route.originStation.locationLat ? Number(trip.route.originStation.locationLat) : null,
+          lng: trip.route.originStation.locationLng ? Number(trip.route.originStation.locationLng) : null,
+        },
+        destination: {
+          city: trip.route.destinationStation.city,
+          name: trip.route.destinationStation.name,
+          lat: trip.route.destinationStation.locationLat ? Number(trip.route.destinationStation.locationLat) : null,
+          lng: trip.route.destinationStation.locationLng ? Number(trip.route.destinationStation.locationLng) : null,
+        },
+        vehicle: trip.vehicle,
+        driverName: trip.driver?.name,
+      },
+      location: isLive
+        ? {
+            lat: trip.currentLat,
+            lng: trip.currentLng,
+            speed: trip.currentSpeed,
+            at: trip.lastLocationAt,
+            fresh: true,
+          }
+        : trip.currentLat && trip.currentLng
+          ? {
+              lat: trip.currentLat,
+              lng: trip.currentLng,
+              speed: trip.currentSpeed,
+              at: trip.lastLocationAt,
+              fresh: false,
+            }
+          : null,
+    };
   }
 
   // ─── Admin: List bookings for a tenant with filters ───
@@ -445,7 +653,7 @@ export class BookingService {
   }
 
   // ─── Admin Cancel Booking (with optional Iyzico refund) ───
-  async cancelBooking(tenantId: string, bookingId: string, opts?: { refund?: boolean }) {
+  async cancelBooking(tenantId: string, bookingId: string, opts?: { refund?: boolean; actorId?: string }) {
     const booking = await this.prisma.booking.findFirst({
       where: { id: bookingId, tenantId },
     });
@@ -472,6 +680,26 @@ export class BookingService {
         data: { status: SeatStatus.AVAILABLE, lockedUntil: null, lockedBy: null },
       });
       return updated;
+    });
+
+    // Broadcast seat freed to live viewers
+    const freedSeat = await this.prisma.seat.findUnique({
+      where: { id: booking.seatId },
+      select: { seatNumber: true },
+    });
+    if (freedSeat) {
+      this.seatsGateway.broadcastSeatsChanged(booking.tripId, {
+        type: 'FREED',
+        seatNumbers: [freedSeat.seatNumber],
+      });
+    }
+
+    this.audit.log({
+      tenantId, userId: opts?.actorId,
+      action: 'BOOKING_CANCEL',
+      entityType: 'BOOKING', entityId: bookingId,
+      oldValues: { status: booking.status, pnr: booking.pnrCode },
+      newValues: { status: 'CANCELLED', refundRequested: !!opts?.refund },
     });
 
     return {
@@ -535,12 +763,17 @@ export class BookingService {
     };
   }
 
+  /**
+   * Generate a 6-char PNR code, telefon-dostu (I, O, 0, 1 excluded for clarity).
+   * Format: TX-XXXXXX (uppercase, alphanumeric without ambiguous chars).
+   * 32^6 = 1 billion combinations — collision-safe at typical scale.
+   */
   private generatePnrCode(): string {
     const { randomBytes } = require('crypto');
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const bytes = randomBytes(8);
+    const bytes = randomBytes(6);
     let code = 'TX-';
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 6; i++) {
       code += chars.charAt(bytes[i] % chars.length);
     }
     return code;

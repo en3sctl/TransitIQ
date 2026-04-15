@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
-import { TrendingUp, ArrowRight, MapPin, Flame } from "lucide-react";
+import { TrendingUp, ArrowRight, Flame } from "lucide-react";
 import api from "@/lib/api";
+import { getCityImageWithFallback } from "@/lib/city-images";
 
 interface PopularRoute {
   id: string;
@@ -63,51 +65,76 @@ export function PopularRoutes() {
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-36 bg-slate-100 dark:bg-zinc-900 rounded-2xl animate-pulse" />
+              <div key={i} className="h-64 skeleton-shimmer rounded-2xl" />
             ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {routes.map((r, i) => (
-              <motion.div
-                key={r.id}
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.04 }}
-              >
-                <Link
-                  href={`/search?from=${encodeURIComponent(r.origin.city)}&to=${encodeURIComponent(r.destination.city)}`}
-                  className="group block bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-xl hover:shadow-indigo-500/5 transition-all"
+            {routes.map((r, i) => {
+              const img = getCityImageWithFallback(r.destination.city, i);
+              return (
+                <motion.div
+                  key={r.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.04 }}
                 >
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-[10px] font-bold uppercase tracking-widest">#{i + 1}</span>
-                    {r.bookingCount > 0 && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-zinc-400">
-                        <TrendingUp className="w-3 h-3" /> {r.bookingCount}+ yolcu
+                  <Link
+                    href={`/search?from=${encodeURIComponent(r.origin.city)}&to=${encodeURIComponent(r.destination.city)}`}
+                    className="group block relative h-64 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-zinc-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all"
+                  >
+                    {/* Background photo */}
+                    <Image
+                      src={img.src}
+                      alt={img.alt}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      className="object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
+                    {/* Dark gradient for text legibility */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
+
+                    {/* Rank badge */}
+                    <div className="absolute top-3 left-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-white/90 backdrop-blur-sm text-slate-900 text-[10px] font-black uppercase tracking-widest">
+                        #{i + 1}
                       </span>
+                    </div>
+                    {r.bookingCount > 0 && (
+                      <div className="absolute top-3 right-3">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/40 backdrop-blur-sm text-white text-[10px] font-bold">
+                          <TrendingUp className="w-2.5 h-2.5" /> {r.bookingCount}+
+                        </span>
+                      </div>
                     )}
-                  </div>
-                  <div className="space-y-1 mb-4">
-                    <p className="text-base font-black tracking-tighter text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400" /> {r.origin.city}
-                    </p>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 pl-5">↓</p>
-                    <p className="text-base font-black tracking-tighter text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-indigo-500" /> {r.destination.city}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-zinc-800">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500">
-                      {r.tripCount} sefer
-                    </span>
-                    <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
-                      ₺{r.price.toLocaleString('tr-TR')}<span className="text-[10px] text-slate-400 ml-1">'den</span>
-                    </span>
-                  </div>
-                </Link>
-              </motion.div>
-            ))}
+
+                    {/* Route label at top */}
+                    <div className="absolute top-12 left-4 right-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-white/80 mb-1">
+                        {r.origin.city}
+                      </p>
+                      <p className="text-2xl font-black tracking-tighter text-white leading-none">
+                        {r.destination.city}
+                      </p>
+                    </div>
+
+                    {/* Bottom: stats + price */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4 flex items-end justify-between">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/70">Başlangıç</p>
+                        <p className="text-xl font-black tracking-tighter text-white">
+                          ₺{r.price.toLocaleString('tr-TR')}
+                        </p>
+                      </div>
+                      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/15 backdrop-blur-md text-white text-[10px] font-bold group-hover:bg-white group-hover:text-slate-900 transition-colors">
+                        {r.tripCount} sefer <ArrowRight className="w-3 h-3" />
+                      </span>
+                    </div>
+                  </Link>
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </div>

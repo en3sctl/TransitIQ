@@ -48,6 +48,12 @@ enum BookingStatus {
   NO_SHOW
 }
 
+enum BoardingStatus {
+  PENDING
+  BOARDED
+  NO_SHOW
+}
+
 model Tenant {
   id        String    @id @default(uuid())
   name      String
@@ -247,6 +253,9 @@ model Booking {
   refundStatus           String?       @map("refund_status")
   refundedAt             DateTime?     @map("refunded_at")
   status          BookingStatus @default(CONFIRMED)
+  boardingStatus  BoardingStatus @default(PENDING) @map("boarding_status")
+  boardedAt       DateTime?      @map("boarded_at")
+  boardedBy       String?        @map("boarded_by")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   trip   Trip   @relation(fields: [tripId], references: [id])

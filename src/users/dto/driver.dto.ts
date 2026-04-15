@@ -1,18 +1,40 @@
-import { IsString, IsEmail, IsNotEmpty, IsOptional, IsPhoneNumber } from 'class-validator';
+import { IsString, IsEmail, IsNotEmpty, IsOptional, MinLength, Matches } from 'class-validator';
 
 export class CreateDriverDto {
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Ad soyad gereklidir' })
   name: string;
 
-  @IsEmail()
+  @IsEmail({}, { message: 'Geçerli bir email giriniz' })
   email: string;
 
   @IsString()
-  @IsNotEmpty()
+  @MinLength(6, { message: 'Şifre en az 6 karakter olmalıdır' })
   password: string;
 
-  @IsPhoneNumber()
   @IsOptional()
+  @IsString()
+  @Matches(/^(\+90|0)?5\d{9}$/, { message: 'Geçerli bir telefon numarası giriniz (örn: 05XX XXX XX XX)' })
+  phoneNumber?: string;
+}
+
+export class UpdateDriverDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  name?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  password?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^(\+90|0)?5\d{9}$/, { message: 'Geçerli bir telefon numarası giriniz' })
   phoneNumber?: string;
 }

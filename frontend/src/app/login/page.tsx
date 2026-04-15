@@ -58,9 +58,9 @@ export default function LoginPage() {
 
       {/* Left Side: Premium Image Layout */}
       <div className="hidden lg:block relative group h-full overflow-hidden">
-        <img 
-          src="https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&q=80" 
-          alt="Logistics Background" 
+        <img
+          src="/bogaz_kopru.jpg"
+          alt="İstanbul Boğaz Köprüsü"
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent opacity-90" />

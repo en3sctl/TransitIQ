@@ -12,6 +12,10 @@ export class LocationDto {
 
   @IsNumber()
   longitude: number;
+
+  @IsOptional()
+  @IsNumber()
+  speed?: number;
 }
 
 export class CreateExpenseDto {

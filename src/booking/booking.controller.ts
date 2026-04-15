@@ -24,6 +24,17 @@ export class BookingController {
     return this.bookingService.searchTrips(searchDto);
   }
 
+  /** Public: find multi-leg (transfer) options through hub cities */
+  @Get('search/multi-leg')
+  @Throttle({ short: { limit: 5, ttl: 1000 } })
+  searchMultiLeg(
+    @Query('from') from: string,
+    @Query('to') to: string,
+    @Query('date') date: string,
+  ) {
+    return this.bookingService.searchMultiLeg({ from, to, date });
+  }
+
   /** Public: get seat map for a trip */
   @Get('trips/:tripId/seats')
   getTripSeatMap(@Param('tripId') tripId: string) {
@@ -56,6 +67,13 @@ export class BookingController {
     return this.bookingService.getTicketByPnr(pnr);
   }
 
+  /** Public: live trip location for a ticket (PNR + email verification) */
+  @Get('ticket/:pnr/live')
+  @Throttle({ short: { limit: 15, ttl: 10000 } })
+  getLiveLocation(@Param('pnr') pnr: string, @Query('email') email: string) {
+    return this.bookingService.getTripLiveLocation(pnr, email);
+  }
+
   /** Public: get multiple tickets by comma-separated PNRs */
   @Get('tickets')
   @Throttle({ short: { limit: 3, ttl: 10000 } })
@@ -72,8 +90,7 @@ export class BookingController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   cancel(@Request() req: any, @Param('id') id: string) {
-    const tenantId = req.user.tenantId;
-    return this.bookingService.cancelBooking(tenantId, id);
+    return this.bookingService.cancelBooking(req.user.tenantId, id, { actorId: req.user.id });
   }
 
   /** Admin: list all tenant bookings with filters */
@@ -120,6 +137,7 @@ export class BookingController {
     const tenantId = req.user.tenantId;
     const result = await this.bookingService.cancelBooking(tenantId, id, {
       refund: body.refund,
+      actorId: req.user.id,
     });
 
     // If admin requested refund AND we have a transactionId, call Iyzico
