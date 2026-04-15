@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
+import { GoogleStrategy } from './google.strategy';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PaymentModule } from '../payment/payment.module';
 import { PassengerFeaturesModule } from '../passenger-features/passenger-features.module';
@@ -25,7 +26,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     forwardRef(() => PassengerFeaturesModule),
     forwardRef(() => NotificationsModule),
   ],
-  providers: [AuthService, JwtStrategy, PrismaService],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, PrismaService],
   controllers: [AuthController],
   exports: [AuthService],
 })

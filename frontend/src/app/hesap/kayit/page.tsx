@@ -8,6 +8,7 @@ import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
 import { Loader2, ChevronRight, Eye, EyeOff, Sparkles, CheckCircle2, Ticket, ShieldCheck, Bus, Gift } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { GoogleAuthButton } from "@/components/google-auth-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function CustomerRegisterPage() {
@@ -321,6 +322,17 @@ export default function CustomerRegisterPage() {
                   )}
                 </button>
               </form>
+
+              <div className="relative my-2">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-zinc-200 dark:border-zinc-800" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-zinc-50/30 dark:bg-zinc-900/10 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">veya</span>
+                </div>
+              </div>
+
+              <GoogleAuthButton label="Google ile kayıt ol" />
 
               <div className="text-center pt-6 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
                 <p className="text-[13px] text-zinc-400 font-bold uppercase tracking-wider">

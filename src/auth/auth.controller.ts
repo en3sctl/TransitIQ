@@ -1,9 +1,12 @@
-import { Controller, Post, Get, Patch, Body, Param, UseGuards, Request, Req, Ip } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { Controller, Post, Get, Patch, Body, Param, UseGuards, Request, Req, Ip, Res, Query } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto, UpdateProfileDto, ChangePasswordDto } from './dto/customer-auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { GoogleAuthGuard } from './google-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 function resolveClientIp(req: any): string {
@@ -15,7 +18,10 @@ function resolveClientIp(req: any): string {
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
+  ) {}
 
   // ─── B2B (Company Admin) ───
 
@@ -47,6 +53,44 @@ export class AuthController {
   @ApiOperation({ summary: 'Login as a passenger' })
   async customerLogin(@Body() dto: CustomerLoginDto, @Req() req: any) {
     return this.authService.customerLogin(dto, resolveClientIp(req));
+  }
+
+  // ─── Google OAuth ───
+
+  @Get('google')
+  @SkipThrottle()
+  @UseGuards(GoogleAuthGuard)
+  @ApiOperation({ summary: 'Begin Google OAuth flow' })
+  async googleAuth() {
+    // Guard handles the redirect to Google
+  }
+
+  @Get('google/callback')
+  @SkipThrottle()
+  @UseGuards(GoogleAuthGuard)
+  @ApiOperation({ summary: 'Google OAuth callback' })
+  async googleCallback(@Req() req: any, @Res() res: Response, @Query('state') state?: string) {
+    const frontend = this.config.get<string>('FRONTEND_URL', 'http://localhost:3001');
+
+    try {
+      let referralCode: string | undefined;
+      if (state) {
+        try {
+          const decoded = Buffer.from(state, 'base64url').toString('utf8');
+          const match = decoded.match(/^ref=(.+)$/);
+          if (match) referralCode = match[1];
+        } catch {
+          // ignore bad state
+        }
+      }
+
+      const result = await this.authService.loginWithGoogle(req.user, referralCode);
+      const payload = Buffer.from(JSON.stringify({ token: result.access_token, user: result.user })).toString('base64url');
+      return res.redirect(`${frontend}/google-callback#d=${payload}`);
+    } catch (e: any) {
+      const msg = encodeURIComponent(e?.message || 'Google ile giriş başarısız');
+      return res.redirect(`${frontend}/login?error=${msg}`);
+    }
   }
 
   // ─── Password Reset ───

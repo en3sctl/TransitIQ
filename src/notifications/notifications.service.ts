@@ -52,6 +52,8 @@ export class NotificationsService {
 
     if (!this.enabled) {
       this.logger.warn('RESEND_API_KEY missing — email notifications disabled');
+    } else {
+      this.logger.log(`[EMAIL] Resend enabled, sending from: ${this.fromAddress}`);
     }
   }
 

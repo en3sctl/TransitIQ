@@ -651,6 +651,71 @@ export class AuthService {
     }));
   }
 
+  // ─── B2C: Google OAuth login / signup ───
+  async loginWithGoogle(profile: { googleId: string; email: string; name: string; avatarUrl: string | null }, referralCode?: string) {
+    const publicTenant = await this.getOrCreatePublicTenant();
+    const email = profile.email.toLowerCase();
+
+    // 1) Existing user linked to this Google account
+    let user = await (this.prisma as any).user.findFirst({
+      where: { googleId: profile.googleId, deletedAt: null },
+    });
+
+    // 2) Existing user by email — link Google to the account
+    if (!user) {
+      user = await (this.prisma as any).user.findFirst({
+        where: { email, tenantId: publicTenant.id, deletedAt: null },
+      });
+
+      if (user) {
+        user = await (this.prisma as any).user.update({
+          where: { id: user.id },
+          data: {
+            googleId: profile.googleId,
+            avatarUrl: user.avatarUrl || profile.avatarUrl,
+            emailVerifiedAt: user.emailVerifiedAt || new Date(),
+          },
+        });
+      }
+    }
+
+    // 3) Brand-new user — create PASSENGER
+    if (!user) {
+      // Random high-entropy password placeholder (user can always use password reset later)
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+
+      user = await (this.prisma as any).user.create({
+        data: {
+          tenantId: publicTenant.id,
+          name: profile.name,
+          email,
+          passwordHash,
+          role: 'PASSENGER',
+          googleId: profile.googleId,
+          avatarUrl: profile.avatarUrl,
+          emailVerifiedAt: new Date(),
+        },
+      });
+
+      if (referralCode?.trim()) {
+        try {
+          await this.referralService.attachReferrer(user.id, referralCode);
+        } catch {
+          // Invalid code is non-fatal
+        }
+      }
+
+      try {
+        await this.referralService.getOrCreateCode(user.id);
+      } catch {
+        //
+      }
+    }
+
+    return this.generateToken(user);
+  }
+
   private generateToken(user: any) {
     const payload = { 
       sub: user.id, 

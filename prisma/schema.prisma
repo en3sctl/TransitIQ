@@ -89,6 +89,8 @@ model User {
   badges       String[]  @default([])
   totalTrips   Int       @default(0) @map("total_trips")
   emailVerifiedAt DateTime? @map("email_verified_at")
+  googleId     String?   @unique @map("google_id")
+  avatarUrl    String?   @map("avatar_url")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
