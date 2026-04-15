@@ -111,8 +111,11 @@ export default function WalletPage() {
             <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-black text-slate-900 dark:text-white mb-1">Nasıl kredi kazanılır?</p>
-              <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium leading-relaxed mb-1">
                 Arkadaşını davet et, ikinize de <strong>50₺</strong> kredi. İptal ettiğin biletler de otomatik cüzdana yansır.
+              </p>
+              <p className="text-[10px] text-slate-500 dark:text-zinc-500 font-semibold italic">
+                Kayıtta referans kodu girdiysen, <strong>ilk biletini aldığında</strong> bonus cüzdanına yansır — hem sana hem seni davet eden arkadaşına.
               </p>
             </div>
           </div>

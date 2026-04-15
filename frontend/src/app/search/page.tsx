@@ -49,7 +49,9 @@ function SearchResultsPageContent() {
   const router = useRouter();
   const fromCity = searchParams.get('from') || '';
   const toCity = searchParams.get('to') || '';
-  const dateStr = searchParams.get('date');
+  // Fallback: if no date specified, default to today (yesterday's cheap-trip links etc.)
+  const rawDate = searchParams.get('date');
+  const dateStr = rawDate && rawDate.trim() ? rawDate : new Date().toISOString().split('T')[0];
 
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoadingTrips, setIsLoadingTrips] = useState(true);
@@ -73,8 +75,8 @@ function SearchResultsPageContent() {
   // ─── Fetch trips from backend ───
   useEffect(() => {
     const fetchTrips = async () => {
-      if (!fromCity || !toCity || !dateStr) {
-        setSearchError('Arama parametreleri eksik');
+      if (!fromCity || !toCity) {
+        setSearchError('Kalkış veya varış şehri belirtilmemiş. Ana sayfadan arama yap.');
         setIsLoadingTrips(false);
         return;
       }

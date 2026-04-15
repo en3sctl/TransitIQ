@@ -10,6 +10,7 @@ import { AdminDriversPanel } from "@/components/admin/drivers-panel";
 import { AdminAuditLogsPanel } from "@/components/admin/audit-logs-panel";
 import { VehicleDetailModal } from "@/components/admin/vehicle-detail-modal";
 import { OtogarPicker } from "@/components/admin/otogar-picker";
+import { RuhsatUploader } from "@/components/admin/ruhsat-uploader";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -305,7 +306,7 @@ function AdminDashboardContent() {
                     }
                   />
                 )}
-                <DialogContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-[32px] sm:max-w-lg p-10 shadow-2xl overflow-hidden ring-1 ring-zinc-950/5">
+                <DialogContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-[32px] sm:max-w-lg p-10 shadow-2xl max-h-[90vh] overflow-y-auto ring-1 ring-zinc-950/5">
                   <DialogHeader className="mb-8 p-1">
                     <DialogTitle className="text-3xl font-black tracking-tighter">
                       {activeTab === 'vehicles' ? 'Yeni Araç Kaydı' : activeTab === 'stations' ? 'Yeni İstasyon' : activeTab === 'routes' ? 'Rota Genişletme' : 'Kaynak Dağıtımı'}
@@ -610,7 +611,19 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
 
   if (activeTab === 'vehicles') {
     return (
-      <form onSubmit={handleVehicleSubmit} className="space-y-8">
+      <form onSubmit={handleVehicleSubmit} className="space-y-6">
+        <RuhsatUploader
+          onExtract={(data) => {
+            setVehicleForm((prev: any) => ({
+              ...prev,
+              registrationPlate: data.plate || prev.registrationPlate,
+              make: data.make || prev.make,
+              model: data.model || prev.model,
+              year: data.year ? String(data.year) : prev.year,
+              chassisNumber: data.chassis || prev.chassisNumber,
+            }));
+          }}
+        />
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-5">
             <div className="space-y-2">

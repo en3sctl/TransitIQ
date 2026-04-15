@@ -187,7 +187,7 @@ export default function LoginPage() {
                   </div>
 
                   <div className="flex justify-end pt-1">
-                    <Link href="#" className="text-xs font-bold text-zinc-400 hover:text-indigo-600 transition-colors uppercase tracking-widest">
+                    <Link href="/sifre-sifirla" className="text-xs font-bold text-zinc-400 hover:text-indigo-600 transition-colors uppercase tracking-widest">
                       Şifremi unuttum?
                     </Link>
                   </div>

@@ -8,6 +8,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PaymentModule } from '../payment/payment.module';
 import { PassengerFeaturesModule } from '../passenger-features/passenger-features.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PassengerFeaturesModule } from '../passenger-features/passenger-feature
     }),
     forwardRef(() => PaymentModule),
     forwardRef(() => PassengerFeaturesModule),
+    forwardRef(() => NotificationsModule),
   ],
   providers: [AuthService, JwtStrategy, PrismaService],
   controllers: [AuthController],

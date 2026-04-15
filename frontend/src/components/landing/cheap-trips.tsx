@@ -6,7 +6,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Tag, ArrowRight, Clock, Bus, Calendar } from "lucide-react";
 import api from "@/lib/api";
-import { getCityImageWithFallback } from "@/lib/city-images";
+import { getCityImageWithFallback, resolveCityImage, type CityImage } from "@/lib/city-images";
 
 interface CheapTrip {
   id: string;
@@ -45,6 +45,7 @@ function duration(dep: string, arr: string | null) {
 export function CheapTrips() {
   const [trips, setTrips] = useState<CheapTrip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [imageMap, setImageMap] = useState<Record<string, CityImage>>({});
 
   useEffect(() => {
     (async () => {
@@ -58,6 +59,29 @@ export function CheapTrips() {
       }
     })();
   }, []);
+
+  // Async resolve images for ORIGIN cities (kalkış yeri) — where the passenger boards.
+  useEffect(() => {
+    if (trips.length === 0) return;
+    (async () => {
+      const results: Record<string, CityImage> = {};
+      await Promise.allSettled(
+        trips.map(async (t, i) => {
+          const key = t.origin.city;
+          if (imageMap[key]) return;
+          try {
+            results[key] = await resolveCityImage(t.origin.city, i);
+          } catch {
+            // ignore individual failures
+          }
+        }),
+      );
+      if (Object.keys(results).length > 0) {
+        setImageMap((prev) => ({ ...prev, ...results }));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trips]);
 
   if (!loading && trips.length === 0) return null;
 
@@ -96,7 +120,7 @@ export function CheapTrips() {
             {trips.map((t, i) => {
               const dep = formatDate(t.departureTime);
               const dur = duration(t.departureTime, t.estimatedArrival);
-              const img = getCityImageWithFallback(t.destination.city, i);
+              const img = imageMap[t.origin.city] || getCityImageWithFallback(t.origin.city, i);
               return (
                 <motion.div
                   key={t.id}

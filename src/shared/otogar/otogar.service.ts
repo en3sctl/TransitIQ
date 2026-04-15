@@ -1,39 +1,39 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 export interface OtogarResult {
-  id: string;           // OSM node/way id, prefixed with n/w/r
+  id: string;
   name: string;
   city: string;
   district?: string;
   lat: number;
   lng: number;
   operator?: string;
-  wikipedia?: string;
-  source: 'OSM';
+  source: 'NOMINATIM';
 }
 
 /**
- * Looks up bus stations (otogar) from OpenStreetMap via Overpass API.
- * Free, no API key. Aggressively cached per-city (in-memory for now).
+ * Looks up Turkish bus stations (otogar) from OpenStreetMap via Nominatim.
  *
- * OSM tags used:
- *   amenity=bus_station
- *   public_transport=station (+bus=yes as fallback)
+ * Previous implementation used Overpass API which has frequent 504 outages at
+ * peak hours. Nominatim is the geocoding sibling — much higher availability,
+ * simpler queries, and gives enough info for our use case (admin picking a
+ * station on create).
  *
- * Overpass endpoint docs: https://wiki.openstreetmap.org/wiki/Overpass_API
+ * Strategy: run 4 parallel keyword queries ("<city> otogar", "<city> terminal",
+ * etc.), dedupe by name, filter to results that actually look like bus stations.
+ *
+ * No API key required. Nominatim policy: valid User-Agent, < 1 req/sec per
+ * endpoint, max 100 results per query. We conform.
  */
 @Injectable()
 export class OtogarService {
   private readonly logger = new Logger(OtogarService.name);
-  private readonly OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+  private readonly NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
   private readonly USER_AGENT = 'TransitIQ/1.0 (destek@transitiq.com)';
-  private readonly CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+  private readonly CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
   private cache = new Map<string, { results: OtogarResult[]; at: number }>();
 
-  /**
-   * Search otogar by city name (Turkey-scoped).
-   */
   async searchByCity(city: string): Promise<OtogarResult[]> {
     if (!city?.trim()) return [];
     const key = city.trim().toLowerCase();
@@ -43,75 +43,99 @@ export class OtogarService {
       return cached.results;
     }
 
-    // Overpass QL: search nodes+ways with amenity=bus_station within the admin area
-    // named like the city in Turkey. Uses area lookup by name (Turkish or English).
-    const query = `
-[out:json][timeout:25];
-area["name"~"^${this.escape(city)}$",i]["boundary"="administrative"]["admin_level"~"^(4|6)$"];
-(
-  node["amenity"="bus_station"](area);
-  way["amenity"="bus_station"](area);
-  node["public_transport"="station"]["bus"="yes"](area);
-);
-out center tags 30;
-`.trim();
+    const queries = [
+      `${city} otogar`,
+      `${city} terminal`,
+      `${city} otobüs terminali`,
+      `${city} bus station`,
+    ];
 
+    const all: OtogarResult[] = [];
+    for (const q of queries) {
+      const results = await this.nominatimSearch(q);
+      all.push(...results);
+      // polite throttling: ~500ms between requests to Nominatim
+      await new Promise((r) => setTimeout(r, 500));
+    }
+
+    const seen = new Set<string>();
+    const unique = all.filter((r) => {
+      const k = r.name.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+
+    this.cache.set(key, { results: unique, at: Date.now() });
+    return unique;
+  }
+
+  private async nominatimSearch(query: string): Promise<OtogarResult[]> {
     try {
-      const res = await fetch(this.OVERPASS_URL, {
-        method: 'POST',
+      const url = `${this.NOMINATIM_URL}?q=${encodeURIComponent(query)}&countrycodes=tr&format=jsonv2&addressdetails=1&limit=10`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const res = await fetch(url, {
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': this.USER_AGENT,
+          'Accept-Language': 'tr,en',
         },
-        body: `data=${encodeURIComponent(query)}`,
-      });
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId));
 
       if (!res.ok) {
-        this.logger.warn(`Overpass returned ${res.status} for city=${city}`);
+        this.logger.warn(`Nominatim returned ${res.status} for query=${query}`);
         return [];
       }
 
-      const data: any = await res.json();
-      const results: OtogarResult[] = (data.elements || [])
-        .map((el: any) => this.normalize(el, city))
-        .filter((x: OtogarResult | null): x is OtogarResult => x !== null)
-        .filter(
-          (x: OtogarResult, i: number, arr: OtogarResult[]) =>
-            arr.findIndex((y) => y.name.toLowerCase() === x.name.toLowerCase()) === i,
-        );
-
-      this.cache.set(key, { results, at: Date.now() });
-      return results;
+      const data: any[] = await res.json();
+      return data
+        .map((el) => this.normalizeNominatim(el))
+        .filter((x): x is OtogarResult => x !== null)
+        .filter((x) => this.looksLikeBusStation(x));
     } catch (err) {
-      this.logger.warn(`Overpass fetch failed for ${city}: ${err}`);
+      this.logger.warn(`Nominatim fetch failed: ${err instanceof Error ? err.message : err}`);
       return [];
     }
   }
 
-  private normalize(el: any, fallbackCity: string): OtogarResult | null {
-    const name = el.tags?.name || el.tags?.['name:tr'] || el.tags?.operator;
-    if (!name) return null;
+  private normalizeNominatim(el: any): OtogarResult | null {
+    if (!el.lat || !el.lon) return null;
 
-    const lat = el.lat ?? el.center?.lat;
-    const lng = el.lon ?? el.center?.lon;
-    if (lat == null || lng == null) return null;
-
-    const prefix = el.type === 'way' ? 'w' : el.type === 'relation' ? 'r' : 'n';
+    const address = el.address || {};
+    const city =
+      address.city ||
+      address.town ||
+      address.province ||
+      address.state ||
+      address.county ||
+      '';
 
     return {
-      id: `${prefix}${el.id}`,
-      name,
-      city: el.tags?.['addr:city'] || fallbackCity,
-      district: el.tags?.['addr:district'] || undefined,
-      lat,
-      lng,
-      operator: el.tags?.operator,
-      wikipedia: el.tags?.wikipedia,
-      source: 'OSM',
+      id: `n${el.osm_id || el.place_id}`,
+      name: (el.display_name?.split(',')[0] || el.name || 'Otogar').trim(),
+      city,
+      district: address.suburb || address.district || undefined,
+      lat: parseFloat(el.lat),
+      lng: parseFloat(el.lon),
+      source: 'NOMINATIM',
     };
   }
 
-  private escape(s: string): string {
-    return s.replace(/[\\"]/g, '\\$&');
+  /**
+   * Filter out generic results (a street, a district center, etc.).
+   * Keep only entries whose name contains otogar/terminal/garaj keywords.
+   */
+  private looksLikeBusStation(r: OtogarResult): boolean {
+    const n = r.name.toLowerCase();
+    return (
+      n.includes('otogar') ||
+      n.includes('terminal') ||
+      n.includes('otobüs') ||
+      n.includes('bus station') ||
+      n.includes('garaj') ||
+      n.includes('aktarma')
+    );
   }
 }

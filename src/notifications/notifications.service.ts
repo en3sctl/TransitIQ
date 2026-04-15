@@ -59,6 +59,76 @@ export class NotificationsService {
    * Send booking confirmation email with PDF tickets attached.
    * Called after a successful reservation.
    */
+  /**
+   * Send a password reset email with a time-limited link.
+   */
+  async sendPasswordResetEmail(to: string, name: string, resetUrl: string) {
+    if (!this.enabled || !this.resend) {
+      this.logger.warn(`[EMAIL] Password reset skipped — RESEND_API_KEY missing. Would have sent to: ${to}`);
+      return;
+    }
+    try {
+      const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f1f5f9;padding:40px 20px;margin:0"><div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.05)">
+        <h1 style="font-size:22px;font-weight:900;margin:0 0 16px;color:#0f172a">Şifreni sıfırla</h1>
+        <p style="color:#475569;line-height:1.6;margin:0 0 20px">Merhaba ${escapeHtml(name)},</p>
+        <p style="color:#475569;line-height:1.6;margin:0 0 24px">TransitIQ hesabın için şifre sıfırlama talebi aldık. Aşağıdaki butona tıklayarak yeni şifreni oluşturabilirsin. Bu link <strong>30 dakika</strong> içinde geçerliliğini yitirir.</p>
+        <a href="${resetUrl}" style="display:inline-block;background:#4f46e5;color:white;text-decoration:none;padding:14px 28px;border-radius:12px;font-weight:700;font-size:14px">Şifremi Sıfırla</a>
+        <p style="color:#94a3b8;font-size:12px;line-height:1.5;margin:32px 0 0">Bu talebi sen yapmadıysan bu e-postayı yok sayabilirsin — hesabına kimse erişemedi.</p>
+        <hr style="border:0;border-top:1px solid #e2e8f0;margin:28px 0" />
+        <p style="color:#94a3b8;font-size:11px;margin:0">Bağlantı çalışmıyorsa bu adresi tarayıcıya yapıştır:<br><span style="word-break:break-all">${escapeHtml(resetUrl)}</span></p>
+      </div></body></html>`;
+
+      const result: any = await this.resend.emails.send({
+        from: this.fromAddress,
+        to,
+        subject: 'TransitIQ Şifre Sıfırlama',
+        html,
+      });
+
+      if (result?.error) {
+        this.logger.error(`[EMAIL] Resend returned error for ${to}: ${JSON.stringify(result.error)}`);
+        if (String(result.error?.message || '').toLowerCase().includes('domain')) {
+          this.logger.warn(`[EMAIL] Note: Resend's default sender (onboarding@resend.dev) only delivers to the address registered with your Resend account. Verify a domain + set EMAIL_FROM to that domain to send to arbitrary recipients.`);
+        }
+      } else {
+        this.logger.log(`[EMAIL] Password reset sent to ${to} (id=${result?.data?.id || 'unknown'})`);
+      }
+    } catch (err) {
+      this.logger.error(`[EMAIL] sendPasswordResetEmail threw: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  /**
+   * Send an email verification link after registration.
+   */
+  async sendEmailVerification(to: string, name: string, verifyUrl: string) {
+    if (!this.enabled || !this.resend) {
+      this.logger.warn(`Email verification not sent (Resend disabled): ${to}`);
+      return;
+    }
+    try {
+      const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f1f5f9;padding:40px 20px;margin:0"><div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.05)">
+        <h1 style="font-size:22px;font-weight:900;margin:0 0 16px;color:#0f172a">E-posta adresini doğrula</h1>
+        <p style="color:#475569;line-height:1.6;margin:0 0 20px">Merhaba ${escapeHtml(name)},</p>
+        <p style="color:#475569;line-height:1.6;margin:0 0 24px">TransitIQ'ya hoş geldin! Hesabını aktifleştirmek için aşağıdaki butona tıkla. Link <strong>24 saat</strong> geçerlidir.</p>
+        <a href="${verifyUrl}" style="display:inline-block;background:#10b981;color:white;text-decoration:none;padding:14px 28px;border-radius:12px;font-weight:700;font-size:14px">E-postamı Doğrula</a>
+        <p style="color:#94a3b8;font-size:12px;line-height:1.5;margin:32px 0 0">Bu e-postayı beklemiyor musun? Birisi yanlışlıkla adresini girmiş olabilir; yok sayabilirsin.</p>
+        <hr style="border:0;border-top:1px solid #e2e8f0;margin:28px 0" />
+        <p style="color:#94a3b8;font-size:11px;margin:0">Bağlantı çalışmıyorsa:<br><span style="word-break:break-all">${escapeHtml(verifyUrl)}</span></p>
+      </div></body></html>`;
+
+      await this.resend.emails.send({
+        from: this.fromAddress,
+        to,
+        subject: 'TransitIQ E-posta Doğrulama',
+        html,
+      });
+      this.logger.log(`Verification email sent to ${to}`);
+    } catch (err) {
+      this.logger.error(`sendEmailVerification failed: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
   async sendBookingConfirmation(pnrCodes: string[]) {
     if (!this.enabled || !this.resend || pnrCodes.length === 0) return;
 
@@ -242,4 +312,13 @@ export class NotificationsService {
       return { ok: false, reason: 'send-failed' };
     }
   }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

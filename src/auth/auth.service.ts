@@ -1,25 +1,99 @@
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, Inject, forwardRef, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto, UpdateProfileDto, ChangePasswordDto } from './dto/customer-auth.dto';
 import { BadRequestException } from '@nestjs/common';
 import { PaymentService } from '../payment/payment.service';
 import { ReferralService } from '../passenger-features/referral.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const PUBLIC_TENANT_SLUG = 'public-passengers';
+
+/**
+ * In-memory login attempt tracker.
+ * Key: `ip|email`. Tracks last N failed attempts; blocks when threshold exceeded.
+ * Production-ready replacement: Redis with expiring keys.
+ */
+class LoginAttemptTracker {
+  private attempts = new Map<string, number[]>();
+  readonly WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+  readonly MAX_ATTEMPTS = 5;
+
+  record(key: string) {
+    const now = Date.now();
+    const arr = (this.attempts.get(key) || []).filter((t) => now - t < this.WINDOW_MS);
+    arr.push(now);
+    this.attempts.set(key, arr);
+  }
+
+  clear(key: string) {
+    this.attempts.delete(key);
+  }
+
+  isBlocked(key: string): { blocked: boolean; retryAfterSec?: number } {
+    const arr = this.attempts.get(key) || [];
+    const now = Date.now();
+    const recent = arr.filter((t) => now - t < this.WINDOW_MS);
+    if (recent.length < this.MAX_ATTEMPTS) return { blocked: false };
+    const oldest = recent[0];
+    const retryAfterSec = Math.ceil((this.WINDOW_MS - (now - oldest)) / 1000);
+    return { blocked: true, retryAfterSec };
+  }
+}
+
+const loginTracker = new LoginAttemptTracker();
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private config: ConfigService,
     @Inject(forwardRef(() => PaymentService))
     private paymentService: PaymentService,
     @Inject(forwardRef(() => ReferralService))
     private referralService: ReferralService,
+    private notifications: NotificationsService,
   ) {}
+
+  private getFrontendUrl(): string {
+    return this.config.get<string>('FRONTEND_URL', 'http://localhost:3001');
+  }
+
+  private hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  private generateRandomToken(): string {
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  /** Enforce brute-force limit before trying any password comparison. */
+  private assertNotBlocked(ip: string, email: string) {
+    const key = `${ip || 'unknown'}|${email.toLowerCase()}`;
+    const status = loginTracker.isBlocked(key);
+    if (status.blocked) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          message: `Çok fazla başarısız deneme. ${status.retryAfterSec} saniye sonra tekrar dene.`,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private recordFailedLogin(ip: string, email: string) {
+    loginTracker.record(`${ip || 'unknown'}|${email.toLowerCase()}`);
+  }
+
+  private clearLoginAttempts(ip: string, email: string) {
+    loginTracker.clear(`${ip || 'unknown'}|${email.toLowerCase()}`);
+  }
 
   /** Ensures a shared tenant exists for all passenger accounts. */
   private async getOrCreatePublicTenant() {
@@ -80,27 +154,26 @@ export class AuthService {
     return this.generateToken(user);
   }
 
-  async login(dto: LoginDto) {
-    console.log(`[Auth] Login attempt for email: ${dto.email}`);
-    
+  async login(dto: LoginDto, ip = '') {
+    this.assertNotBlocked(ip, dto.email);
+
     const user = await (this.prisma as any).user.findFirst({
-      where: { email: dto.email.toLowerCase() },
+      where: { email: dto.email.toLowerCase(), deletedAt: null },
       include: { tenant: true },
     });
 
     if (!user) {
-      console.warn(`[Auth] User not found: ${dto.email}`);
-      throw new UnauthorizedException('Invalid credentials');
+      this.recordFailedLogin(ip, dto.email);
+      throw new UnauthorizedException('Email veya şifre hatalı');
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
-    
     if (!isPasswordValid) {
-      console.warn(`[Auth] Invalid password for: ${dto.email}`);
-      throw new UnauthorizedException('Invalid credentials');
+      this.recordFailedLogin(ip, dto.email);
+      throw new UnauthorizedException('Email veya şifre hatalı');
     }
 
-    console.log(`[Auth] Login successful for: ${dto.email}`);
+    this.clearLoginAttempts(ip, dto.email);
     return this.generateToken(user);
   }
 
@@ -149,7 +222,9 @@ export class AuthService {
   }
 
   // ─── B2C: Customer Login ───
-  async customerLogin(dto: CustomerLoginDto) {
+  async customerLogin(dto: CustomerLoginDto, ip = '') {
+    this.assertNotBlocked(ip, dto.email);
+
     const publicTenant = await this.getOrCreatePublicTenant();
 
     const user = await (this.prisma as any).user.findFirst({
@@ -157,19 +232,147 @@ export class AuthService {
         email: dto.email.toLowerCase(),
         tenantId: publicTenant.id,
         role: 'PASSENGER',
+        deletedAt: null,
       },
     });
 
     if (!user) {
+      this.recordFailedLogin(ip, dto.email);
       throw new UnauthorizedException('Email veya şifre hatalı');
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isPasswordValid) {
+      this.recordFailedLogin(ip, dto.email);
       throw new UnauthorizedException('Email veya şifre hatalı');
     }
 
+    this.clearLoginAttempts(ip, dto.email);
     return this.generateToken(user);
+  }
+
+  // ─── Password Reset (request) ───
+  /**
+   * Always returns ok: true to prevent email enumeration.
+   * If email matches a user, sends reset link with a 30-minute token.
+   */
+  async requestPasswordReset(email: string) {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return { ok: true };
+
+    const user = await this.prisma.user.findFirst({
+      where: { email: normalized, deletedAt: null },
+    });
+
+    if (user) {
+      const token = this.generateRandomToken();
+      const tokenHash = this.hashToken(token);
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+      await this.prisma.passwordResetToken.create({
+        data: { userId: user.id, tokenHash, expiresAt },
+      });
+
+      const resetUrl = `${this.getFrontendUrl()}/sifre-sifirla?token=${token}`;
+
+      // Dev logging: print the reset URL so devs can test without real email delivery
+      // (Resend's onboarding@resend.dev only sends to account-owner's registered email).
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('\n══════════════════════════════════════════════════════════════');
+        console.log(`[DEV] Password reset link for ${user.email}:`);
+        console.log(resetUrl);
+        console.log('══════════════════════════════════════════════════════════════\n');
+      }
+
+      // Fire and forget — must not block response (avoid timing oracle)
+      this.notifications.sendPasswordResetEmail(user.email, user.name, resetUrl).catch(() => {});
+    }
+
+    return { ok: true };
+  }
+
+  // ─── Password Reset (confirm) ───
+  async confirmPasswordReset(token: string, newPassword: string) {
+    if (!token || !newPassword || newPassword.length < 6) {
+      throw new BadRequestException('Geçersiz istek');
+    }
+
+    const tokenHash = this.hashToken(token);
+    const record = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    });
+
+    if (!record || record.usedAt || record.expiresAt < new Date()) {
+      throw new BadRequestException('Link geçersiz veya süresi dolmuş');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: record.userId },
+        data: { passwordHash },
+      }),
+      this.prisma.passwordResetToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      }),
+      // Invalidate all other outstanding reset tokens for this user
+      this.prisma.passwordResetToken.updateMany({
+        where: { userId: record.userId, usedAt: null, id: { not: record.id } },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    return { ok: true };
+  }
+
+  // ─── Email Verification (send) ───
+  async sendEmailVerification(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Kullanıcı yok');
+    if ((user as any).emailVerifiedAt) return { ok: true, alreadyVerified: true };
+
+    const token = this.generateRandomToken();
+    const tokenHash = this.hashToken(token);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.prisma.emailVerificationToken.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id, tokenHash, expiresAt },
+      update: { tokenHash, expiresAt, verifiedAt: null },
+    });
+
+    const verifyUrl = `${this.getFrontendUrl()}/email-dogrula?token=${token}`;
+    this.notifications.sendEmailVerification(user.email, user.name, verifyUrl).catch(() => {});
+    return { ok: true };
+  }
+
+  // ─── Email Verification (confirm) ───
+  async confirmEmailVerification(token: string) {
+    if (!token) throw new BadRequestException('Token eksik');
+
+    const tokenHash = this.hashToken(token);
+    const record = await this.prisma.emailVerificationToken.findUnique({
+      where: { tokenHash },
+    });
+
+    if (!record || record.verifiedAt || record.expiresAt < new Date()) {
+      throw new BadRequestException('Link geçersiz veya süresi dolmuş');
+    }
+
+    await this.prisma.$transaction([
+      (this.prisma as any).user.update({
+        where: { id: record.userId },
+        data: { emailVerifiedAt: new Date() },
+      }),
+      this.prisma.emailVerificationToken.update({
+        where: { id: record.id },
+        data: { verifiedAt: new Date() },
+      }),
+    ]);
+
+    return { ok: true };
   }
 
   // ─── Guest Ticket Lookup (no auth, PNR + email verification) ───

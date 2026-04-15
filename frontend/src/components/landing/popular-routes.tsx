@@ -105,7 +105,7 @@ export function PopularRoutes() {
                   transition={{ delay: i * 0.04 }}
                 >
                   <Link
-                    href={`/search?from=${encodeURIComponent(r.origin.city)}&to=${encodeURIComponent(r.destination.city)}`}
+                    href={`/search?from=${encodeURIComponent(r.origin.city)}&to=${encodeURIComponent(r.destination.city)}${r.nextDeparture ? `&date=${r.nextDeparture.split('T')[0]}` : ''}`}
                     className="group block relative h-64 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-zinc-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all"
                   >
                     {/* Background photo */}

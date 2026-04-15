@@ -1,10 +1,16 @@
-import { Controller, Post, Get, Patch, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Param, UseGuards, Request, Req, Ip } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto, UpdateProfileDto, ChangePasswordDto } from './dto/customer-auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+
+function resolveClientIp(req: any): string {
+  const xff = req.headers?.['x-forwarded-for'];
+  if (typeof xff === 'string') return xff.split(',')[0].trim();
+  return req.ip || req.socket?.remoteAddress || '';
+}
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -23,8 +29,8 @@ export class AuthController {
   @Post('login')
   @Throttle({ short: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Login with company credentials' })
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Req() req: any) {
+    return this.authService.login(loginDto, resolveClientIp(req));
   }
 
   // ─── B2C (Passenger / Customer) ───
@@ -39,8 +45,40 @@ export class AuthController {
   @Post('customer/login')
   @Throttle({ short: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Login as a passenger' })
-  async customerLogin(@Body() dto: CustomerLoginDto) {
-    return this.authService.customerLogin(dto);
+  async customerLogin(@Body() dto: CustomerLoginDto, @Req() req: any) {
+    return this.authService.customerLogin(dto, resolveClientIp(req));
+  }
+
+  // ─── Password Reset ───
+
+  @Post('password-reset/request')
+  @Throttle({ short: { limit: 3, ttl: 60000 } })
+  @ApiOperation({ summary: 'Request a password reset email' })
+  async requestPasswordReset(@Body() body: { email: string }) {
+    return this.authService.requestPasswordReset(body?.email || '');
+  }
+
+  @Post('password-reset/confirm')
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Confirm password reset with token' })
+  async confirmPasswordReset(@Body() body: { token: string; newPassword: string }) {
+    return this.authService.confirmPasswordReset(body?.token || '', body?.newPassword || '');
+  }
+
+  // ─── Email Verification ───
+
+  @Post('verify-email/send')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ short: { limit: 2, ttl: 60000 } })
+  async sendEmailVerification(@Request() req: any) {
+    return this.authService.sendEmailVerification(req.user.id);
+  }
+
+  @Post('verify-email/confirm')
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
+  async confirmEmailVerification(@Body() body: { token: string }) {
+    return this.authService.confirmEmailVerification(body?.token || '');
   }
 
   @Post('customer/lookup')

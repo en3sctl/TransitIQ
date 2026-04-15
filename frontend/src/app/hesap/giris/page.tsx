@@ -159,6 +159,12 @@ export default function CustomerLoginPage() {
                   </button>
                 </div>
 
+                <div className="flex justify-end pt-1">
+                  <Link href="/sifre-sifirla" className="text-xs font-bold text-zinc-400 hover:text-indigo-600 transition-colors uppercase tracking-widest">
+                    Şifremi unuttum?
+                  </Link>
+                </div>
+
                 <button
                   type="submit"
                   disabled={loading}

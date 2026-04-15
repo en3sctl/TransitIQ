@@ -88,6 +88,7 @@ model User {
   referredById String?   @map("referred_by_id")
   badges       String[]  @default([])
   totalTrips   Int       @default(0) @map("total_trips")
+  emailVerifiedAt DateTime? @map("email_verified_at")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
@@ -354,6 +355,30 @@ model WalletTransaction {
 
   @@index([userId, createdAt])
   @@map("wallet_transactions")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  verifiedAt DateTime? @map("verified_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("email_verification_tokens")
 }
 
 model PriceHistorySnapshot {
