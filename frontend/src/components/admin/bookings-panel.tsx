@@ -196,6 +196,27 @@ export function AdminBookingsPanel() {
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Yenile
             </button>
+            <button
+              onClick={() => {
+                const headers = ['PNR', 'Yolcu', 'Rota', 'Kalkış', 'Koltuk', 'Fiyat', 'Durum', 'Tarih'];
+                const rows = bookings.map(b => [
+                  b.pnrCode, b.passengerName,
+                  `${b.trip.origin.city} → ${b.trip.destination.city}`,
+                  `${fDate(b.trip.departureTime)} ${fTime(b.trip.departureTime)}`,
+                  b.seat.number, Number(b.pricePaid).toFixed(2),
+                  b.status === 'CONFIRMED' ? 'Onaylı' : b.status === 'CANCELLED' ? 'İptal' : 'Gelmedi',
+                  fDate(b.bookingTime),
+                ]);
+                const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(';')).join('\n');
+                const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                a.download = `biletler_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+                toast.success('CSV indirildi');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> CSV
+            </button>
           </div>
         </div>
       </div>

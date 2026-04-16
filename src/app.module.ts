@@ -24,6 +24,7 @@ import { CarbonModule } from './shared/carbon/carbon.module';
 import { CityImageModule } from './shared/city-image/city-image.module';
 import { OtogarModule } from './shared/otogar/otogar.module';
 import { PassengerFeaturesModule } from './passenger-features/passenger-features.module';
+import { PromoModule } from './promo/promo.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { PassengerFeaturesModule } from './passenger-features/passenger-features
     CityImageModule,
     OtogarModule,
     PassengerFeaturesModule,
+    PromoModule,
   ],
   controllers: [AppController],
   providers: [

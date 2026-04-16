@@ -18,6 +18,7 @@ import {
   Ticket,
   FileText,
   MapPin,
+  Percent,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -36,6 +37,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: "trips", icon: CalendarDays, label: 'Sefer Takvimi' },
     { id: "bookings", icon: Ticket, label: 'Bilet Yönetimi' },
     { id: "drivers", icon: Users, label: 'Sürücü Paneli' },
+    { id: "promo", icon: Percent, label: 'Promo Kodları' },
   ];
 
   const secondaryItems = [

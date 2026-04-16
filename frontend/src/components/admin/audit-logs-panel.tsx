@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   History, User, Ticket, Bus, MapPin, Calendar, Trash2, Edit2, UserPlus,
-  CheckCircle2, XCircle, RotateCcw, RefreshCw, Loader2, ShieldAlert,
+  CheckCircle2, XCircle, RotateCcw, RefreshCw, Loader2, ShieldAlert, Search, Download,
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -69,6 +70,7 @@ export function AdminAuditLogsPanel() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('');
+  const [search, setSearch] = useState('');
   const [skip, setSkip] = useState(0);
   const TAKE = 25;
 
@@ -92,15 +94,39 @@ export function AdminAuditLogsPanel() {
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl overflow-hidden">
       {/* Header */}
-      <div className="p-5 border-b border-slate-200/80 dark:border-zinc-800">
-        <div className="flex items-center justify-between mb-4">
+      <div className="p-5 border-b border-slate-200/80 dark:border-zinc-800 space-y-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             <h2 className="text-base font-black tracking-tight text-slate-900 dark:text-white">Denetim Kayıtları</h2>
           </div>
-          <p className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400">
-            Toplam {total} kayıt
-          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const headers = ['Tarih', 'İşlem', 'Varlık', 'Kullanıcı', 'Detay'];
+                const rows = logs.map(l => {
+                  const meta = ACTION_META[l.action] || { label: l.action };
+                  return [fDateTime(l.timestamp), meta.label, l.entityType, l.user?.name || 'sistem', l.entityId.slice(0, 8)];
+                });
+                const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(';')).join('\n');
+                const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                a.download = `denetim_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+                toast.success('CSV indirildi');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 text-[10px] font-bold hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+            >
+              <Download className="w-3 h-3" /> CSV
+            </button>
+            <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400">{total} kayıt</span>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+          <input type="text" placeholder="Kullanıcı, işlem veya ID ara..." value={search} onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" />
         </div>
 
         {/* Filters */}
@@ -110,6 +136,8 @@ export function AdminAuditLogsPanel() {
             { value: 'BOOKING', label: 'Biletler' },
             { value: 'TRIP', label: 'Seferler' },
             { value: 'DRIVER', label: 'Şoförler' },
+            { value: 'VEHICLE', label: 'Araçlar' },
+            { value: 'STATION', label: 'İstasyonlar' },
           ].map((f) => (
             <button
               key={f.value}
@@ -138,7 +166,18 @@ export function AdminAuditLogsPanel() {
         </div>
       ) : (
         <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-          {logs.map((log) => {
+          {logs.filter(log => {
+            if (!search.trim()) return true;
+            const q = search.toLowerCase();
+            const meta = ACTION_META[log.action] || { label: log.action };
+            return (
+              meta.label.toLowerCase().includes(q) ||
+              log.entityType.toLowerCase().includes(q) ||
+              log.entityId.toLowerCase().includes(q) ||
+              (log.user?.name || '').toLowerCase().includes(q) ||
+              (log.user?.email || '').toLowerCase().includes(q)
+            );
+          }).map((log) => {
             const meta = ACTION_META[log.action] || { label: log.action, icon: History, color: 'slate' };
             const ActionIcon = meta.icon;
             const EntityIcon = ENTITY_ICONS[log.entityType] || Ticket;

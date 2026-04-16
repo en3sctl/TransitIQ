@@ -414,3 +414,36 @@ model AuditLog {
 
   @@map("audit_logs")
 }
+
+model PromoCode {
+  id               String   @id @default(uuid())
+  tenantId         String?  @map("tenant_id") // null = platform-wide
+  code             String   @unique
+  discountType     String   @map("discount_type") // PERCENT | FIXED
+  discountValue    Decimal  @map("discount_value")
+  minBookingAmount Decimal? @map("min_booking_amount")
+  maxUses          Int?     @map("max_uses")
+  usedCount        Int      @default(0) @map("used_count")
+  validFrom        DateTime @map("valid_from")
+  validUntil       DateTime @map("valid_until")
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  applications PromoCodeApplication[]
+
+  @@index([code])
+  @@map("promo_codes")
+}
+
+model PromoCodeApplication {
+  id              String   @id @default(uuid())
+  promoCodeId     String   @map("promo_code_id")
+  bookingId       String   @map("booking_id")
+  userId          String   @map("user_id")
+  discountApplied Decimal  @map("discount_applied")
+  appliedAt       DateTime @default(now()) @map("applied_at")
+
+  promoCode PromoCode @relation(fields: [promoCodeId], references: [id])
+
+  @@map("promo_code_applications")
+}

@@ -738,7 +738,7 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [x] Araç maintenance log + fuel log + uyarı cron (günlük 08:00 İstanbul)
 - [ ] Tekrarlayan sefer şablonu
 - [ ] Dinamik fiyat kuralı motoru (ör: kalkışa 24sa kala %10 indirim)
-- [ ] Promosyon kodu sistemi
+- [x] Promosyon kodu sistemi (CRUD + apply at checkout + admin panel)
 - [ ] CSV export (bilet, sefer, muhasebe)
 - [ ] Şikayet / destek talebi sistemi
 - [ ] Yolcu değerlendirme sistemi (review + tags)
