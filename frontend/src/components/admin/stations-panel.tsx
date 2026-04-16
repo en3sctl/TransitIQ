@@ -3,11 +3,12 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MapPin, Search, Trash2, Pencil, ChevronLeft, ChevronRight, ChevronsUpDown,
+  MapPin, Search, Plus, Trash2, Pencil, ChevronLeft, ChevronRight, ChevronsUpDown,
   ArrowUp, ArrowDown, Download, X, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { OtogarPicker } from "./otogar-picker";
 
 interface Station {
   id: string;
@@ -33,6 +34,8 @@ export function StationsPanel() {
   const [editData, setEditData] = useState<any>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', city: '', locationLat: '', locationLng: '' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,6 +114,24 @@ export function StationsPanel() {
     finally { setSaving(false); }
   };
 
+  const submitCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.post('/stations', {
+        name: createForm.name,
+        city: createForm.city,
+        locationLat: createForm.locationLat ? Number(createForm.locationLat) : null,
+        locationLng: createForm.locationLng ? Number(createForm.locationLng) : null,
+      });
+      toast.success('İstasyon eklendi');
+      setShowCreate(false);
+      setCreateForm({ name: '', city: '', locationLat: '', locationLng: '' });
+      load();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'İstasyon eklenemedi'); }
+    finally { setSaving(false); }
+  };
+
   const exportCSV = () => {
     const headers = ['İstasyon Adı', 'Şehir', 'Enlem', 'Boylam'];
     const rows = filtered.map(s => [s.name, s.city, s.locationLat ?? '', s.locationLng ?? '']);
@@ -154,6 +175,9 @@ export function StationsPanel() {
                 <Trash2 className="w-3.5 h-3.5" /> {selected.size} Sil
               </button>
             )}
+            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors">
+              <Plus className="w-3.5 h-3.5" /> İstasyon Ekle
+            </button>
             <span className="text-[10px] font-bold text-zinc-400 ml-auto uppercase tracking-widest">{filtered.length} sonuç</span>
           </div>
         </div>
@@ -255,6 +279,52 @@ export function StationsPanel() {
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Create Station Dialog */}
+      <AnimatePresence>
+        {showCreate && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
+            <motion.form initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={e => e.stopPropagation()} onSubmit={submitCreate}
+              className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+              <div className="p-6 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0">
+                <div><h3 className="text-xl font-black tracking-tighter text-zinc-900 dark:text-white">Yeni İstasyon</h3><p className="text-xs text-zinc-400 mt-0.5">Otogar veya terminal ekleyin</p></div>
+                <button type="button" onClick={() => setShowCreate(false)} className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <OtogarPicker onSelect={(o: any) => setCreateForm({ name: o.name, city: o.city, locationLat: o.lat.toString(), locationLng: o.lng.toString() })} />
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">İstasyon Adı</label>
+                  <input required value={createForm.name} onChange={e => setCreateForm({...createForm, name: e.target.value})} placeholder="Esenler Otogarı"
+                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Şehir</label>
+                  <input required value={createForm.city} onChange={e => setCreateForm({...createForm, city: e.target.value})} placeholder="İstanbul"
+                    className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Enlem</label>
+                    <input type="number" step="any" value={createForm.locationLat} onChange={e => setCreateForm({...createForm, locationLat: e.target.value})} placeholder="41.035"
+                      className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Boylam</label>
+                    <input type="number" step="any" value={createForm.locationLng} onChange={e => setCreateForm({...createForm, locationLng: e.target.value})} placeholder="28.892"
+                      className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 border-t border-zinc-200 dark:border-zinc-800 flex justify-end gap-3 shrink-0">
+                <button type="button" onClick={() => setShowCreate(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">İptal</button>
+                <button type="submit" disabled={saving} className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />} İstasyon Ekle
+                </button>
+              </div>
+            </motion.form>
           </motion.div>
         )}
       </AnimatePresence>

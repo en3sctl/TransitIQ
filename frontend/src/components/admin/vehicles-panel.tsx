@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { VehicleDetailModal } from "./vehicle-detail-modal";
+import { RuhsatUploader } from "./ruhsat-uploader";
 
 interface Vehicle {
   id: string;
@@ -67,6 +68,8 @@ export function VehiclesPanel() {
   const [editData, setEditData] = useState<Partial<Vehicle>>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ registrationPlate: '', make: '', model: '', year: '', chassisNumber: '', capacity: '', layoutType: '2+1' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -243,6 +246,30 @@ export function VehiclesPanel() {
     toast.success('CSV indirildi');
   };
 
+  // ─── Create ───
+  const submitCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.post('/vehicles', {
+        registrationPlate: createForm.registrationPlate,
+        make: createForm.make,
+        model: createForm.model,
+        year: Number(createForm.year),
+        chassisNumber: createForm.chassisNumber,
+        capacity: Number(createForm.capacity),
+        layoutType: createForm.layoutType,
+      });
+      toast.success('Araç filoya eklendi');
+      setShowCreate(false);
+      setCreateForm({ registrationPlate: '', make: '', model: '', year: '', chassisNumber: '', capacity: '', layoutType: '2+1' });
+      load();
+    } catch (e: any) {
+      const msg = e.response?.data?.message;
+      toast.error(Array.isArray(msg) ? msg.join(', ') : msg || 'Araç eklenemedi');
+    } finally { setSaving(false); }
+  };
+
   // ─── Stats ───
   const activeCount = vehicles.filter(v => v.status === 'ACTIVE').length;
   const warningCount = vehicles.filter(v => isExpiringSoon(v.muayeneTarihi) === 'warning' || isExpiringSoon(v.sigortaTarihi) === 'warning').length;
@@ -323,6 +350,10 @@ export function VehiclesPanel() {
                 {selected.size} Sil
               </button>
             )}
+
+            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors">
+              <Plus className="w-3.5 h-3.5" /> Araç Ekle
+            </button>
 
             <span className="text-[10px] font-bold text-zinc-400 ml-auto uppercase tracking-widest">
               {filtered.length} sonuç
@@ -575,6 +606,63 @@ export function VehiclesPanel() {
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Create Dialog */}
+      <AnimatePresence>
+        {showCreate && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
+            <motion.form initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={e => e.stopPropagation()} onSubmit={submitCreate}
+              className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+              <div className="p-6 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0">
+                <div>
+                  <h3 className="text-xl font-black tracking-tighter text-zinc-900 dark:text-white">Yeni Araç Kaydı</h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">Filonuza yeni araç ekleyin</p>
+                </div>
+                <button type="button" onClick={() => setShowCreate(false)} className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <RuhsatUploader onExtract={(data: any) => {
+                  setCreateForm(prev => ({
+                    ...prev,
+                    registrationPlate: data.plate || prev.registrationPlate,
+                    make: data.make || prev.make,
+                    model: data.model || prev.model,
+                    year: data.year ? String(data.year) : prev.year,
+                    chassisNumber: data.chassis || prev.chassisNumber,
+                  }));
+                }} />
+                <div className="grid grid-cols-2 gap-4">
+                  <EditField label="Marka" value={createForm.make} onChange={v => setCreateForm({...createForm, make: v})} />
+                  <EditField label="Model" value={createForm.model} onChange={v => setCreateForm({...createForm, model: v})} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <EditField label="Plaka" value={createForm.registrationPlate} onChange={v => setCreateForm({...createForm, registrationPlate: v})} />
+                  <EditField label="Model Yılı" value={createForm.year} onChange={v => setCreateForm({...createForm, year: v})} type="number" />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <EditField label="Kapasite" value={createForm.capacity} onChange={v => setCreateForm({...createForm, capacity: v})} type="number" />
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Düzen</label>
+                    <select value={createForm.layoutType} onChange={e => setCreateForm({...createForm, layoutType: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20">
+                      <option value="2+1">2+1 VIP</option>
+                      <option value="2+2">2+2 Standart</option>
+                      <option value="1+1">1+1 Business</option>
+                    </select>
+                  </div>
+                  <EditField label="Şasi No" value={createForm.chassisNumber} onChange={v => setCreateForm({...createForm, chassisNumber: v})} />
+                </div>
+              </div>
+              <div className="p-6 border-t border-zinc-200 dark:border-zinc-800 flex justify-end gap-3 shrink-0">
+                <button type="button" onClick={() => setShowCreate(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">İptal</button>
+                <button type="submit" disabled={saving} className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />} Araç Ekle
+                </button>
+              </div>
+            </motion.form>
           </motion.div>
         )}
       </AnimatePresence>

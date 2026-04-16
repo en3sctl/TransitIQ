@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Route as RouteIcon, Search, Trash2, Pencil, ChevronLeft, ChevronRight, ChevronsUpDown,
+  Route as RouteIcon, Search, Plus, Trash2, Pencil, ChevronLeft, ChevronRight, ChevronsUpDown,
   ArrowUp, ArrowDown, Download, X, Loader2, MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -35,6 +35,8 @@ export function RoutesPanel() {
   const [editData, setEditData] = useState<any>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ originStationId: '', destinationStationId: '', basePrice: '', totalDistanceKm: '' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -118,6 +120,28 @@ export function RoutesPanel() {
     finally { setSaving(false); }
   };
 
+  const submitCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const o = stations.find((s: any) => s.id === createForm.originStationId);
+      const d = stations.find((s: any) => s.id === createForm.destinationStationId);
+      await api.post('/routes', {
+        title: `${o?.city || ''} - ${d?.city || ''}`,
+        originStationId: createForm.originStationId,
+        destinationStationId: createForm.destinationStationId,
+        basePrice: Number(createForm.basePrice),
+        totalDistanceKm: Number(createForm.totalDistanceKm) || 0,
+        taxRate: 0.18,
+      });
+      toast.success('Rota oluşturuldu');
+      setShowCreate(false);
+      setCreateForm({ originStationId: '', destinationStationId: '', basePrice: '', totalDistanceKm: '' });
+      load();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Rota oluşturulamadı'); }
+    finally { setSaving(false); }
+  };
+
   const exportCSV = () => {
     const headers = ['Kalkış', 'Varış', 'Mesafe (km)', 'Taban Fiyat (₺)'];
     const rows = filtered.map(r => [
@@ -160,6 +184,9 @@ export function RoutesPanel() {
                 <Trash2 className="w-3.5 h-3.5" /> {selected.size} Sil
               </button>
             )}
+            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors">
+              <Plus className="w-3.5 h-3.5" /> Rota Oluştur
+            </button>
             <span className="text-[10px] font-bold text-zinc-400 ml-auto uppercase tracking-widest">{filtered.length} sonuç</span>
           </div>
         </div>
@@ -258,6 +285,55 @@ export function RoutesPanel() {
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Create Route Dialog */}
+      <AnimatePresence>
+        {showCreate && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
+            <motion.form initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={e => e.stopPropagation()} onSubmit={submitCreate}
+              className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden">
+              <div className="p-6 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                <div><h3 className="text-xl font-black tracking-tighter text-zinc-900 dark:text-white">Yeni Rota</h3><p className="text-xs text-zinc-400 mt-0.5">Kalkış ve varış noktalarını belirleyin</p></div>
+                <button type="button" onClick={() => setShowCreate(false)} className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Kalkış İstasyonu</label>
+                  <select required value={createForm.originStationId} onChange={e => setCreateForm({...createForm, originStationId: e.target.value})} className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none">
+                    <option value="">İstasyon seçin</option>
+                    {stations.map((s: any) => <option key={s.id} value={s.id}>{s.name} ({s.city})</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Varış İstasyonu</label>
+                  <select required value={createForm.destinationStationId} onChange={e => setCreateForm({...createForm, destinationStationId: e.target.value})} className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none">
+                    <option value="">İstasyon seçin</option>
+                    {stations.map((s: any) => <option key={s.id} value={s.id}>{s.name} ({s.city})</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Taban Fiyat (₺)</label>
+                    <input type="number" required value={createForm.basePrice} onChange={e => setCreateForm({...createForm, basePrice: e.target.value})} placeholder="750"
+                      className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Mesafe (km)</label>
+                    <input type="number" value={createForm.totalDistanceKm} onChange={e => setCreateForm({...createForm, totalDistanceKm: e.target.value})} placeholder="450"
+                      className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 border-t border-zinc-200 dark:border-zinc-800 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowCreate(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">İptal</button>
+                <button type="submit" disabled={saving} className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />} Rota Oluştur
+                </button>
+              </div>
+            </motion.form>
           </motion.div>
         )}
       </AnimatePresence>

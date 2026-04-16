@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  CalendarDays, Search, Trash2, Pencil, ChevronLeft, ChevronRight, ChevronsUpDown,
+  CalendarDays, Search, Plus, Trash2, Pencil, ChevronLeft, ChevronRight, ChevronsUpDown,
   ArrowUp, ArrowDown, Download, X, Loader2, Bus, MapPin, Clock, CheckCircle2, XCircle, Play,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -47,21 +47,26 @@ export function TripsPanel() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [routes, setRoutes] = useState<any[]>([]);
   const [editTrip, setEditTrip] = useState<Trip | null>(null);
   const [editData, setEditData] = useState<any>({});
   const [saving, setSaving] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ routeId: '', vehicleId: '', driverId: '', departureTime: '', estimatedArrival: '' });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [t, v, d] = await Promise.all([
+      const [t, v, d, r] = await Promise.all([
         api.get('/trips'),
         api.get('/vehicles').catch(() => ({ data: [] })),
         api.get('/users/drivers').catch(() => ({ data: [] })),
+        api.get('/routes').catch(() => ({ data: [] })),
       ]);
       setTrips(t.data);
       setVehicles(v.data);
       setDrivers(d.data);
+      setRoutes(r.data);
     } catch { toast.error('Seferler yüklenemedi'); }
     finally { setLoading(false); }
   }, []);
@@ -170,6 +175,22 @@ export function TripsPanel() {
     toast.success('CSV indirildi');
   };
 
+  const submitCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createForm.driverId) { toast.error('Şoför seçin'); return; }
+    setSaving(true);
+    try {
+      const payload: any = { routeId: createForm.routeId, vehicleId: createForm.vehicleId, driverId: createForm.driverId, departureTime: new Date(createForm.departureTime).toISOString() };
+      if (createForm.estimatedArrival) payload.estimatedArrival = new Date(createForm.estimatedArrival).toISOString();
+      await api.post('/trips', payload);
+      toast.success('Sefer oluşturuldu');
+      setShowCreate(false);
+      setCreateForm({ routeId: '', vehicleId: '', driverId: '', departureTime: '', estimatedArrival: '' });
+      load();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Sefer oluşturulamadı'); }
+    finally { setSaving(false); }
+  };
+
   const planned = trips.filter(t => t.status === 'PLANNED').length;
   const active = trips.filter(t => t.status === 'ACTIVE').length;
   const completed = trips.filter(t => t.status === 'COMPLETED').length;
@@ -211,6 +232,9 @@ export function TripsPanel() {
                 <XCircle className="w-3.5 h-3.5" /> {selected.size} İptal Et
               </button>
             )}
+            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors">
+              <Plus className="w-3.5 h-3.5" /> Sefer Oluştur
+            </button>
             <span className="text-[10px] font-bold text-zinc-400 ml-auto uppercase tracking-widest">{filtered.length} sonuç</span>
           </div>
         </div>
@@ -347,6 +371,64 @@ export function TripsPanel() {
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Create Trip Dialog */}
+      <AnimatePresence>
+        {showCreate && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
+            <motion.form initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={e => e.stopPropagation()} onSubmit={submitCreate}
+              className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden">
+              <div className="p-6 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                <div><h3 className="text-xl font-black tracking-tighter text-zinc-900 dark:text-white">Yeni Sefer</h3><p className="text-xs text-zinc-400 mt-0.5">Sefer detaylarını girin</p></div>
+                <button type="button" onClick={() => setShowCreate(false)} className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Rota</label>
+                  <select required value={createForm.routeId} onChange={e => setCreateForm({...createForm, routeId: e.target.value})} className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none">
+                    <option value="">Rota seçin</option>
+                    {routes.map((r: any) => <option key={r.id} value={r.id}>{r.originStation?.name} → {r.destinationStation?.name}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Araç</label>
+                    <select required value={createForm.vehicleId} onChange={e => setCreateForm({...createForm, vehicleId: e.target.value})} className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none">
+                      <option value="">Araç seçin</option>
+                      {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.registrationPlate} — {v.make}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Şoför</label>
+                    <select value={createForm.driverId} onChange={e => setCreateForm({...createForm, driverId: e.target.value})} className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none">
+                      <option value="">Şoför seçin</option>
+                      {drivers.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Kalkış Zamanı</label>
+                    <input type="datetime-local" required value={createForm.departureTime} onChange={e => setCreateForm({...createForm, departureTime: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.15em]">Tahmini Varış</label>
+                    <input type="datetime-local" value={createForm.estimatedArrival} onChange={e => setCreateForm({...createForm, estimatedArrival: e.target.value})}
+                      className="w-full px-3 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-sm font-bold text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20" />
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 border-t border-zinc-200 dark:border-zinc-800 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowCreate(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">İptal</button>
+                <button type="submit" disabled={saving} className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />} Sefer Oluştur
+                </button>
+              </div>
+            </motion.form>
           </motion.div>
         )}
       </AnimatePresence>

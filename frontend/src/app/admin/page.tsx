@@ -8,45 +8,23 @@ import Sidebar from "@/components/sidebar";
 import { AdminBookingsPanel } from "@/components/admin/bookings-panel";
 import { AdminDriversPanel } from "@/components/admin/drivers-panel";
 import { AdminAuditLogsPanel } from "@/components/admin/audit-logs-panel";
-import { VehicleDetailModal } from "@/components/admin/vehicle-detail-modal";
 import { VehiclesPanel } from "@/components/admin/vehicles-panel";
 import { TripsPanel } from "@/components/admin/trips-panel";
 import { RoutesPanel } from "@/components/admin/routes-panel";
 import { StationsPanel } from "@/components/admin/stations-panel";
-import { OtogarPicker } from "@/components/admin/otogar-picker";
-import { RuhsatUploader } from "@/components/admin/ruhsat-uploader";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
-// Table components moved to individual panel files
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   Tabs,
   TabsContent,
 } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { 
   Bus, 
   Plus, 
@@ -117,14 +95,6 @@ function AdminDashboardContent() {
   
   // Loading & Error State
   const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  // Form States
-  const [vehicleForm, setVehicleForm] = useState({ registrationPlate: "", make: "", model: "", year: "", chassisNumber: "", capacity: "", layoutType: "2+1" });
-  const [stationForm, setStationForm] = useState({ name: "", city: "", locationLat: "", locationLng: "" });
-  const [routeForm, setRouteForm] = useState({ originStationId: "", destinationStationId: "", basePrice: "", title: "", totalDistanceKm: "" });
-  const [tripForm, setTripForm] = useState({ routeId: "", vehicleId: "", departureTime: "", estimatedArrival: "", driverId: "" });
 
   const [drivers, setDrivers] = useState<any[]>([]);
   const fetchData = async () => {
@@ -152,104 +122,6 @@ function AdminDashboardContent() {
   useEffect(() => {
     fetchData();
   }, []);
-
-  const handleVehicleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      const payload = {
-        registrationPlate: vehicleForm.registrationPlate,
-        make: vehicleForm.make,
-        model: vehicleForm.model,
-        year: Number(vehicleForm.year),
-        chassisNumber: vehicleForm.chassisNumber,
-        capacity: Number(vehicleForm.capacity),
-        layoutType: vehicleForm.layoutType,
-      };
-      await api.post("/vehicles", payload);
-      setVehicleForm({ registrationPlate: "", make: "", model: "", year: "", chassisNumber: "", capacity: "", layoutType: "2+1" });
-      setIsDialogOpen(false);
-      toast.success("Araç başarıyla filoya eklendi");
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Araç eklenirken hata oluştu");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleStationSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      await api.post("/stations", {
-        name: stationForm.name,
-        city: stationForm.city,
-        locationLat: stationForm.locationLat ? Number(stationForm.locationLat) : null,
-        locationLng: stationForm.locationLng ? Number(stationForm.locationLng) : null,
-      });
-      setStationForm({ name: "", city: "", locationLat: "", locationLng: "" });
-      setIsDialogOpen(false);
-      toast.success("İstasyon başarıyla eklendi");
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "İstasyon eklenirken hata oluştu");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleRouteSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      await api.post("/routes", {
-        title: routeForm.title || `${stations.find(s => s.id === routeForm.originStationId)?.city} - ${stations.find(s => s.id === routeForm.destinationStationId)?.city}`,
-        originStationId: routeForm.originStationId,
-        destinationStationId: routeForm.destinationStationId,
-        basePrice: Number(routeForm.basePrice),
-        totalDistanceKm: Number(routeForm.totalDistanceKm) || 0,
-        taxRate: 0.18,
-      });
-      setRouteForm({ originStationId: "", destinationStationId: "", basePrice: "", title: "", totalDistanceKm: "" });
-      setIsDialogOpen(false);
-      toast.success("Rota başarıyla tanımlandı");
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Rota tanımlanırken hata oluştu");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleTripSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tripForm.driverId) {
-      toast.error("Lütfen bir şoför seçin");
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const payload: Record<string, string | undefined> = {
-        routeId: tripForm.routeId,
-        vehicleId: tripForm.vehicleId,
-        departureTime: new Date(tripForm.departureTime).toISOString(),
-        driverId: tripForm.driverId,
-      };
-      if (tripForm.estimatedArrival) {
-        payload.estimatedArrival = new Date(tripForm.estimatedArrival).toISOString();
-      }
-      await api.post("/trips", payload);
-      setTripForm({ routeId: "", vehicleId: "", departureTime: "", estimatedArrival: "", driverId: "" });
-      setIsDialogOpen(false);
-      toast.success("Sefer başarıyla oluşturuldu");
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Sefer oluşturulurken hata oluştu");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans selection:bg-indigo-100 dark:selection:bg-indigo-900 text-zinc-900 dark:text-zinc-100 transition-colors duration-500">
@@ -286,38 +158,6 @@ function AdminDashboardContent() {
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
               </Button>
 
-              <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-800 mx-2" />
-
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                {activeTab !== 'overview' && activeTab !== 'bookings' && activeTab !== 'audit' && activeTab !== 'drivers' && activeTab !== 'settings' && (
-                  <DialogTrigger
-                    render={
-                      <Button className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white rounded-xl h-10 px-5 text-xs font-black shadow-sm transition-all active:scale-[0.98]">
-                        <Plus className="mr-2 h-4 w-4 stroke-[3]" />
-                        {activeTab === 'vehicles' ? 'Araç Ekle' : activeTab === 'stations' ? 'İstasyon Ekle' : activeTab === 'routes' ? 'Rota Oluştur' : activeTab === 'trips' ? 'Sefer Ata' : 'Ekle'}
-                      </Button>
-                    }
-                  />
-                )}
-                <DialogContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-[32px] sm:max-w-lg p-10 shadow-2xl max-h-[90vh] overflow-y-auto ring-1 ring-zinc-950/5">
-                  <DialogHeader className="mb-8 p-1">
-                    <DialogTitle className="text-3xl font-black tracking-tighter">
-                      {activeTab === 'vehicles' ? 'Yeni Araç Kaydı' : activeTab === 'stations' ? 'Yeni İstasyon' : activeTab === 'routes' ? 'Rota Genişletme' : 'Kaynak Dağıtımı'}
-                    </DialogTitle>
-                    <DialogDescription className="text-zinc-500 dark:text-zinc-400 font-medium text-base mt-2">
-                      Sistem için gerekli parametreleri aşağıda yapılandırın.
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <DynamicForm 
-                    activeTab={activeTab}
-                    forms={{ vehicleForm, stationForm, routeForm, tripForm, setVehicleForm, setStationForm, setRouteForm, setTripForm }}
-                    handlers={{ handleVehicleSubmit, handleStationSubmit, handleRouteSubmit, handleTripSubmit }}
-                    data={{ routes, vehicles, stations, drivers }}
-                    isSubmitting={isSubmitting}
-                  />
-                </DialogContent>
-              </Dialog>
           </div>
         </header>
 
@@ -357,11 +197,11 @@ function AdminDashboardContent() {
             </div>
 
             {/* Stats Grid — only on overview */}
-            {activeTab === 'overview' && <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-               <StatsCard label="Aktif Araçlar" value={vehicles.length.toString()} icon={Bus} trend="+4 yeni" color="bg-indigo-50 text-indigo-600" />
-               <StatsCard label="Sistem Rotaları" value={routes.length.toString()} icon={RouteIcon} trend="Aktif ağ" color="bg-amber-50 text-amber-600" />
-               <StatsCard label="Toplam Sefer" value={trips.length.toString()} icon={Activity} trend="99% verim" color="bg-emerald-50 text-emerald-600" />
-               <StatsCard label="Operasyonel Güç" value="%94" icon={TrendingUp} trend="Mükemmel" color="bg-rose-50 text-rose-600" />
+            {activeTab === 'overview' && <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+               <StatsCard label="Araç Filosu" value={vehicles.length.toString()} icon={Bus} trend={`${vehicles.filter(v => v.status === 'ACTIVE').length} aktif`} color="bg-indigo-50 text-indigo-600" />
+               <StatsCard label="Rotalar" value={routes.length.toString()} icon={RouteIcon} trend={`${new Set(routes.map((r: any) => r.originStation?.city)).size} şehir`} color="bg-amber-50 text-amber-600" />
+               <StatsCard label="Seferler" value={trips.length.toString()} icon={Activity} trend={`${trips.filter((t: any) => t.status === 'PLANNED' || t.status === 'ACTIVE').length} aktif/planlı`} color="bg-emerald-50 text-emerald-600" />
+               <StatsCard label="Şoförler" value={drivers.length.toString()} icon={TrendingUp} trend="Kadro" color="bg-rose-50 text-rose-600" />
             </div>}
 
             {/* Tabs Content */}
@@ -369,37 +209,156 @@ function AdminDashboardContent() {
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 
                 <TabsContent value="overview">
-                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      <Card className="lg:col-span-2 rounded-[32px] bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden p-2 transition-colors">
-                         <CardHeader className="p-8 pb-4"><CardTitle className="text-xl font-black text-zinc-900 dark:text-zinc-100">Sistem Özeti</CardTitle></CardHeader>
-                         <CardContent className="p-8 pt-0">
-                            <div className="space-y-6">
-                               <p className="text-zinc-500 dark:text-zinc-400 font-medium">Operasyonel verileriniz gerçek zamanlı olarak güncelleniyor. Şu an sistemde her şey yolunda.</p>
-                               <div className="flex flex-wrap gap-4">
-                                  <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300 font-bold bg-zinc-50 dark:bg-zinc-900 px-4 py-2 rounded-xl text-[13px] border border-zinc-100 dark:border-zinc-800 transition-colors">
-                                     <CheckCircle2 size={16} className="text-emerald-500" /> %100 Sunucu Uptime
+                  <div className="space-y-6">
+                    {/* Quick Actions */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[
+                        { label: 'Sefer Oluştur', tab: 'trips', icon: CalendarDays, color: 'indigo' },
+                        { label: 'Araç Ekle', tab: 'vehicles', icon: Bus, color: 'emerald' },
+                        { label: 'Biletleri Gör', tab: 'bookings', icon: Activity, color: 'amber' },
+                        { label: 'Denetim Logu', tab: 'audit', icon: Search, color: 'zinc' },
+                      ].map(a => (
+                        <button
+                          key={a.tab}
+                          onClick={() => setActiveTab(a.tab)}
+                          className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl p-4 flex items-center gap-3 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group text-left"
+                        >
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 ${
+                            a.color === 'indigo' ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' :
+                            a.color === 'emerald' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
+                            a.color === 'amber' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400' :
+                            'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
+                          }`}>
+                            <a.icon className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">{a.label}</p>
+                            <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Hızlı Erişim</p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-zinc-300 dark:text-zinc-700 ml-auto group-hover:text-indigo-500 transition-colors" />
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* Recent Trips */}
+                      <Card className="lg:col-span-2 rounded-2xl bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800 shadow-sm overflow-hidden">
+                        <CardHeader className="p-5 pb-3 border-b border-zinc-100 dark:border-zinc-800">
+                          <CardTitle className="text-base font-black tracking-tight text-zinc-900 dark:text-white flex items-center justify-between">
+                            Yaklaşan Seferler
+                            <button onClick={() => setActiveTab('trips')} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-widest">Tümünü Gör →</button>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          {trips.filter((t: any) => t.status === 'PLANNED' || t.status === 'ACTIVE').length === 0 ? (
+                            <p className="p-5 text-sm text-zinc-400 text-center font-semibold">Yaklaşan sefer yok</p>
+                          ) : (
+                            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                              {trips
+                                .filter((t: any) => t.status === 'PLANNED' || t.status === 'ACTIVE')
+                                .sort((a: any, b: any) => new Date(a.departureTime).getTime() - new Date(b.departureTime).getTime())
+                                .slice(0, 5)
+                                .map((t: any) => (
+                                  <div key={t.id} className="flex items-center gap-4 p-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                                    <div className={`w-2 h-2 rounded-full shrink-0 ${t.status === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' : 'bg-blue-500'}`} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">
+                                        {t.route?.originStation?.city} → {t.route?.destinationStation?.city}
+                                      </p>
+                                      <p className="text-[10px] text-zinc-400 font-semibold">
+                                        {new Date(t.departureTime).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })} {new Date(t.departureTime).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                                        {' · '}{t.vehicle?.registrationPlate}
+                                      </p>
+                                    </div>
+                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                      t.status === 'ACTIVE'
+                                        ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/50'
+                                        : 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/50'
+                                    }`}>
+                                      {t.status === 'ACTIVE' ? 'Aktif' : 'Planlı'}
+                                    </span>
                                   </div>
-                                  <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-300 font-bold bg-zinc-50 dark:bg-zinc-900 px-4 py-2 rounded-xl text-[13px] border border-zinc-100 dark:border-zinc-800 transition-colors">
-                                     <ArrowUpRight size={16} className="text-indigo-500" /> Verimlilik Artışı
+                                ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      {/* System Health */}
+                      <Card className="rounded-2xl bg-zinc-950 border-none shadow-2xl relative overflow-hidden group">
+                        <div className="absolute -top-10 -right-10 opacity-5 group-hover:opacity-10 transition-opacity duration-500">
+                          <Bus size={160} strokeWidth={3} />
+                        </div>
+                        <CardHeader className="p-5 pb-3">
+                          <CardTitle className="text-base font-black text-white">Sistem Durumu</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-5 pt-2 space-y-5 relative z-10">
+                          <div className="space-y-3">
+                            <HealthBar label="Araç Kullanımı" value={vehicles.length ? Math.round(vehicles.filter(v => v.status === 'ACTIVE').length / vehicles.length * 100) : 0} />
+                            <HealthBar label="Rota Kapsama" value={routes.length > 0 ? Math.min(100, routes.length * 10) : 0} />
+                            <HealthBar label="Şoför Doluluk" value={drivers.length > 0 ? Math.min(100, Math.round(trips.filter((t: any) => t.status === 'PLANNED' || t.status === 'ACTIVE').length / Math.max(1, drivers.length) * 100)) : 0} />
+                          </div>
+                          <div className="pt-3 border-t border-zinc-800 flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Tüm Sistemler Çalışıyor</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Bottom: Routes + Drivers quick */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Top Routes */}
+                      <Card className="rounded-2xl bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800 shadow-sm overflow-hidden">
+                        <CardHeader className="p-5 pb-3 border-b border-zinc-100 dark:border-zinc-800">
+                          <CardTitle className="text-base font-black tracking-tight text-zinc-900 dark:text-white">Rotalar</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          {routes.length === 0 ? (
+                            <p className="p-5 text-sm text-zinc-400 text-center font-semibold">Rota tanımlanmamış</p>
+                          ) : (
+                            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                              {routes.slice(0, 4).map((r: any) => (
+                                <div key={r.id} className="flex items-center justify-between p-4">
+                                  <span className="text-sm font-bold text-zinc-900 dark:text-white">{r.originStation?.name} <span className="text-indigo-500 mx-1">→</span> {r.destinationStation?.name}</span>
+                                  <span className="text-sm font-black text-zinc-900 dark:text-white tabular-nums">₺{Number(r.basePrice).toLocaleString('tr-TR')}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      {/* Driver Overview */}
+                      <Card className="rounded-2xl bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800 shadow-sm overflow-hidden">
+                        <CardHeader className="p-5 pb-3 border-b border-zinc-100 dark:border-zinc-800">
+                          <CardTitle className="text-base font-black tracking-tight text-zinc-900 dark:text-white">Şoför Kadrosu</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          {drivers.length === 0 ? (
+                            <p className="p-5 text-sm text-zinc-400 text-center font-semibold">Şoför eklenmemiş</p>
+                          ) : (
+                            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                              {drivers.slice(0, 4).map((d: any) => (
+                                <div key={d.id} className="flex items-center gap-3 p-4">
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-black text-xs shrink-0">
+                                    {d.name.charAt(0).toUpperCase()}
                                   </div>
-                               </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{d.name}</p>
+                                    <p className="text-[10px] text-zinc-400 font-semibold">{d.email}</p>
+                                  </div>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
+                                    {d._count?.driverTrips ?? 0} sefer
+                                  </span>
+                                </div>
+                              ))}
                             </div>
-                         </CardContent>
+                          )}
+                        </CardContent>
                       </Card>
-                      <Card className="rounded-[32px] bg-zinc-950 border-none shadow-2xl p-2 relative overflow-hidden group">
-                         <div className="absolute top-0 right-0 p-8 text-zinc-800 transition-transform group-hover:scale-110 duration-500">
-                            <Bus size={80} strokeWidth={4} />
-                         </div>
-                         <CardHeader className="p-8"><CardTitle className="text-xl font-black text-white">Sistem Sağlığı</CardTitle></CardHeader>
-                         <CardContent className="p-8 pt-0 space-y-4">
-                            <p className="text-zinc-400 font-semibold text-sm leading-relaxed">Kapasite Verimliliği</p>
-                            <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
-                               <div className="h-full bg-indigo-500 w-3/4 rounded-full" />
-                            </div>
-                            <p className="text-[11px] text-zinc-500 font-black uppercase tracking-widest mt-2">İşlem Hızı: %98</p>
-                         </CardContent>
-                      </Card>
-                   </div>
+                    </div>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="vehicles"><VehiclesPanel /></TabsContent>
@@ -445,6 +404,21 @@ function StatsCard({ label, value, icon: Icon, trend, color }: any) {
 }
 
 
+function HealthBar({ label, value }: { label: string; value: number }) {
+  const color = value >= 70 ? 'bg-emerald-500' : value >= 40 ? 'bg-amber-500' : 'bg-rose-500';
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{label}</span>
+        <span className="text-[10px] font-black text-white">{value}%</span>
+      </div>
+      <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+        <div className={`h-full ${color} rounded-full transition-all duration-500`} style={{ width: `${value}%` }} />
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({ icon: Icon, label }: { icon: any, label: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 px-10 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000">
@@ -457,264 +431,4 @@ function EmptyState({ icon: Icon, label }: { icon: any, label: string }) {
   );
 }
 
-function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
-  const { vehicleForm, stationForm, routeForm, tripForm, setVehicleForm, setStationForm, setRouteForm, setTripForm } = forms;
-  const { handleVehicleSubmit, handleStationSubmit, handleRouteSubmit, handleTripSubmit } = handlers;
-  const { routes, vehicles, stations, drivers = [] } = data;
-
-  if (activeTab === 'vehicles') {
-    return (
-      <form onSubmit={handleVehicleSubmit} className="space-y-6">
-        <RuhsatUploader
-          onExtract={(data) => {
-            setVehicleForm((prev: any) => ({
-              ...prev,
-              registrationPlate: data.plate || prev.registrationPlate,
-              make: data.make || prev.make,
-              model: data.model || prev.model,
-              year: data.year ? String(data.year) : prev.year,
-              chassisNumber: data.chassis || prev.chassisNumber,
-            }));
-          }}
-        />
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-5">
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Marka</Label>
-              <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="Mercedes-Benz" value={vehicleForm.make} onChange={e => setVehicleForm({...vehicleForm, make: e.target.value})} required />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Model</Label>
-              <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="Travego 15 SHD" value={vehicleForm.model} onChange={e => setVehicleForm({...vehicleForm, model: e.target.value})} required />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-5">
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Plaka</Label>
-              <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="34 ABC 123" value={vehicleForm.registrationPlate} onChange={e => setVehicleForm({...vehicleForm, registrationPlate: e.target.value})} required />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Model Yılı</Label>
-              <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="2024" value={vehicleForm.year} onChange={e => setVehicleForm({...vehicleForm, year: e.target.value})} required />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-5">
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Kapasite</Label>
-              <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="46" value={vehicleForm.capacity} onChange={e => setVehicleForm({...vehicleForm, capacity: e.target.value})} required />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Koltuk Düzeni</Label>
-              <Select value={vehicleForm.layoutType} onValueChange={(v) => setVehicleForm({...vehicleForm, layoutType: v})}>
-                <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold">
-                  <SelectValue placeholder="Düzen Seçin" />
-                </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2">
-                  <SelectItem value="2+1">2+1 VIP</SelectItem>
-                  <SelectItem value="2+2">2+2 Standart</SelectItem>
-                  <SelectItem value="1+1">1+1 Business</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Şasi No</Label>
-              <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="WDB..." value={vehicleForm.chassisNumber} onChange={e => setVehicleForm({...vehicleForm, chassisNumber: e.target.value})} required />
-            </div>
-          </div>
-        </div>
-        <Button type="submit" disabled={isSubmitting} className="w-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white h-16 rounded-[24px] font-black text-xl shadow-xl transition-all active:scale-[0.97]">
-          {isSubmitting ? <Loader2 className="animate-spin" /> : "Aracı Filoya Ekle"}
-        </Button>
-      </form>
-    );
-  }
-
-  if (activeTab === 'stations') {
-    return (
-      <form onSubmit={handleStationSubmit} className="space-y-6">
-        <OtogarPicker
-          onSelect={(o) =>
-            setStationForm({
-              name: o.name,
-              city: o.city,
-              locationLat: o.lat.toString(),
-              locationLng: o.lng.toString(),
-            })
-          }
-        />
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">İstasyon / Terminal Adı</Label>
-            <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="Esenler Otogarı" value={stationForm.name} onChange={e => setStationForm({...stationForm, name: e.target.value})} required />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Şehir</Label>
-            <Input className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="İstanbul" value={stationForm.city} onChange={e => setStationForm({...stationForm, city: e.target.value})} required />
-          </div>
-          <div className="grid grid-cols-2 gap-5">
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Enlem (Lat)</Label>
-              <Input type="number" step="any" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="41.035" value={stationForm.locationLat} onChange={e => setStationForm({...stationForm, locationLat: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Boylam (Lng)</Label>
-              <Input type="number" step="any" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold" placeholder="28.892" value={stationForm.locationLng} onChange={e => setStationForm({...stationForm, locationLng: e.target.value})} />
-            </div>
-          </div>
-        </div>
-        <Button type="submit" disabled={isSubmitting} className="w-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white h-16 rounded-[24px] font-black text-xl shadow-xl transition-all active:scale-[0.97]">
-          {isSubmitting ? <Loader2 className="animate-spin" /> : "İstasyonu Kaydet"}
-        </Button>
-      </form>
-    );
-  }
-
-  if (activeTab === 'routes') {
-    return (
-      <form onSubmit={handleRouteSubmit} className="space-y-8">
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-5">
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Başlangıç İstasyonu</Label>
-              <Select value={routeForm.originStationId} onValueChange={(v) => setRouteForm({...routeForm, originStationId: v})}>
-                <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold">
-                  <SelectValue placeholder="İstasyon Seçin">
-                    {stations.find((s: Station) => s.id === routeForm.originStationId) 
-                      ? `${stations.find((s: Station) => s.id === routeForm.originStationId).name} (${stations.find((s: Station) => s.id === routeForm.originStationId).city})` 
-                      : undefined}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2">
-                  {stations.map((s: Station) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name} ({s.city})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Varış İstasyonu</Label>
-              <Select value={routeForm.destinationStationId} onValueChange={(v) => setRouteForm({...routeForm, destinationStationId: v})}>
-                <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold">
-                  <SelectValue placeholder="İstasyon Seçin">
-                    {stations.find((s: Station) => s.id === routeForm.destinationStationId) 
-                      ? `${stations.find((s: Station) => s.id === routeForm.destinationStationId).name} (${stations.find((s: Station) => s.id === routeForm.destinationStationId).city})` 
-                      : undefined}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2">
-                  {stations.map((s: Station) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name} ({s.city})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-5">
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Taban Fiyat (₺)</Label>
-              <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="750" value={routeForm.basePrice} onChange={e => setRouteForm({...routeForm, basePrice: e.target.value})} required />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Tahmini Mesafe (KM)</Label>
-              <Input type="number" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 outline-none transition-all" placeholder="450" value={routeForm.totalDistanceKm} onChange={e => setRouteForm({...routeForm, totalDistanceKm: e.target.value})} required />
-            </div>
-          </div>
-        </div>
-        <Button type="submit" disabled={isSubmitting} className="w-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white h-16 rounded-[24px] font-black text-xl shadow-xl transition-all">
-          {isSubmitting ? <Loader2 className="animate-spin" /> : "Rotayı Tanımla"}
-        </Button>
-      </form>
-    );
-  }
-
-  return (
-    <form onSubmit={handleTripSubmit} className="space-y-8">
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Rota</Label>
-          <Select value={tripForm.routeId} onValueChange={(v) => setTripForm({...tripForm, routeId: v})}>
-            <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-left outline-none text-zinc-900 dark:text-zinc-100 transition-all">
-              <SelectValue placeholder="Rota Seçin">
-                {routes.find((r: Route) => r.id === tripForm.routeId)
-                  ? `${routes.find((r: Route) => r.id === tripForm.routeId).originStation?.name} ➔ ${routes.find((r: Route) => r.id === tripForm.routeId).destinationStation?.name}`
-                  : undefined}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2 shadow-2xl">
-              <AnimatePresence>
-                {routes.map((r: any) => (
-                  <SelectItem key={r.id} value={r.id} className="rounded-xl p-3 focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-950 dark:focus:text-zinc-100 cursor-pointer">
-                    {r.originStation?.name} ➔ {r.destinationStation?.name}
-                  </SelectItem>
-                ))}
-              </AnimatePresence>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Araç</Label>
-          <Select value={tripForm.vehicleId} onValueChange={(v) => setTripForm({...tripForm, vehicleId: v})}>
-            <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-left outline-none text-zinc-900 dark:text-zinc-100 transition-all">
-              <SelectValue placeholder="Araç Seçin">
-                {vehicles.find((v: Vehicle) => v.id === tripForm.vehicleId)
-                  ? `${vehicles.find((v: Vehicle) => v.id === tripForm.vehicleId).make} - ${vehicles.find((v: Vehicle) => v.id === tripForm.vehicleId).registrationPlate}`
-                  : undefined}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2 shadow-2xl">
-              <AnimatePresence>
-                {vehicles.map((v: any) => (
-                  <SelectItem key={v.id} value={v.id} className="rounded-xl p-3 focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-950 dark:focus:text-zinc-100 cursor-pointer">
-                    {v.make} - {v.registrationPlate}
-                  </SelectItem>
-                ))}
-              </AnimatePresence>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Şoför</Label>
-          {drivers.length === 0 ? (
-            <div className="p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl text-xs font-semibold text-amber-800 dark:text-amber-300">
-              Henüz şoför eklenmemiş. Önce <strong>Şoförler</strong> sekmesinden bir şoför oluştur.
-            </div>
-          ) : (
-            <Select value={tripForm.driverId} onValueChange={(v) => setTripForm({...tripForm, driverId: v})}>
-              <SelectTrigger className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-left outline-none text-zinc-900 dark:text-zinc-100 transition-all">
-                <SelectValue placeholder="Şoför Seçin">
-                  {drivers.find((d: any) => d.id === tripForm.driverId)?.name}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl p-2 shadow-2xl">
-                <AnimatePresence>
-                  {drivers.map((d: any) => (
-                    <SelectItem key={d.id} value={d.id} className="rounded-xl p-3 focus:bg-zinc-100 dark:focus:bg-zinc-800 focus:text-zinc-950 dark:focus:text-zinc-100 cursor-pointer">
-                      <div className="flex flex-col">
-                        <span className="font-bold">{d.name}</span>
-                        <span className="text-[10px] font-semibold text-zinc-400">{d.email}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </AnimatePresence>
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-5">
-          <div className="space-y-2">
-            <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Kalkış Zamanı</Label>
-            <Input type="datetime-local" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 transition-all outline-none" value={tripForm.departureTime} onChange={e => setTripForm({...tripForm, departureTime: e.target.value})} required />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-[11px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-[0.2em]">Tahmini Varış</Label>
-            <Input type="datetime-local" className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 h-14 rounded-2xl font-bold text-zinc-900 dark:text-zinc-100 transition-all outline-none" value={tripForm.estimatedArrival} onChange={e => setTripForm({...tripForm, estimatedArrival: e.target.value})} />
-          </div>
-        </div>
-      </div>
-      <Button type="submit" disabled={isSubmitting} className="w-full bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white h-16 rounded-[24px] font-black text-xl shadow-xl transition-all active:scale-[0.97]">
-        {isSubmitting ? <Loader2 className="animate-spin" /> : "Seferi Başlat"}
-      </Button>
-    </form>
-  );
-}
 
