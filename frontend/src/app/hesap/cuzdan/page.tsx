@@ -104,23 +104,29 @@ export default function WalletPage() {
         </div>
       </div>
 
-      {/* How to earn */}
-      {totalEarned === 0 && !loading && (
-        <div className="bg-gradient-to-br from-emerald-50 to-indigo-50 dark:from-emerald-500/10 dark:to-indigo-500/10 border border-emerald-100 dark:border-emerald-900/50 rounded-2xl p-5 mb-6">
-          <div className="flex items-start gap-3">
-            <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+      {/* How to earn & use — always visible */}
+      <div className="bg-gradient-to-br from-emerald-50 to-indigo-50 dark:from-emerald-500/10 dark:to-indigo-500/10 border border-emerald-100 dark:border-emerald-900/50 rounded-2xl p-5 mb-6">
+        <div className="flex items-start gap-3">
+          <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+          <div className="flex-1 space-y-3">
             <div>
-              <p className="text-sm font-black text-slate-900 dark:text-white mb-1">Nasıl kredi kazanılır?</p>
-              <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium leading-relaxed mb-1">
-                Arkadaşını davet et, ikinize de <strong>50₺</strong> kredi. İptal ettiğin biletler de otomatik cüzdana yansır.
-              </p>
-              <p className="text-[10px] text-slate-500 dark:text-zinc-500 font-semibold italic">
-                Kayıtta referans kodu girdiysen, <strong>ilk biletini aldığında</strong> bonus cüzdanına yansır — hem sana hem seni davet eden arkadaşına.
+              <p className="text-sm font-black text-slate-900 dark:text-white mb-1.5">Nasıl kazanılır?</p>
+              <ul className="space-y-1 text-xs text-slate-600 dark:text-zinc-400 font-medium leading-relaxed">
+                <li>• <strong>%2 sadakat iadesi</strong> — her biletten kartla ödenen tutarın %2'si otomatik cüzdana yansır</li>
+                <li>• <strong>Arkadaş daveti</strong> — davet ettiğin kişi ilk biletini alınca ikinize de ₺50</li>
+                <li>• <strong>Bilet iadesi</strong> — iptal ettiğin biletler Iyzico iadesi başarısız olursa cüzdana yansır</li>
+                <li>• <strong>Kampanyalar</strong> — özel kampanyalarla otomatik kredi</li>
+              </ul>
+            </div>
+            <div>
+              <p className="text-sm font-black text-slate-900 dark:text-white mb-1">Nasıl kullanılır?</p>
+              <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium leading-relaxed">
+                Checkout sayfasında <strong>"Cüzdan Kullan"</strong> kutucuğunu işaretle — bakiyen otomatik düşer, kalan tutar karttan tahsil edilir.
               </p>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Transactions */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl overflow-hidden">

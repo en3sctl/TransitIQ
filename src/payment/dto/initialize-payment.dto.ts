@@ -60,4 +60,13 @@ export class InitializePaymentDto {
   @IsUUID()
   @IsOptional()
   userId?: string;
+
+  // Wallet balance applied (pre-paid portion of total)
+  @IsOptional()
+  walletAmount?: number;
+
+  // Promo code applied at checkout
+  @IsUUID()
+  @IsOptional()
+  promoCodeId?: string;
 }

@@ -320,6 +320,8 @@ model PendingPayment {
   contactPhone    String   @map("contact_phone")
   price           String
   userId          String?  @map("user_id")
+  walletAmount    Decimal? @map("wallet_amount")
+  promoCodeId     String?  @map("promo_code_id")
   createdAt       DateTime @default(now()) @map("created_at")
 
   @@map("pending_payments")

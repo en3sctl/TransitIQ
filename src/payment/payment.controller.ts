@@ -40,6 +40,8 @@ export class PaymentController {
         contactPhone: dto.buyerPhone,
         price: dto.price,
         userId: dto.userId,
+        walletAmount: dto.walletAmount,
+        promoCodeId: dto.promoCodeId,
       });
       console.log('[Payment Init] Stored pending booking with token:', result.token.substring(0, 20) + '...', '| userId:', dto.userId || 'guest');
     }
@@ -76,6 +78,18 @@ export class PaymentController {
               paymentId: result.paymentId,
               paymentTransactionId,
             });
+
+            // Process wallet debit, promo usage, loyalty cashback
+            const firstBookingId = (bookingResult as any).bookings?.[0]?.id;
+            if (firstBookingId) {
+              await this.paymentService.processPostBookingLedger({
+                userId: pendingData.userId,
+                bookingId: firstBookingId,
+                totalPrice: Number(pendingData.price),
+                walletAmount: pendingData.walletAmount,
+                promoCodeId: pendingData.promoCodeId,
+              });
+            }
 
             await this.paymentService.removePendingBookingByToken(body.token);
 

@@ -27,6 +27,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Timer,
+  X,
 } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
@@ -285,6 +286,20 @@ function CheckoutContent() {
   const [isApproved, setIsApproved] = useState(false);
   const [iyzicoScript, setIyzicoScript] = useState("");
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoApplied, setPromoApplied] = useState<{ code: string; discount: number; finalAmount: number; promoCodeId: string } | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [useWallet, setUseWallet] = useState(false);
+
+  // Fetch wallet balance for logged-in passengers
+  useEffect(() => {
+    if (!user || user.role !== 'PASSENGER') return;
+    api.get('/wallet/balance')
+      .then(res => setWalletBalance(Number(res.data.balance) || 0))
+      .catch(() => setWalletBalance(0));
+  }, [user]);
 
   // 10-minute seat lock countdown
   const { mins, secs, isUrgent, isExpired } = useCountdown(10);
@@ -307,6 +322,27 @@ function CheckoutContent() {
 
   const seatIdMap = useBookingStore((s) => s.seatIdMap);
 
+  const applyPromo = async () => {
+    if (!promoCode.trim()) return;
+    setPromoLoading(true);
+    setPromoError(null);
+    try {
+      const res = await api.post('/promo-codes/apply', { code: promoCode, amount: totalPrice() });
+      setPromoApplied({ code: res.data.code, discount: res.data.discount, finalAmount: res.data.finalAmount, promoCodeId: res.data.promoCodeId });
+      setPromoError(null);
+    } catch (e: any) {
+      const msg = e.response?.data?.message;
+      setPromoError(typeof msg === 'string' ? msg : 'Geçersiz kod');
+      setPromoApplied(null);
+    } finally { setPromoLoading(false); }
+  };
+
+  const removePromo = () => { setPromoApplied(null); setPromoCode(''); setPromoError(null); };
+
+  const afterPromo = promoApplied ? promoApplied.finalAmount : totalPrice();
+  const walletUsed = useWallet ? Math.min(walletBalance, afterPromo) : 0;
+  const finalPrice = Math.max(0, afterPromo - walletUsed);
+
   const handlePayment = useCallback(async () => {
     if (!canSubmit || !trip) return;
     setIsPaymentLoading(true);
@@ -316,7 +352,9 @@ function CheckoutContent() {
       // Initialize Iyzico payment (with booking data for callback)
       const firstPassenger = passengers[0];
       const paymentRes = await api.post('/payment/initialize', {
-        price: String(totalPrice()),
+        price: String(finalPrice),
+        ...(promoApplied && { promoCodeId: promoApplied.promoCodeId }),
+        ...(walletUsed > 0 && { walletAmount: walletUsed }),
         buyerName: firstPassenger.firstName,
         buyerSurname: firstPassenger.lastName,
         buyerTc: firstPassenger.tcKimlik,
@@ -352,7 +390,7 @@ function CheckoutContent() {
     } finally {
       setIsPaymentLoading(false);
     }
-  }, [canSubmit, trip, passengers, contactEmail, contactPhone, totalPrice, selectedSeats, seatIdMap]);
+  }, [canSubmit, trip, passengers, contactEmail, contactPhone, totalPrice, selectedSeats, seatIdMap, promoApplied, user, finalPrice, walletUsed]);
 
   useEffect(() => {
     if (isKvkkModalOpen && kvkkRef.current) kvkkRef.current.scrollTop = 0;
@@ -553,11 +591,74 @@ function CheckoutContent() {
                 </div>
               )}
 
+              {/* Promo Code */}
+              <div className="space-y-2">
+                {promoApplied ? (
+                  <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-xl p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">{promoApplied.code}</span>
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">-₺{promoApplied.discount.toFixed(2)}</span>
+                    </div>
+                    <button onClick={removePromo} className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 p-1 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={e => { setPromoCode(e.target.value.toUpperCase()); setPromoError(null); }}
+                      placeholder="Promo kodu"
+                      className="flex-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-indigo-500 transition-all uppercase tracking-wider"
+                    />
+                    <button
+                      onClick={applyPromo}
+                      disabled={promoLoading || !promoCode.trim()}
+                      className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-bold hover:bg-black dark:hover:bg-white disabled:opacity-40 transition-all"
+                    >
+                      {promoLoading ? '...' : 'Uygula'}
+                    </button>
+                  </div>
+                )}
+                {promoError && <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400">{promoError}</p>}
+              </div>
+
+              {/* Wallet */}
+              {user?.role === 'PASSENGER' && walletBalance > 0 && (
+                <label className="flex items-center justify-between gap-3 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-900/50 cursor-pointer hover:bg-indigo-100/50 dark:hover:bg-indigo-500/20 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" checked={useWallet} onChange={e => setUseWallet(e.target.checked)}
+                      className="w-4 h-4 rounded border-indigo-300 dark:border-indigo-700 text-indigo-600 focus:ring-indigo-500" />
+                    <div>
+                      <p className="text-xs font-black text-indigo-900 dark:text-indigo-300 uppercase tracking-wider">Cüzdan Kullan</p>
+                      <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">Bakiye: ₺{walletBalance.toFixed(2)}</p>
+                    </div>
+                  </div>
+                  {useWallet && walletUsed > 0 && (
+                    <span className="text-xs font-black text-indigo-700 dark:text-indigo-300">-₺{walletUsed.toFixed(2)}</span>
+                  )}
+                </label>
+              )}
+
               {/* Total Price */}
               <div className="flex items-center justify-between">
-                <span className="text-base font-bold text-slate-800 dark:text-white">Toplam Tutar</span>
-                <span className="text-2xl font-black text-slate-900 dark:text-white">₺{totalPrice()}</span>
+                <span className="text-base font-bold text-slate-800 dark:text-white">Kartla Ödenecek</span>
+                <div className="text-right">
+                  {(promoApplied || walletUsed > 0) && (
+                    <span className="text-sm text-slate-400 line-through mr-2">₺{totalPrice()}</span>
+                  )}
+                  <span className="text-2xl font-black text-slate-900 dark:text-white">₺{finalPrice.toFixed(2)}</span>
+                </div>
               </div>
+
+              {/* Loyalty cashback hint */}
+              {user?.role === 'PASSENGER' && finalPrice > 0 && (
+                <div className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" />
+                  Bu satın almadan <strong>₺{(finalPrice * 0.02).toFixed(2)}</strong> cüzdanınıza iade edilecek (%2 sadakat)
+                </div>
+              )}
             </div>
           </div>
 

@@ -17,6 +17,8 @@ export interface PendingBookingData {
   contactPhone: string;
   price: string;
   userId?: string;
+  walletAmount?: number;
+  promoCodeId?: string;
 }
 
 @Injectable()
@@ -45,6 +47,8 @@ export class PaymentService {
         contactPhone: data.contactPhone,
         price: data.price,
         userId: data.userId || null,
+        walletAmount: data.walletAmount ?? null,
+        promoCodeId: data.promoCodeId ?? null,
       },
     });
   }
@@ -63,7 +67,94 @@ export class PaymentService {
       contactPhone: record.contactPhone,
       price: record.price,
       userId: (record as any).userId || undefined,
+      walletAmount: record.walletAmount ? Number(record.walletAmount) : undefined,
+      promoCodeId: record.promoCodeId ?? undefined,
     };
+  }
+
+  /**
+   * Post-booking ledger: debits wallet, records promo code use,
+   * credits loyalty cashback (2% of card-paid portion).
+   * Safe to call without userId — no-op for guest bookings.
+   */
+  async processPostBookingLedger(params: {
+    userId?: string;
+    bookingId: string;
+    totalPrice: number; // final amount user paid (after promo)
+    walletAmount?: number;
+    promoCodeId?: string;
+  }) {
+    const { userId, bookingId, totalPrice, walletAmount, promoCodeId } = params;
+
+    if (!userId) return; // guest checkout — no wallet/loyalty
+
+    try {
+      // 1) Debit wallet if used
+      if (walletAmount && walletAmount > 0) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { walletBalance: true },
+        });
+        if (user) {
+          const available = Number(user.walletBalance);
+          const debit = Math.min(available, walletAmount);
+          if (debit > 0) {
+            await this.prisma.user.update({
+              where: { id: userId },
+              data: { walletBalance: { decrement: debit } },
+            });
+            await this.prisma.walletTransaction.create({
+              data: {
+                userId, amount: -debit, type: 'PAYMENT',
+                reason: 'Bilet ödemesinde cüzdan kullanımı',
+                bookingId,
+              },
+            });
+          }
+        }
+      }
+
+      // 2) Record promo code application
+      if (promoCodeId) {
+        const promo = await this.prisma.promoCode.findUnique({ where: { id: promoCodeId } });
+        if (promo) {
+          await this.prisma.promoCode.update({
+            where: { id: promoCodeId },
+            data: { usedCount: { increment: 1 } },
+          });
+          // Calculate discount amount for record
+          const cardAmount = totalPrice - (walletAmount || 0);
+          const discount = promo.discountType === 'PERCENT'
+            ? Math.round(totalPrice * Number(promo.discountValue) / 100 * 100) / 100
+            : Math.min(Number(promo.discountValue), totalPrice);
+          await this.prisma.promoCodeApplication.create({
+            data: { promoCodeId, bookingId, userId, discountApplied: discount },
+          });
+        }
+      }
+
+      // 3) Loyalty cashback — 2% of card-paid amount (not wallet or promo portion)
+      const cardPaid = Math.max(0, totalPrice - (walletAmount || 0));
+      if (cardPaid > 0) {
+        const cashback = Math.round(cardPaid * 0.02 * 100) / 100;
+        if (cashback > 0) {
+          await this.prisma.user.update({
+            where: { id: userId },
+            data: { walletBalance: { increment: cashback } },
+          });
+          await this.prisma.walletTransaction.create({
+            data: {
+              userId, amount: cashback, type: 'PROMOTION',
+              reason: 'Sadakat iadesi (%2 cashback)',
+              bookingId,
+            },
+          });
+        }
+      }
+    } catch (err) {
+      console.error('[Post-booking ledger] Failed:', err);
+      // don't throw — booking already succeeded, ledger is best-effort
+    }
   }
 
   async removePendingBookingByToken(token: string) {

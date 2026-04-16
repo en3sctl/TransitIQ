@@ -486,7 +486,7 @@ function SearchResultsPageContent() {
             <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
               <h3 className="text-sm font-bold text-slate-400 dark:text-zinc-500">Koltuk Seçimi</h3>
               <div className="flex items-center gap-2">
-                {viewers > 0 && (
+                {viewers > 1 && (
                   <motion.span
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -497,7 +497,7 @@ function SearchResultsPageContent() {
                       <span className="absolute inset-0 rounded-full bg-amber-500 animate-ping opacity-75" />
                       <span className="relative rounded-full bg-amber-500 w-1.5 h-1.5" />
                     </span>
-                    {viewers} kişi daha bakıyor
+                    {viewers - 1} kişi daha bakıyor
                   </motion.span>
                 )}
                 <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{selectedSeats.length}/{MAX_SEATS}</span>

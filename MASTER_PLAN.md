@@ -143,7 +143,7 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 - ✅ Şoför yönetimi (CRUD + şifre güncelleme)
 - ✅ Denetim logu (tüm kritik mutasyonlar: kim, ne, ne zaman, before/after diff)
 - ✅ Command palette (Cmd+K)
-- ⏳ Ciro dashboard (grafik: günlük/haftalık/aylık)
+- ✅ Ciro dashboard (30 gün bar chart + bugün/hafta/ay/toplam gerçek veriler)
 - ⏳ Doluluk analizi (rota bazında)
 - ⏳ Tahminleme (ML ile doluluk/ciro öngörü)
 - ⏳ Promosyon kodu yönetimi
@@ -739,7 +739,7 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [ ] Tekrarlayan sefer şablonu
 - [ ] Dinamik fiyat kuralı motoru (ör: kalkışa 24sa kala %10 indirim)
 - [x] Promosyon kodu sistemi (CRUD + apply at checkout + admin panel)
-- [ ] CSV export (bilet, sefer, muhasebe)
+- [x] CSV export (tüm panellerde: araç, sefer, rota, istasyon, şoför, bilet, denetim, promo)
 - [ ] Şikayet / destek talebi sistemi
 - [ ] Yolcu değerlendirme sistemi (review + tags)
 

@@ -1,0 +1,260 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../common/prisma/prisma.service';
+
+@Injectable()
+export class AnalyticsService {
+  constructor(private prisma: PrismaService) {}
+
+  /**
+   * Revenue and booking stats for admin dashboard.
+   * Returns: today's revenue, this week, this month, total,
+   * plus daily breakdown for the last 30 days.
+   */
+  async getRevenueStats(tenantId: string) {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(todayStart);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday start
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+
+    const where = { trip: { tenantId }, status: 'CONFIRMED' as const };
+
+    const [todayRev, weekRev, monthRev, totalRev, todayCount, totalCount, cancelledCount, dailyRaw] = await Promise.all([
+      this.prisma.booking.aggregate({ where: { ...where, bookingTime: { gte: todayStart } }, _sum: { pricePaid: true } }),
+      this.prisma.booking.aggregate({ where: { ...where, bookingTime: { gte: weekStart } }, _sum: { pricePaid: true } }),
+      this.prisma.booking.aggregate({ where: { ...where, bookingTime: { gte: monthStart } }, _sum: { pricePaid: true } }),
+      this.prisma.booking.aggregate({ where, _sum: { pricePaid: true } }),
+      this.prisma.booking.count({ where: { ...where, bookingTime: { gte: todayStart } } }),
+      this.prisma.booking.count({ where }),
+      this.prisma.booking.count({ where: { trip: { tenantId }, status: 'CANCELLED' } }),
+      // Daily breakdown — raw query for grouping by date
+      this.prisma.booking.findMany({
+        where: { ...where, bookingTime: { gte: thirtyDaysAgo } },
+        select: { pricePaid: true, bookingTime: true },
+        orderBy: { bookingTime: 'asc' },
+      }),
+    ]);
+
+    // Aggregate daily
+    const dailyMap = new Map<string, { revenue: number; count: number }>();
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(now.getTime() - (29 - i) * 86400000);
+      dailyMap.set(d.toISOString().slice(0, 10), { revenue: 0, count: 0 });
+    }
+    for (const b of dailyRaw) {
+      const key = b.bookingTime.toISOString().slice(0, 10);
+      const entry = dailyMap.get(key);
+      if (entry) {
+        entry.revenue += Number(b.pricePaid);
+        entry.count += 1;
+      }
+    }
+
+    const daily = Array.from(dailyMap.entries()).map(([date, data]) => ({
+      date,
+      revenue: Math.round(data.revenue * 100) / 100,
+      count: data.count,
+    }));
+
+    return {
+      today: { revenue: Number(todayRev._sum.pricePaid || 0), count: todayCount },
+      week: { revenue: Number(weekRev._sum.pricePaid || 0) },
+      month: { revenue: Number(monthRev._sum.pricePaid || 0) },
+      total: { revenue: Number(totalRev._sum.pricePaid || 0), count: totalCount },
+      cancelled: cancelledCount,
+      daily,
+    };
+  }
+
+  /**
+   * Comprehensive dashboard data — returns everything needed for the admin overview.
+   * Includes revenue trends, hourly sales heatmap, top routes, top drivers,
+   * cancellation trends, average ticket price, fleet utilization, booking funnel.
+   */
+  async getDashboard(tenantId: string) {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterdayStart = new Date(todayStart.getTime() - 86400000);
+    const weekStart = new Date(todayStart);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    const lastWeekStart = new Date(weekStart.getTime() - 7 * 86400000);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 86400000);
+
+    const whereConfirmed = { trip: { tenantId }, status: 'CONFIRMED' as const };
+
+    const [
+      todayAgg, yesterdayAgg, weekAgg, lastWeekAgg, monthAgg, lastMonthAgg,
+      totalAgg, cancelledCount, recentBookings,
+      hourlyRaw, topRoutesRaw, topDriversRaw,
+      vehicleCount, activeVehicleCount, activeTripCount, completedTripCount,
+    ] = await Promise.all([
+      this.prisma.booking.aggregate({ where: { ...whereConfirmed, bookingTime: { gte: todayStart } }, _sum: { pricePaid: true }, _count: true }),
+      this.prisma.booking.aggregate({ where: { ...whereConfirmed, bookingTime: { gte: yesterdayStart, lt: todayStart } }, _sum: { pricePaid: true }, _count: true }),
+      this.prisma.booking.aggregate({ where: { ...whereConfirmed, bookingTime: { gte: weekStart } }, _sum: { pricePaid: true }, _count: true }),
+      this.prisma.booking.aggregate({ where: { ...whereConfirmed, bookingTime: { gte: lastWeekStart, lt: weekStart } }, _sum: { pricePaid: true }, _count: true }),
+      this.prisma.booking.aggregate({ where: { ...whereConfirmed, bookingTime: { gte: monthStart } }, _sum: { pricePaid: true }, _count: true }),
+      this.prisma.booking.aggregate({ where: { ...whereConfirmed, bookingTime: { gte: lastMonthStart, lt: monthStart } }, _sum: { pricePaid: true }, _count: true }),
+      this.prisma.booking.aggregate({ where: whereConfirmed, _sum: { pricePaid: true }, _count: true }),
+      this.prisma.booking.count({ where: { trip: { tenantId }, status: 'CANCELLED', bookingTime: { gte: thirtyDaysAgo } } }),
+      this.prisma.booking.findMany({
+        where: { ...whereConfirmed, bookingTime: { gte: ninetyDaysAgo } },
+        select: { pricePaid: true, bookingTime: true, tripId: true },
+        orderBy: { bookingTime: 'asc' },
+      }),
+      // Hourly pattern for the last 30 days
+      this.prisma.booking.findMany({
+        where: { ...whereConfirmed, bookingTime: { gte: thirtyDaysAgo } },
+        select: { bookingTime: true },
+      }),
+      // Top routes by bookings (last 30 days)
+      this.prisma.booking.groupBy({
+        by: ['tripId'],
+        where: { ...whereConfirmed, bookingTime: { gte: thirtyDaysAgo } },
+        _count: true,
+        _sum: { pricePaid: true },
+        orderBy: { _count: { tripId: 'desc' } },
+        take: 5,
+      }),
+      // Top drivers (by number of bookings in their trips, last 30 days)
+      this.prisma.booking.findMany({
+        where: { ...whereConfirmed, bookingTime: { gte: thirtyDaysAgo } },
+        select: { trip: { select: { driverId: true, driver: { select: { name: true } } } } },
+      }),
+      this.prisma.vehicle.count({ where: { tenantId, deletedAt: null } }),
+      this.prisma.vehicle.count({ where: { tenantId, deletedAt: null, status: 'ACTIVE' } }),
+      this.prisma.trip.count({ where: { tenantId, status: { in: ['PLANNED', 'ACTIVE'] } } }),
+      this.prisma.trip.count({ where: { tenantId, status: 'COMPLETED' } }),
+    ]);
+
+    // Daily revenue for last 90 days
+    const dailyMap = new Map<string, { revenue: number; count: number }>();
+    for (let i = 0; i < 90; i++) {
+      const d = new Date(now.getTime() - (89 - i) * 86400000);
+      dailyMap.set(d.toISOString().slice(0, 10), { revenue: 0, count: 0 });
+    }
+    for (const b of recentBookings) {
+      const key = b.bookingTime.toISOString().slice(0, 10);
+      const entry = dailyMap.get(key);
+      if (entry) { entry.revenue += Number(b.pricePaid); entry.count += 1; }
+    }
+    const daily = Array.from(dailyMap.entries()).map(([date, data]) => ({
+      date, revenue: Math.round(data.revenue * 100) / 100, count: data.count,
+    }));
+
+    // Hourly heatmap (24 hours x 7 days of week)
+    const hourlyMatrix: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+    for (const b of hourlyRaw) {
+      const day = b.bookingTime.getDay();
+      const hour = b.bookingTime.getHours();
+      hourlyMatrix[day][hour]++;
+    }
+
+    // Resolve top routes (route info for each tripId)
+    const tripIds = topRoutesRaw.map((r) => r.tripId);
+    const tripInfos = await this.prisma.trip.findMany({
+      where: { id: { in: tripIds } },
+      select: { id: true, route: { select: { originStation: { select: { city: true } }, destinationStation: { select: { city: true } } } } },
+    });
+    const tripInfoMap = new Map(tripInfos.map((t) => [t.id, t.route]));
+    const topRoutes = topRoutesRaw.map((r) => {
+      const ri = tripInfoMap.get(r.tripId);
+      return {
+        origin: ri?.originStation.city || '—',
+        destination: ri?.destinationStation.city || '—',
+        bookings: r._count,
+        revenue: Number(r._sum.pricePaid || 0),
+      };
+    });
+
+    // Top drivers
+    const driverCounts = new Map<string, { name: string; count: number }>();
+    for (const b of topDriversRaw) {
+      const did = b.trip.driverId;
+      const name = b.trip.driver?.name || 'Bilinmiyor';
+      if (!did) continue;
+      const existing = driverCounts.get(did);
+      if (existing) existing.count += 1;
+      else driverCounts.set(did, { name, count: 1 });
+    }
+    const topDrivers = Array.from(driverCounts.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // Percent change helpers
+    const pctChange = (a: number, b: number) => b === 0 ? (a > 0 ? 100 : 0) : Math.round((a - b) / b * 1000) / 10;
+
+    const todayRev = Number(todayAgg._sum.pricePaid || 0);
+    const yesterdayRev = Number(yesterdayAgg._sum.pricePaid || 0);
+    const weekRev = Number(weekAgg._sum.pricePaid || 0);
+    const lastWeekRev = Number(lastWeekAgg._sum.pricePaid || 0);
+    const monthRev = Number(monthAgg._sum.pricePaid || 0);
+    const lastMonthRev = Number(lastMonthAgg._sum.pricePaid || 0);
+    const totalRev = Number(totalAgg._sum.pricePaid || 0);
+    const totalBookings = totalAgg._count;
+    const monthBookings = monthAgg._count;
+    const avgTicketPrice = totalBookings > 0 ? Math.round(totalRev / totalBookings * 100) / 100 : 0;
+    const cancellationRate = monthBookings > 0 ? Math.round(cancelledCount / (monthBookings + cancelledCount) * 1000) / 10 : 0;
+
+    return {
+      revenue: {
+        today: { value: todayRev, count: todayAgg._count, changePct: pctChange(todayRev, yesterdayRev) },
+        week: { value: weekRev, count: weekAgg._count, changePct: pctChange(weekRev, lastWeekRev) },
+        month: { value: monthRev, count: monthBookings, changePct: pctChange(monthRev, lastMonthRev) },
+        total: { value: totalRev, count: totalBookings },
+      },
+      daily,
+      hourlyMatrix,
+      topRoutes,
+      topDrivers,
+      fleet: {
+        total: vehicleCount,
+        active: activeVehicleCount,
+        utilizationPct: vehicleCount > 0 ? Math.round(activeVehicleCount / vehicleCount * 100) : 0,
+      },
+      trips: {
+        active: activeTripCount,
+        completed: completedTripCount,
+      },
+      metrics: {
+        avgTicketPrice,
+        cancellationRate,
+        cancelledCount,
+      },
+    };
+  }
+
+  /**
+   * Route occupancy stats — which routes are most popular.
+   */
+  async getOccupancyStats(tenantId: string) {
+    const routes = await this.prisma.route.findMany({
+      where: { tenantId },
+      include: {
+        originStation: { select: { city: true } },
+        destinationStation: { select: { city: true } },
+        _count: { select: { trips: true } },
+      },
+    });
+
+    const routeStats = await Promise.all(
+      routes.map(async (r) => {
+        const bookings = await this.prisma.booking.count({
+          where: { trip: { routeId: r.id }, status: 'CONFIRMED' },
+        });
+        return {
+          routeId: r.id,
+          origin: r.originStation.city,
+          destination: r.destinationStation.city,
+          tripCount: r._count.trips,
+          bookingCount: bookings,
+        };
+      }),
+    );
+
+    return routeStats.sort((a, b) => b.bookingCount - a.bookingCount);
+  }
+}
