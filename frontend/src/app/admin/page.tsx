@@ -10,19 +10,15 @@ import { AdminDriversPanel } from "@/components/admin/drivers-panel";
 import { AdminAuditLogsPanel } from "@/components/admin/audit-logs-panel";
 import { VehicleDetailModal } from "@/components/admin/vehicle-detail-modal";
 import { VehiclesPanel } from "@/components/admin/vehicles-panel";
+import { TripsPanel } from "@/components/admin/trips-panel";
+import { RoutesPanel } from "@/components/admin/routes-panel";
+import { StationsPanel } from "@/components/admin/stations-panel";
 import { OtogarPicker } from "@/components/admin/otogar-picker";
 import { RuhsatUploader } from "@/components/admin/ruhsat-uploader";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+// Table components moved to individual panel files
 import {
   Card,
   CardContent,
@@ -407,9 +403,9 @@ function AdminDashboardContent() {
                 </TabsContent>
 
                 <TabsContent value="vehicles"><VehiclesPanel /></TabsContent>
-                <TabsContent value="stations"><TableCard title="İstasyon Yönetimi" count={stations.length} actionLabel="İstasyon Ekle" onAction={() => setIsDialogOpen(true)}><StationsTable stations={stations} /></TableCard></TabsContent>
-                <TabsContent value="routes"><TableCard title="Ağ Haritası" count={routes.length} actionLabel="Rota Oluştur" onAction={() => setIsDialogOpen(true)}><RoutesTable routes={routes} /></TableCard></TabsContent>
-                <TabsContent value="trips"><TableCard title="Sefer Kayıtları" count={trips.length} actionLabel="Sefer Ata" onAction={() => setIsDialogOpen(true)}><TripsTable trips={trips} /></TableCard></TabsContent>
+                <TabsContent value="stations"><StationsPanel /></TabsContent>
+                <TabsContent value="routes"><RoutesPanel /></TabsContent>
+                <TabsContent value="trips"><TripsPanel /></TabsContent>
                 <TabsContent value="bookings" className="mt-6"><AdminBookingsPanel /></TabsContent>
                 <TabsContent value="drivers" className="mt-6"><AdminDriversPanel /></TabsContent>
                 <TabsContent value="audit" className="mt-6"><AdminAuditLogsPanel /></TabsContent>
@@ -448,100 +444,6 @@ function StatsCard({ label, value, icon: Icon, trend, color }: any) {
   );
 }
 
-function TableCard({ title, count, children, actionLabel, onAction }: { title: string; count: number; children: React.ReactNode; actionLabel?: string; onAction?: () => void }) {
-  return (
-    <Card className="rounded-[40px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden ring-1 ring-zinc-950/5 transition-colors duration-500">
-      <CardHeader className="p-8 border-b border-zinc-100 dark:border-zinc-800 flex flex-row items-center justify-between">
-        <div className="space-y-1">
-          <CardTitle className="text-2xl font-black tracking-tighter text-zinc-900 dark:text-zinc-100">{title}</CardTitle>
-          <CardDescription className="text-zinc-500 dark:text-zinc-400 font-bold uppercase text-[10px] tracking-widest">{count} Kayıt Mevcut</CardDescription>
-        </div>
-        {actionLabel && onAction && (
-          <Button
-            onClick={onAction}
-            className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white rounded-xl h-10 px-5 text-xs font-black shadow-sm transition-all active:scale-[0.98]"
-          >
-            <Plus className="mr-2 h-4 w-4 stroke-[3]" />
-            {actionLabel}
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent className="p-0">{children}</CardContent>
-    </Card>
-  );
-}
-
-function RoutesTable({ routes }: { routes: Route[] }) {
-  if (routes.length === 0) return <EmptyState icon={RouteIcon} label="Henüz rota tanımlanmamış" />;
-  return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
-          <TableRow className="hover:bg-transparent border-none font-black text-[11px] uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 h-14">
-            <TableHead className="px-8">Durak A ➔ Durak B</TableHead>
-            <TableHead>Mesafe</TableHead>
-            <TableHead className="text-right px-8">Taban Fiyat</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {routes.map((r) => (
-            <TableRow key={r.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group">
-              <TableCell className="py-6 px-8 text-zinc-900 dark:text-zinc-100 font-extrabold text-lg tracking-tight">
-                 {r.originStation?.name} <span className="text-indigo-600 dark:text-indigo-400 mx-2">➔</span> {r.destinationStation?.name}
-              </TableCell>
-              <TableCell className="text-zinc-500 dark:text-zinc-400 font-bold">{r.totalDistanceKm} KM</TableCell>
-              <TableCell className="text-right px-8 font-black text-xl text-zinc-950 dark:text-zinc-100">₺{r.basePrice}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
-function TripsTable({ trips }: { trips: Trip[] }) {
-  if (trips.length === 0) return <EmptyState icon={CalendarDays} label="Sefer kaydı bulunamadı" />;
-  return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
-          <TableRow className="hover:bg-transparent border-none font-black text-[11px] uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 h-14">
-            <TableHead className="px-8">Zaman Çizelgesi</TableHead>
-            <TableHead>Atanan Araç</TableHead>
-            <TableHead className="text-right px-8">Durum</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {trips.map((t) => (
-            <TableRow key={t.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group">
-              <TableCell className="py-6 px-8">
-                <div className="flex flex-col">
-                  <span className="text-zinc-900 dark:text-zinc-100 font-bold text-base">
-                    {new Date(t.departureTime).toLocaleDateString()} at {new Date(t.departureTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                  </span>
-                  <span className="text-indigo-600 dark:text-indigo-400 font-bold text-[11px] mt-0.5 uppercase tracking-widest">
-                    {t.route?.originStation?.name || 'Unknown'} ➔ {t.route?.destinationStation?.name || 'Unknown'}
-                  </span>
-                </div>
-              </TableCell>
-              <TableCell className="text-zinc-500 dark:text-zinc-400">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800">
-                    <Bus size={18} />
-                  </div>
-                  <span className="font-bold">{t.vehicle?.registrationPlate ?? 'N/A'}</span>
-                </div>
-              </TableCell>
-              <TableCell className="text-right px-8">
-                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50">Onaylandı</span>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
 
 function EmptyState({ icon: Icon, label }: { icon: any, label: string }) {
   return (
@@ -816,30 +718,3 @@ function DynamicForm({ activeTab, forms, handlers, data, isSubmitting }: any) {
   );
 }
 
-function StationsTable({ stations }: { stations: Station[] }) {
-  if (stations.length === 0) return <EmptyState icon={Search} label="Henüz istasyon eklenmemiş" />;
-  return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
-          <TableRow className="hover:bg-transparent border-none font-black text-[11px] uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 h-14">
-            <TableHead className="px-8" style={{ width: '50%' }}>İstasyon Adı</TableHead>
-            <TableHead style={{ width: '25%' }}>Şehir</TableHead>
-            <TableHead className="text-right px-8" style={{ width: '25%' }}>Koordinatlar</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {stations.map((s) => (
-            <TableRow key={s.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group">
-              <TableCell className="py-6 px-8 text-zinc-900 dark:text-zinc-100 font-bold text-base">{s.name}</TableCell>
-              <TableCell className="text-zinc-500 dark:text-zinc-400 font-semibold">{s.city}</TableCell>
-              <TableCell className="text-right px-8 font-mono text-[10px] text-zinc-400">
-                {s.locationLat && s.locationLng ? `${s.locationLat}, ${s.locationLng}` : "—"}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
