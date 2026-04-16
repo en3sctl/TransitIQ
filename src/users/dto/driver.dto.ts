@@ -9,7 +9,7 @@ export class CreateDriverDto {
   email: string;
 
   @IsString()
-  @MinLength(6, { message: 'Şifre en az 6 karakter olmalıdır' })
+  @MinLength(8, { message: 'Şifre en az 8 karakter olmalıdır' })
   password: string;
 
   @IsOptional()
@@ -30,7 +30,7 @@ export class UpdateDriverDto {
 
   @IsOptional()
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   password?: string;
 
   @IsOptional()

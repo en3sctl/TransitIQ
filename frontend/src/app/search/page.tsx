@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { BrandLogo } from '@/components/brand-logo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Bus, Calendar, Clock, Lock, CheckCircle2, ShieldCheck, LifeBuoy, RefreshCcw, Users } from "lucide-react";
+import { ArrowLeft, Bus, Calendar, Clock, Lock, CheckCircle2, ShieldCheck, LifeBuoy, RefreshCcw, Users, Star } from "lucide-react";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useBookingStore } from '@/store/useBookingStore';
@@ -16,6 +16,8 @@ import { PriceHistoryChart } from '@/components/price-history-chart';
 import { useSeatRoom } from '@/hooks/use-seat-room';
 import { MultiLegResults } from '@/components/search/multi-leg-results';
 import { findAdjacentSeats } from '@/lib/seat-grouping';
+import { DateRibbon } from '@/components/search/date-ribbon';
+import { TripReviews } from '@/components/search/trip-reviews';
 
 const MAX_SEATS = 5;
 
@@ -34,6 +36,8 @@ interface Trip {
   layoutType: string;
   totalSeats: number;
   distanceKm?: number | null;
+  driverRating?: number | null;
+  driverReviewCount?: number;
   stops: { name: string; city: string; offsetMinutes: number }[];
 }
 
@@ -320,6 +324,18 @@ function SearchResultsPageContent() {
 
         {/* Column 1: Trips List OR Selected Summary */}
         <div className={`space-y-4 ${selectedTrip ? 'lg:col-span-1' : 'lg:col-span-3'}`}>
+          {!selectedTrip && (
+            <DateRibbon
+              from={decodeURIComponent(fromCity)}
+              to={decodeURIComponent(toCity)}
+              selectedDate={dateStr}
+              onSelectDate={(next) => {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set('date', next);
+                router.push(`/search?${params.toString()}`);
+              }}
+            />
+          )}
           {!selectedTrip ? (
             <>
               {isLoadingTrips ? (
@@ -394,9 +410,16 @@ function SearchResultsPageContent() {
                         {/* 2. Bus Info Box */}
                         <div className="w-56 flex-shrink-0 flex items-center gap-3 bg-slate-50 dark:bg-zinc-800/40 px-4 py-3 rounded-xl justify-start overflow-hidden">
                           <Bus className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                          <div className="truncate">
+                          <div className="truncate flex-1">
                             <div className="text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full mb-0.5 inline-block">{trip.busType}</div>
                             <p className="text-xs font-bold text-slate-600 dark:text-zinc-300 truncate">{trip.busModel}</p>
+                            {trip.driverRating != null && trip.driverRating > 0 && (trip.driverReviewCount ?? 0) >= 3 && (
+                              <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                                <span>{trip.driverRating.toFixed(1)}</span>
+                                <span className="text-slate-400 dark:text-zinc-500 font-semibold">({trip.driverReviewCount})</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -421,7 +444,8 @@ function SearchResultsPageContent() {
               )}
             </>
           ) : (
-            /* Selected Trip Summary Card */
+            <>
+            {/* Selected Trip Summary Card */}
             <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl shadow-md overflow-hidden transition-all duration-300">
               {/* Trip Summary Header */}
               <div className="p-5 border-b border-slate-100 dark:border-zinc-800">
@@ -477,6 +501,8 @@ function SearchResultsPageContent() {
                 />
               </div>
             </div>
+            <TripReviews tripId={selectedTrip.id} />
+            </>
           )}
         </div>
 

@@ -18,8 +18,19 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://user:password@db:5432/transitiq?sslmode=disable
-      - JWT_SECRET=your_jwt_secret_here
+      - DATABASE_URL=${DATABASE_URL:?required - set in .env}
+      - JWT_SECRET=${JWT_SECRET:?required - set in .env, min 32 random chars}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM:-TransitIQ <onboarding@resend.dev>}
+      - IYZICO_API_KEY=${IYZICO_API_KEY:-}
+      - IYZICO_SECRET_KEY=${IYZICO_SECRET_KEY:-}
+      - IYZICO_BASE_URL=${IYZICO_BASE_URL:-https://sandbox-api.iyzipay.com}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3001}
+      - NODE_ENV=${NODE_ENV:-development}
     depends_on:
       - db
     volumes:

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, AlertTriangle, RotateCcw, Bus, Clock, CheckCircle2 } from "lucide-react";
+import { Bell, AlertTriangle, RotateCcw, Bus, Clock, CheckCircle2, ShieldAlert, MessageSquareWarning } from "lucide-react";
 import api from "@/lib/api";
 
 interface Notif {
@@ -13,6 +13,23 @@ interface Notif {
   tab: string;
   icon: any;
 }
+
+const COMPLAINT_CATEGORY_LABELS: Record<string, string> = {
+  DELAY: 'Gecikme',
+  DRIVER: 'Şoför',
+  CLEANLINESS: 'Temizlik',
+  PAYMENT: 'Ödeme',
+  SEAT: 'Koltuk',
+  OTHER: 'Diğer',
+};
+const COMPLAINT_PRIORITY_LABELS: Record<string, string> = {
+  LOW: 'Düşük',
+  NORMAL: 'Normal',
+  HIGH: 'Yüksek',
+  URGENT: 'Acil',
+};
+const categoryLabel = (c: string) => COMPLAINT_CATEGORY_LABELS[c] || c;
+const priorityLabel = (p: string) => COMPLAINT_PRIORITY_LABELS[p] || p;
 
 export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -77,6 +94,33 @@ export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) =>
           icon: Clock,
         });
       });
+
+      // Recent complaints (detailed items)
+      (data.alerts.recentComplaints || []).forEach((c: any) => {
+        const isUrgent = c.priority === 'HIGH' || c.priority === 'URGENT';
+        list.push({
+          id: `complaint-${c.id}`,
+          type: isUrgent ? 'CRITICAL' : 'WARNING',
+          title: c.subject?.length > 60 ? c.subject.slice(0, 57) + '...' : (c.subject || 'Yeni şikayet'),
+          description: `${c.contactName || 'Yolcu'} · ${categoryLabel(c.category)}${isUrgent ? ' · ' + priorityLabel(c.priority) : ''}`,
+          tab: 'feedback',
+          icon: isUrgent ? ShieldAlert : MessageSquareWarning,
+        });
+      });
+
+      // Aggregate notice when there are more open complaints than shown in detail
+      const openCount = data.alerts.openComplaintsCount || 0;
+      const shownCount = (data.alerts.recentComplaints || []).length;
+      if (openCount > shownCount) {
+        list.push({
+          id: 'complaints-more',
+          type: (data.alerts.urgentComplaintsCount || 0) > 0 ? 'CRITICAL' : 'WARNING',
+          title: `${openCount - shownCount} açık şikayet daha`,
+          description: 'Tümünü görüntülemek için şikayetler sekmesine git.',
+          tab: 'feedback',
+          icon: MessageSquareWarning,
+        });
+      }
 
       setNotifs(list);
     } catch {

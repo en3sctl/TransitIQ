@@ -6,7 +6,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Ticket, LogOut, ArrowRight, CalendarDays, MapPin, Armchair, Download, Search, CheckCircle2, XCircle, Clock, User, AlertTriangle, X, MessageCircle, Navigation } from "lucide-react";
+import { Loader2, Ticket, LogOut, ArrowRight, CalendarDays, MapPin, Armchair, Download, Search, CheckCircle2, XCircle, Clock, User, AlertTriangle, X, MessageCircle, Navigation, Star, ShieldAlert } from "lucide-react";
 import { AccountLayout } from "@/components/hesap/account-layout";
 import { ModeToggle } from "@/components/mode-toggle";
 import { toast } from "sonner";
@@ -46,6 +46,31 @@ export default function MyTicketsPage() {
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
   const [cancelTarget, setCancelTarget] = useState<MyBooking | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState<MyBooking | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewTags, setReviewTags] = useState<string[]>([]);
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const submitReview = async () => {
+    if (!reviewTarget) return;
+    setSubmittingReview(true);
+    try {
+      await api.post('/reviews', {
+        bookingId: reviewTarget.id, rating: reviewRating,
+        comment: reviewComment.trim() || undefined, tags: reviewTags,
+      });
+      toast.success('Değerlendirmen için teşekkürler!');
+      setReviewTarget(null);
+      setReviewRating(5); setReviewComment(''); setReviewTags([]);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Gönderilemedi');
+    } finally { setSubmittingReview(false); }
+  };
+
+  const toggleTag = (t: string) => {
+    setReviewTags(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -280,6 +305,20 @@ export default function MyTicketsPage() {
                           <XCircle className="w-4 h-4" /> İptal Et
                         </button>
                       )}
+                      {b.status === 'CONFIRMED' && new Date(b.trip.departureTime).getTime() < Date.now() && (
+                        <button
+                          onClick={() => setReviewTarget(b)}
+                          className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold px-4 py-2.5 rounded-xl text-xs transition-colors hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-100 dark:border-amber-500/20"
+                        >
+                          <Star className="w-4 h-4" /> Değerlendir
+                        </button>
+                      )}
+                      <Link
+                        href={`/iletisim?tab=complaint&pnr=${b.pnrCode}`}
+                        className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-semibold px-4 py-2.5 rounded-xl text-xs transition-colors hover:bg-slate-200 dark:hover:bg-zinc-700 border border-slate-200 dark:border-zinc-700"
+                      >
+                        <ShieldAlert className="w-4 h-4" /> Sorun Bildir
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -363,6 +402,70 @@ export default function MyTicketsPage() {
                 >
                   {cancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
                   {cancelling ? 'İptal ediliyor...' : 'Bileti İptal Et'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Review Modal */}
+      <AnimatePresence>
+        {reviewTarget && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => !submittingReview && setReviewTarget(null)}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} onClick={e => e.stopPropagation()}
+              className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden">
+              <div className="p-6 border-b border-slate-200 dark:border-zinc-800">
+                <h3 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">Seferini Değerlendir</h3>
+                <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400 mt-0.5">
+                  {reviewTarget.trip.origin.city} → {reviewTarget.trip.destination.city}
+                </p>
+              </div>
+              <div className="p-6 space-y-5">
+                {/* Stars */}
+                <div className="flex justify-center gap-2">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button key={n} onClick={() => setReviewRating(n)} type="button"
+                      className="transition-transform hover:scale-110">
+                      <Star className={`w-10 h-10 ${n <= reviewRating ? 'fill-amber-500 text-amber-500' : 'text-slate-300 dark:text-zinc-700'}`} />
+                    </button>
+                  ))}
+                </div>
+                {/* Tags */}
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 text-center">Neler iyiydi / kötüydü?</p>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {[
+                      { v: 'CLEAN', l: '🧼 Temiz' }, { v: 'ON_TIME', l: '⏰ Vaktinde' },
+                      { v: 'FRIENDLY', l: '😊 Güler yüzlü' }, { v: 'COMFORTABLE', l: '💺 Rahat' },
+                      { v: 'VALUE', l: '💰 Uygun fiyat' },
+                      { v: 'LATE', l: '🐌 Geç' }, { v: 'DIRTY', l: '🗑️ Kirli' }, { v: 'RUDE', l: '😠 Kaba' },
+                    ].map(t => (
+                      <button key={t.v} type="button" onClick={() => toggleTag(t.v)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                          reviewTags.includes(t.v)
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
+                        }`}>
+                        {t.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <textarea value={reviewComment} onChange={e => setReviewComment(e.target.value)}
+                  rows={3} maxLength={500} placeholder="Yorumun (isteğe bağlı)"
+                  className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none" />
+              </div>
+              <div className="p-6 border-t border-slate-200 dark:border-zinc-800 flex justify-end gap-3">
+                <button onClick={() => setReviewTarget(null)} disabled={submittingReview}
+                  className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">
+                  İptal
+                </button>
+                <button onClick={submitReview} disabled={submittingReview}
+                  className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
+                  {submittingReview && <Loader2 className="w-4 h-4 animate-spin" />} Gönder
                 </button>
               </div>
             </motion.div>

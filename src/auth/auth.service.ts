@@ -127,7 +127,7 @@ export class AuthService {
         throw new ConflictException('Email already registered');
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const hashedPassword = await bcrypt.hash(dto.password, 12);
     const slug = dto.companyDomain.toLowerCase(); // Use domain as slug for consistency
 
     // Atomic creation of Tenant and User
@@ -189,7 +189,7 @@ export class AuthService {
       throw new ConflictException('Bu email ile zaten bir hesap var');
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const hashedPassword = await bcrypt.hash(dto.password, 12);
 
     const user = await (this.prisma as any).user.create({
       data: {
@@ -306,7 +306,7 @@ export class AuthService {
       throw new BadRequestException('Link geçersiz veya süresi dolmuş');
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const passwordHash = await bcrypt.hash(newPassword, 12);
 
     await this.prisma.$transaction([
       this.prisma.user.update({
@@ -523,7 +523,7 @@ export class AuthService {
       throw new BadRequestException('Yeni şifre eskisinden farklı olmalı');
     }
 
-    const newHash = await bcrypt.hash(dto.newPassword, 10);
+    const newHash = await bcrypt.hash(dto.newPassword, 12);
     await (this.prisma as any).user.update({
       where: { id: userId },
       data: { passwordHash: newHash },
@@ -683,7 +683,7 @@ export class AuthService {
     if (!user) {
       // Random high-entropy password placeholder (user can always use password reset later)
       const randomPassword = crypto.randomBytes(32).toString('hex');
-      const passwordHash = await bcrypt.hash(randomPassword, 10);
+      const passwordHash = await bcrypt.hash(randomPassword, 12);
 
       user = await (this.prisma as any).user.create({
         data: {

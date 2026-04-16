@@ -450,3 +450,45 @@ model PromoCodeApplication {
 
   @@map("promo_code_applications")
 }
+
+model Review {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  bookingId String   @unique @map("booking_id")
+  userId    String   @map("user_id")
+  tripId    String   @map("trip_id")
+  driverId  String?  @map("driver_id")
+  rating    Int      // 1-5
+  comment   String?
+  tags      String[] @default([])  // CLEAN, ON_TIME, FRIENDLY, COMFORTABLE, RUDE, LATE, DIRTY
+  hidden    Boolean  @default(false)  // admin can hide inappropriate reviews
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([tripId])
+  @@index([driverId])
+  @@map("reviews")
+}
+
+model Complaint {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  userId      String?   @map("user_id")  // null = guest complaint
+  bookingId   String?   @map("booking_id")
+  contactEmail String   @map("contact_email")
+  contactName String    @map("contact_name")
+  category    String    // DELAY, DRIVER, CLEANLINESS, PAYMENT, SEAT, OTHER
+  subject     String
+  description String
+  status      String    @default("OPEN")  // OPEN, IN_PROGRESS, RESOLVED, DISMISSED
+  priority    String    @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  assignedTo  String?   @map("assigned_to")
+  resolution  String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  resolvedAt  DateTime? @map("resolved_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId, status, createdAt])
+  @@index([bookingId])
+  @@map("complaints")
+}

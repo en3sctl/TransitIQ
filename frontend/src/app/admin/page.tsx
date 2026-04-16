@@ -15,6 +15,7 @@ import { PromoPanel } from "@/components/admin/promo-panel";
 import { OverviewDashboard } from "@/components/admin/overview-dashboard";
 import { SystemOverview } from "@/components/admin/system-overview";
 import { NotificationBell } from "@/components/admin/notification-bell";
+import { FeedbackPanel } from "@/components/admin/feedback-panel";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -95,6 +96,7 @@ function AdminDashboardContent() {
                  activeTab === 'drivers' ? 'Sürücü Paneli' :
                  activeTab === 'audit' ? 'Denetim Logu' :
                  activeTab === 'promo' ? 'Promo Kodları' :
+                 activeTab === 'feedback' ? 'Geri Bildirim' :
                  'Panel'}
               </h2>
               <p className="text-zinc-500 dark:text-zinc-400 font-medium text-lg leading-snug">
@@ -108,6 +110,7 @@ function AdminDashboardContent() {
                  activeTab === 'drivers' ? 'Şoför kadronuz ve yetkileri.' :
                  activeTab === 'audit' ? 'Tüm kritik işlemlerin denetim kaydı.' :
                  activeTab === 'promo' ? 'İndirim kodları oluşturun ve yönetin.' :
+                 activeTab === 'feedback' ? 'Yolcu şikayetleri ve yorumları.' :
                  'Verileriniz burada.'}
               </p>
             </div>
@@ -133,6 +136,7 @@ function AdminDashboardContent() {
                 <TabsContent value="drivers" className="mt-6"><AdminDriversPanel /></TabsContent>
                 <TabsContent value="audit" className="mt-6"><AdminAuditLogsPanel /></TabsContent>
                 <TabsContent value="promo"><PromoPanel /></TabsContent>
+                <TabsContent value="feedback"><FeedbackPanel /></TabsContent>
               </Tabs>
             </div>
 

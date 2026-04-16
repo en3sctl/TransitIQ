@@ -2,14 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Calendar, MoveRight } from 'lucide-react';
-
-interface Station {
-  id: string;
-  name: string;
-  city: string;
-}
+import { MapPin, Calendar } from 'lucide-react';
+import { StationCombobox, type Station } from '@/components/station-combobox';
 
 export default function SearchForm() {
   const router = useRouter();
@@ -26,12 +20,11 @@ export default function SearchForm() {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
         const res = await fetch(`${baseUrl}/stations`);
         const data = await res.json();
-        console.log('Fetched stations:', data);
         const stationsArray = Array.isArray(data) ? data : data.data || [];
         setStations(stationsArray);
       } catch (error) {
         console.error('Fetch error:', error);
-        setStations([]); // Empty lists trigger fallback row
+        setStations([]);
       } finally {
         setIsLoading(false);
       }
@@ -42,15 +35,19 @@ export default function SearchForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!origin || !destination) {
-      alert("Lütfen kalkış ve varış noktalarını seçin.");
+      alert('Lütfen kalkış ve varış noktalarını seçin.');
+      return;
+    }
+    if (origin === destination) {
+      alert('Kalkış ve varış aynı olamaz.');
       return;
     }
     if (!date) {
-      alert("Lütfen gidiş tarihi seçin.");
+      alert('Lütfen gidiş tarihi seçin.');
       return;
     }
-    const originStation = stations.find(s => s.id === origin);
-    const destStation = stations.find(s => s.id === destination);
+    const originStation = stations.find((s) => s.id === origin);
+    const destStation = stations.find((s) => s.id === destination);
     const originName = encodeURIComponent(originStation?.city || originStation?.name || '');
     const destName = encodeURIComponent(destStation?.city || destStation?.name || '');
     router.push(`/search?originId=${origin}&destinationId=${destination}&date=${date}&from=${originName}&to=${destName}`);
@@ -59,7 +56,7 @@ export default function SearchForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col md:flex-row items-center bg-white rounded-3xl md:rounded-full shadow-2xl p-2 w-full max-w-5xl mx-auto"
+      className="flex flex-col md:flex-row items-stretch md:items-center bg-white rounded-3xl md:rounded-full shadow-2xl p-2 w-full max-w-5xl mx-auto"
     >
       {/* Origin */}
       <div className="flex-1 w-full px-6 py-4 flex items-center gap-4 md:border-r border-slate-200 min-w-0">
@@ -68,27 +65,14 @@ export default function SearchForm() {
         </div>
         <div className="flex-1 flex flex-col items-start text-left min-w-0">
           <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Nereden</label>
-          <Select value={origin} onValueChange={(val) => setOrigin(val || '')}>
-            <SelectTrigger className="border-0 p-0 text-sm h-auto focus:ring-0 text-slate-900 font-semibold bg-transparent shadow-none w-full text-left justify-start truncate">
-              <span className="truncate">
-                {origin ? (stations.find((s) => s.id === origin)?.name || "İstasyon Seçin") : "İstasyon Seçin"}
-              </span>
-              <div className="hidden"><SelectValue /></div>
-            </SelectTrigger>
-            <SelectContent side="bottom" sideOffset={8} align="start" alignItemWithTrigger={false} className="bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 max-h-[320px]">
-              {isLoading ? (
-                <SelectItem value="loading" disabled className="text-slate-400">Yükleniyor...</SelectItem>
-              ) : stations.length === 0 ? (
-                <SelectItem value="none" disabled className="text-slate-400">İstasyon bulunamadı</SelectItem>
-              ) : (
-                stations.map((s) => (
-                  <SelectItem key={s.id} value={s.id} className="text-slate-700 hover:bg-slate-50 rounded-lg cursor-pointer">
-                    {s.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
+          <StationCombobox
+            stations={stations}
+            value={origin}
+            onChange={setOrigin}
+            loading={isLoading}
+            recentKey="transitiq.recent.origin"
+            excludeId={destination}
+          />
         </div>
       </div>
 
@@ -99,27 +83,14 @@ export default function SearchForm() {
         </div>
         <div className="flex-1 flex flex-col items-start text-left min-w-0">
           <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Nereye</label>
-          <Select value={destination} onValueChange={(val) => setDestination(val || '')}>
-            <SelectTrigger className="border-0 p-0 text-sm h-auto focus:ring-0 text-slate-900 font-semibold bg-transparent shadow-none w-full text-left justify-start truncate">
-              <span className="truncate">
-                {destination ? (stations.find((s) => s.id === destination)?.name || "İstasyon Seçin") : "İstasyon Seçin"}
-              </span>
-              <div className="hidden"><SelectValue /></div>
-            </SelectTrigger>
-            <SelectContent side="bottom" sideOffset={8} align="start" alignItemWithTrigger={false} className="bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl z-50 max-h-[320px]">
-              {isLoading ? (
-                <SelectItem value="loading" disabled className="text-slate-400">Yükleniyor...</SelectItem>
-              ) : stations.length === 0 ? (
-                <SelectItem value="none" disabled className="text-slate-400">İstasyon bulunamadı</SelectItem>
-              ) : (
-                stations.map((s) => (
-                  <SelectItem key={s.id} value={s.id} className="text-slate-700 hover:bg-slate-50 rounded-lg cursor-pointer">
-                    {s.name}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
+          <StationCombobox
+            stations={stations}
+            value={destination}
+            onChange={setDestination}
+            loading={isLoading}
+            recentKey="transitiq.recent.destination"
+            excludeId={origin}
+          />
         </div>
       </div>
 
@@ -133,6 +104,7 @@ export default function SearchForm() {
           <input
             type="date"
             value={date}
+            min={new Date().toISOString().slice(0, 10)}
             onChange={(e) => setDate(e.target.value)}
             className="w-full bg-transparent border-0 p-0 h-auto text-sm font-semibold text-slate-900 focus:ring-0 outline-none [color-scheme:light] cursor-pointer"
             required

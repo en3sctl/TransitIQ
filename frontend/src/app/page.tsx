@@ -9,6 +9,7 @@ import { LiveTicker } from "@/components/landing/live-ticker";
 import { HeroSpotlight } from "@/components/landing/hero-spotlight";
 import { HeroCarousel } from "@/components/landing/hero-carousel";
 import { DiscoverTurkey } from "@/components/landing/discover-turkey";
+import { HeroBadge } from "@/components/landing/hero-badge";
 
 export default function LandingPage() {
   return (
@@ -21,10 +22,7 @@ export default function LandingPage() {
         <HeroSpotlight />
 
         <div className="relative z-20 flex flex-col items-center w-full">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl text-zinc-600 dark:text-zinc-300 text-xs font-bold mb-8 scale-95 select-none">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            Yepyeni Rotalar Eklendi
-          </div>
+          <HeroBadge />
 
           <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-[1.05] max-w-4xl text-zinc-900 dark:text-white mb-6 drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)] dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
             Türkiye'nin Her Yerine <br />

@@ -183,13 +183,22 @@ export class RoutesService {
    * Non-sensitive aggregates suitable for marketing display.
    */
   async findPublicStats() {
-    const [routes, trips, upcomingTrips, confirmedBookings, tenants, cities] = await Promise.all([
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const [routes, trips, upcomingTrips, confirmedBookings, tenants, cities, newRoutes, newStations] = await Promise.all([
       this.prisma.route.count(),
       this.prisma.trip.count(),
       this.prisma.trip.count({ where: { status: 'PLANNED', departureTime: { gte: new Date() } } }),
       this.prisma.booking.count({ where: { status: 'CONFIRMED' } }),
       this.prisma.tenant.count(),
       this.prisma.station.findMany({ select: { city: true }, distinct: ['city'] }),
+      this.prisma.route.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+      this.prisma.station.findMany({
+        where: { createdAt: { gte: thirtyDaysAgo } },
+        select: { city: true },
+        distinct: ['city'],
+      }),
     ]);
 
     return {
@@ -199,6 +208,8 @@ export class RoutesService {
       confirmedBookings,
       tenants,
       cities: cities.length,
+      newRoutes30d: newRoutes,
+      newCities30d: newStations.length,
     };
   }
 

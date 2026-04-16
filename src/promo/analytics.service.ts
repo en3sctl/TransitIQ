@@ -243,6 +243,7 @@ export class AnalyticsService {
       activeTrips, plannedToday,
       failedRefunds, expiredVehicles, expiringVehicles,
       upcomingTrips, recentLogs,
+      openComplaints, urgentComplaints, totalOpenComplaints,
     ] = await Promise.all([
       this.prisma.booking.count({
         where: { trip: { tenantId }, status: 'CONFIRMED', bookingTime: { gte: todayStart } },
@@ -308,6 +309,25 @@ export class AnalyticsService {
         take: 8,
         include: { user: { select: { name: true } } },
       }),
+      this.prisma.complaint.findMany({
+        where: { tenantId, status: { in: ['OPEN', 'IN_PROGRESS'] } },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true, subject: true, category: true, priority: true,
+          status: true, createdAt: true, contactName: true,
+        },
+      }),
+      this.prisma.complaint.count({
+        where: {
+          tenantId,
+          status: { in: ['OPEN', 'IN_PROGRESS'] },
+          priority: { in: ['HIGH', 'URGENT'] },
+        },
+      }),
+      this.prisma.complaint.count({
+        where: { tenantId, status: { in: ['OPEN', 'IN_PROGRESS'] } },
+      }),
     ]);
 
     return {
@@ -329,6 +349,17 @@ export class AnalyticsService {
         expiringVehicles: expiringVehicles.map(v => ({
           id: v.id, plate: v.registrationPlate,
           muayene: v.muayeneTarihi, sigorta: v.sigortaTarihi,
+        })),
+        openComplaintsCount: totalOpenComplaints,
+        urgentComplaintsCount: urgentComplaints,
+        recentComplaints: openComplaints.map(c => ({
+          id: c.id,
+          subject: c.subject,
+          category: c.category,
+          priority: c.priority,
+          status: c.status,
+          contactName: c.contactName,
+          createdAt: c.createdAt,
         })),
       },
       upcomingTrips: upcomingTrips.map(t => ({

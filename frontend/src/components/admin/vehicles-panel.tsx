@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import { VehicleDetailModal } from "./vehicle-detail-modal";
 import { RuhsatUploader } from "./ruhsat-uploader";
+import { CSVImport } from "./csv-import";
 
 interface Vehicle {
   id: string;
@@ -351,6 +352,17 @@ export function VehiclesPanel() {
               </button>
             )}
 
+            <CSVImport title="Araç" endpoint="/vehicles" onComplete={load}
+              sampleRow={{ registrationPlate: '34 ABC 123', make: 'Mercedes-Benz', model: 'Travego 15 SHD', year: '2024', chassisNumber: 'WDB1234567890', capacity: '46', layoutType: '2+1' }}
+              columns={[
+                { csvHeader: 'Plaka', payloadKey: 'registrationPlate', required: true },
+                { csvHeader: 'Marka', payloadKey: 'make', required: true },
+                { csvHeader: 'Model', payloadKey: 'model', required: true },
+                { csvHeader: 'Yıl', payloadKey: 'year', required: true, transform: Number },
+                { csvHeader: 'Şasi No', payloadKey: 'chassisNumber', required: true },
+                { csvHeader: 'Kapasite', payloadKey: 'capacity', required: true, transform: Number },
+                { csvHeader: 'Düzen', payloadKey: 'layoutType', required: true },
+              ]} />
             <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors">
               <Plus className="w-3.5 h-3.5" /> Araç Ekle
             </button>

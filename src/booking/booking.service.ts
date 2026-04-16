@@ -7,6 +7,7 @@ import { BadgesService } from '../passenger-features/badges.service';
 import { ReferralService } from '../passenger-features/referral.service';
 import { AuditService } from '../common/audit/audit.service';
 import { SeatsGateway } from './seats.gateway';
+import { LocationService } from '../shared/location/location.service';
 
 const LOCK_DURATION_MINUTES = 10;
 
@@ -22,6 +23,7 @@ export class BookingService {
     private audit: AuditService,
     @Inject(forwardRef(() => SeatsGateway))
     private seatsGateway: SeatsGateway,
+    private location: LocationService,
   ) {}
 
   // ─── Search Trips ───
@@ -64,9 +66,40 @@ export class BookingService {
       orderBy: { departureTime: 'asc' },
     });
 
+    // Bulk-fetch aggregated review stats per driver (only non-hidden)
+    const driverIds = Array.from(new Set(trips.map((t) => t.driverId)));
+    let driverStats: Record<string, { avg: number; count: number }> = {};
+    if (driverIds.length) {
+      const grouped = await this.prisma.review.groupBy({
+        by: ['driverId'],
+        where: { driverId: { in: driverIds }, hidden: false },
+        _avg: { rating: true },
+        _count: { _all: true },
+      });
+      driverStats = grouped.reduce((acc, g) => {
+        if (g.driverId) {
+          acc[g.driverId] = {
+            avg: g._avg.rating ? Math.round(Number(g._avg.rating) * 10) / 10 : 0,
+            count: g._count._all,
+          };
+        }
+        return acc;
+      }, {} as Record<string, { avg: number; count: number }>);
+    }
+
     return trips.map((trip) => {
       const bookedCount = trip.bookings.length;
       const availableSeats = trip.vehicle.capacity - bookedCount;
+      const stats = driverStats[trip.driverId];
+      // Prefer GPS-derived road distance when stations have coords,
+      // fall back to the admin-entered totalDistanceKm.
+      const gpsDistance = this.location.estimateRoadDistanceKm(
+        trip.route.originStation.locationLat != null ? Number(trip.route.originStation.locationLat) : null,
+        trip.route.originStation.locationLng != null ? Number(trip.route.originStation.locationLng) : null,
+        trip.route.destinationStation.locationLat != null ? Number(trip.route.destinationStation.locationLat) : null,
+        trip.route.destinationStation.locationLng != null ? Number(trip.route.destinationStation.locationLng) : null,
+      );
+      const distanceKm = gpsDistance ?? trip.route.totalDistanceKm;
       return {
         id: trip.id,
         departureTime: trip.departureTime,
@@ -77,12 +110,14 @@ export class BookingService {
         originStation: trip.route.originStation.name,
         destinationStation: trip.route.destinationStation.name,
         price: Number(trip.route.basePrice),
-        distanceKm: trip.route.totalDistanceKm,
+        distanceKm,
         busType: `${trip.vehicle.layoutType} ${trip.vehicle.capacity <= 30 ? 'VIP' : 'Standart'}`,
         busModel: `${trip.vehicle.make} ${trip.vehicle.model}`,
         layoutType: trip.vehicle.layoutType,
         totalSeats: trip.vehicle.capacity,
         availableSeats,
+        driverRating: stats?.avg ?? null,
+        driverReviewCount: stats?.count ?? 0,
         stops: trip.route.stops.map((s) => ({
           name: s.station.name,
           city: s.station.city,
@@ -90,6 +125,103 @@ export class BookingService {
         })),
       };
     }).filter((trip) => trip.availableSeats > 0);
+  }
+
+  // ─── Public: driver reviews (PII-masked) for the selected-trip panel ───
+  async getPublicReviewsForDriver(driverId: string, take: number = 6) {
+    const limit = Math.min(Math.max(take, 1), 20);
+    const [items, agg] = await Promise.all([
+      this.prisma.review.findMany({
+        where: { driverId, hidden: false, OR: [{ comment: { not: null } }, { tags: { isEmpty: false } }] },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        select: {
+          id: true, rating: true, comment: true, tags: true, createdAt: true, userId: true,
+        },
+      }),
+      this.prisma.review.aggregate({
+        where: { driverId, hidden: false },
+        _avg: { rating: true },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const userIds = Array.from(new Set(items.map((r) => r.userId)));
+    const users = userIds.length
+      ? await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } })
+      : [];
+    const nameById = new Map(users.map((u) => [u.id, u.name || 'Yolcu']));
+
+    const reviews = items.map((r) => {
+      const name = nameById.get(r.userId) || 'Yolcu';
+      const author = name.split(' ').map((p) => (p.length > 1 ? p[0] + '.' : p)).join(' ');
+      return {
+        id: r.id, rating: r.rating, comment: r.comment, tags: r.tags, createdAt: r.createdAt, author,
+      };
+    });
+
+    return {
+      reviews,
+      averageRating: agg._avg.rating ? Math.round(Number(agg._avg.rating) * 10) / 10 : 0,
+      totalCount: agg._count._all,
+    };
+  }
+
+  // ─── Price strip: per-day lowest price for ±N day ribbon ───
+  async getPriceStrip(params: { from: string; to: string; centerDate: string; days: number }) {
+    const { from, to, centerDate, days } = params;
+    if (!from || !to || !centerDate) return [];
+
+    const center = new Date(centerDate);
+    center.setHours(0, 0, 0, 0);
+    const half = Math.floor(days / 2);
+    const start = new Date(center);
+    start.setDate(start.getDate() - half);
+    const end = new Date(center);
+    end.setDate(end.getDate() + (days - half - 1) + 1); // inclusive end-of-day
+
+    const trips = await this.prisma.trip.findMany({
+      where: {
+        status: TripStatus.PLANNED,
+        departureTime: { gte: start, lt: end },
+        route: {
+          AND: [
+            { originStation: { OR: [{ name: { contains: from, mode: 'insensitive' } }, { city: { contains: from, mode: 'insensitive' } }] } },
+            { destinationStation: { OR: [{ name: { contains: to, mode: 'insensitive' } }, { city: { contains: to, mode: 'insensitive' } }] } },
+          ],
+        },
+      },
+      select: {
+        departureTime: true,
+        route: { select: { basePrice: true } },
+        vehicle: { select: { capacity: true } },
+        bookings: { where: { status: BookingStatus.CONFIRMED }, select: { id: true } },
+      },
+    });
+
+    // Bucket by YYYY-MM-DD (local)
+    const buckets = new Map<string, { tripCount: number; minPrice: number | null; availableSeats: number }>();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      buckets.set(key, { tripCount: 0, minPrice: null, availableSeats: 0 });
+    }
+
+    for (const t of trips) {
+      const d = new Date(t.departureTime);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const bucket = buckets.get(key);
+      if (!bucket) continue;
+      const price = Number(t.route.basePrice);
+      const available = t.vehicle.capacity - t.bookings.length;
+      if (available <= 0) continue;
+      bucket.tripCount += 1;
+      bucket.availableSeats += available;
+      bucket.minPrice = bucket.minPrice == null ? price : Math.min(bucket.minPrice, price);
+    }
+
+    return Array.from(buckets.entries()).map(([date, data]) => ({ date, ...data }));
   }
 
   // ─── Multi-Leg Journey Finder ───
@@ -733,16 +865,26 @@ export class BookingService {
       throw new NotFoundException('Ticket not found');
     }
 
+    // PII redaction: public PNR lookup should not leak TC or contact info.
+    // Full details require email verification (see /auth/customer/lookup).
+    const maskedName = booking.passengerName.split(' ')
+      .map(p => p.length > 1 ? p[0] + '*'.repeat(Math.max(1, p.length - 2)) + p[p.length - 1] : p).join(' ');
+    const maskedPhone = booking.contactPhone.length > 4
+      ? booking.contactPhone.slice(0, 3) + '****' + booking.contactPhone.slice(-2)
+      : '****';
+    const emailParts = booking.contactEmail.split('@');
+    const maskedEmail = emailParts[0].slice(0, 2) + '***@' + (emailParts[1] || '');
+
     return {
       pnrCode: booking.pnrCode,
       status: booking.status,
       pricePaid: booking.pricePaid,
       bookingTime: booking.bookingTime,
       passenger: {
-        name: booking.passengerName,
-        tcNo: booking.passengerTcNo,
-        contactEmail: booking.contactEmail,
-        contactPhone: booking.contactPhone,
+        name: maskedName,
+        tcNo: '*'.repeat(7) + booking.passengerTcNo.slice(-4),
+        contactEmail: maskedEmail,
+        contactPhone: maskedPhone,
       },
       seat: {
         number: booking.seat.seatNumber,

@@ -18,7 +18,10 @@ import { Injectable, Logger } from '@nestjs/common';
  * Viewer count + focus events create booking.com-style FOMO.
  */
 @WebSocketGateway({
-  cors: { origin: '*', credentials: true },
+  cors: {
+    origin: (process.env.ALLOWED_ORIGINS || 'http://localhost:3001').split(',').map(s => s.trim()),
+    credentials: true,
+  },
   namespace: '/seats',
 })
 @Injectable()

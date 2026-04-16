@@ -24,6 +24,19 @@ export class BookingController {
     return this.bookingService.searchTrips(searchDto);
   }
 
+  /** Public: 7-day price/availability strip for the results page ribbon */
+  @Get('search/price-strip')
+  @Throttle({ short: { limit: 10, ttl: 1000 } })
+  priceStrip(
+    @Query('from') from: string,
+    @Query('to') to: string,
+    @Query('date') date: string,
+    @Query('days') days?: string,
+  ) {
+    const span = days ? Math.min(Math.max(parseInt(days, 10) || 7, 3), 14) : 7;
+    return this.bookingService.getPriceStrip({ from, to, centerDate: date, days: span });
+  }
+
   /** Public: find multi-leg (transfer) options through hub cities */
   @Get('search/multi-leg')
   @Throttle({ short: { limit: 5, ttl: 1000 } })
@@ -39,6 +52,15 @@ export class BookingController {
   @Get('trips/:tripId/seats')
   getTripSeatMap(@Param('tripId') tripId: string) {
     return this.bookingService.getTripSeatMap(tripId);
+  }
+
+  /** Public: reviews for a trip (resolved via its driver). PII-masked. */
+  @Get('trips/:tripId/reviews')
+  @Throttle({ short: { limit: 20, ttl: 10000 } })
+  async getTripReviews(@Param('tripId') tripId: string, @Query('take') take?: string) {
+    const trip = await this.prisma.trip.findUnique({ where: { id: tripId }, select: { driverId: true } });
+    if (!trip) return { reviews: [], averageRating: 0, totalCount: 0 };
+    return this.bookingService.getPublicReviewsForDriver(trip.driverId, take ? parseInt(take, 10) : 6);
   }
 
   /** Session-based seat locking (no auth required - users lock before login) */

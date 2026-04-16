@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { CSVImport } from "./csv-import";
 
 interface Driver {
   id: string;
@@ -173,6 +174,14 @@ export function AdminDriversPanel() {
                 <Trash2 className="w-3.5 h-3.5" /> {selected.size} Sil
               </button>
             )}
+            <CSVImport title="Şoför" endpoint="/users/drivers" onComplete={load}
+              sampleRow={{ name: 'Ahmet Yılmaz', email: 'ahmet@example.com', password: 'Sifre1234', phoneNumber: '05551112233' }}
+              columns={[
+                { csvHeader: 'Ad Soyad', payloadKey: 'name', required: true },
+                { csvHeader: 'Email', payloadKey: 'email', required: true },
+                { csvHeader: 'Şifre', payloadKey: 'password', required: true },
+                { csvHeader: 'Telefon', payloadKey: 'phoneNumber' },
+              ]} />
             <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors">
               <Plus className="w-3.5 h-3.5" /> Şoför Ekle
             </button>

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Mail, Phone, MapPin, Clock, Send, Loader2, CheckCircle2, MessageSquare, Headphones, Building2, Sparkles } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { Mail, Phone, MapPin, Clock, Send, Loader2, CheckCircle2, MessageSquare, Headphones, Building2, Sparkles, AlertTriangle, Ticket, ShieldAlert } from "lucide-react";
 import { LandingNav } from "@/components/landing-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
 
 const CONTACT_METHODS = [
   {
@@ -32,12 +34,44 @@ const CONTACT_METHODS = [
   },
 ];
 
-export default function ContactPage() {
-  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
+const COMPLAINT_CATEGORIES = [
+  { value: 'DELAY', label: 'Gecikme', desc: 'Otobüs geç geldi / sefer geç hareket etti' },
+  { value: 'DRIVER', label: 'Şoför', desc: 'Şoför davranışı veya sürüş sorunu' },
+  { value: 'CLEANLINESS', label: 'Temizlik', desc: 'Araç hijyeni / koku / kirlilik' },
+  { value: 'PAYMENT', label: 'Ödeme', desc: 'Ücret, iade veya cüzdan sorunu' },
+  { value: 'SEAT', label: 'Koltuk', desc: 'Koltuk rezervasyonu / arızalı koltuk' },
+  { value: 'OTHER', label: 'Diğer', desc: 'Listedeki kategorilere girmeyen konular' },
+];
+
+function ContactPageInner() {
+  const { user } = useAuth();
+  const params = useSearchParams();
+  const initialTab = params.get('tab') === 'complaint' ? 'complaint' : 'message';
+  const initialPnr = params.get('pnr') || '';
+
+  const [tab, setTab] = useState<'message' | 'complaint'>(initialTab);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
+  const [complaint, setComplaint] = useState({
+    name: '',
+    email: '',
+    category: '',
+    subject: '',
+    description: '',
+    pnr: initialPnr,
+  });
+
+  // Prefill name/email when user loads
+  useEffect(() => {
+    if (user) {
+      setForm(f => ({ ...f, name: f.name || user.name || '', email: f.email || user.email || '' }));
+      setComplaint(c => ({ ...c, name: c.name || user.name || '', email: c.email || user.email || '' }));
+    }
+  }, [user]);
+
+  const handleMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
@@ -56,6 +90,35 @@ export default function ContactPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleComplaint = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!complaint.category) { toast.error('Bir kategori seç'); return; }
+    setLoading(true);
+    try {
+      await api.post('/complaints', {
+        contactName: complaint.name.trim(),
+        contactEmail: complaint.email.trim().toLowerCase(),
+        category: complaint.category,
+        subject: complaint.subject.trim(),
+        description: complaint.description.trim(),
+        pnr: complaint.pnr.trim() ? complaint.pnr.trim().toUpperCase() : undefined,
+      });
+      toast.success('Şikayetin kaydedildi. Ekip en kısa sürede dönecek.');
+      setDone(true);
+      setComplaint({ name: '', email: '', category: '', subject: '', description: '', pnr: '' });
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Şikayet gönderilemedi';
+      toast.error(Array.isArray(msg) ? msg[0] : msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const switchTab = (next: 'message' | 'complaint') => {
+    setTab(next);
+    setDone(false);
   };
 
   return (
@@ -107,14 +170,20 @@ export default function ContactPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Form */}
           <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6 md:p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">Bize yaz</h2>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Formu doldur, biz seni geri arayalım.</p>
-              </div>
+            {/* Tabs */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-950 p-1 rounded-xl mb-6 w-fit">
+              <button
+                onClick={() => switchTab('message')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'message' ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700'}`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" /> Mesaj / Soru
+              </button>
+              <button
+                onClick={() => switchTab('complaint')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'complaint' ? 'bg-white dark:bg-zinc-800 text-red-600 dark:text-red-400 shadow-sm' : 'text-slate-500 dark:text-zinc-400 hover:text-slate-700'}`}
+              >
+                <ShieldAlert className="w-3.5 h-3.5" /> Şikayet Bildir
+              </button>
             </div>
 
             {done ? (
@@ -126,80 +195,211 @@ export default function ContactPage() {
                 <div className="w-16 h-16 mx-auto rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center mb-4">
                   <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <h3 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white mb-2">Mesajın bize ulaştı!</h3>
+                <h3 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white mb-2">
+                  {tab === 'complaint' ? 'Şikayetin bize ulaştı!' : 'Mesajın bize ulaştı!'}
+                </h3>
                 <p className="text-sm text-slate-500 dark:text-zinc-400 font-medium max-w-sm mx-auto mb-5">
-                  En kısa sürede dönüş yapacağız. Konfirmasyon e-postasını kontrol et.
+                  {tab === 'complaint'
+                    ? 'Ekip şikayetini inceleyecek. Gelişmeleri e-postadan takip edebilirsin.'
+                    : 'En kısa sürede dönüş yapacağız. Konfirmasyon e-postasını kontrol et.'}
                 </p>
                 <button
                   onClick={() => setDone(false)}
                   className="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
                 >
-                  Başka bir mesaj gönder
+                  Başka bir {tab === 'complaint' ? 'şikayet' : 'mesaj'} gönder
                 </button>
               </motion.div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block">Ad Soyad</label>
-                    <input
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      required
-                      minLength={2}
-                      maxLength={100}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-semibold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block">E-posta</label>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      required
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-semibold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                    />
-                  </div>
-                </div>
+              <AnimatePresence mode="wait">
+                {tab === 'message' ? (
+                  <motion.form
+                    key="message"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    onSubmit={handleMessage}
+                    className="space-y-4"
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
+                        <MessageSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">Bize yaz</h2>
+                        <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Genel sorular, öneri, iş birliği.</p>
+                      </div>
+                    </div>
 
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block">Konu</label>
-                  <input
-                    value={form.subject}
-                    onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                    required
-                    minLength={3}
-                    maxLength={150}
-                    placeholder="Örn: Firma paketi hakkında bilgi"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-semibold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                  />
-                </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block">Ad Soyad</label>
+                        <input
+                          value={form.name}
+                          onChange={(e) => setForm({ ...form, name: e.target.value })}
+                          required minLength={2} maxLength={100}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-semibold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block">E-posta</label>
+                        <input
+                          type="email"
+                          value={form.email}
+                          onChange={(e) => setForm({ ...form, email: e.target.value })}
+                          required
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-semibold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                        />
+                      </div>
+                    </div>
 
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block">Mesajın</label>
-                  <textarea
-                    value={form.message}
-                    onChange={(e) => setForm({ ...form, message: e.target.value })}
-                    required
-                    minLength={10}
-                    maxLength={2000}
-                    rows={6}
-                    placeholder="Mesajını yaz..."
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-medium focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all resize-none"
-                  />
-                  <p className="text-[10px] font-semibold text-slate-400 mt-1.5 text-right">{form.message.length}/2000</p>
-                </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block">Konu</label>
+                      <input
+                        value={form.subject}
+                        onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                        required minLength={3} maxLength={150}
+                        placeholder="Örn: Firma paketi hakkında bilgi"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-semibold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                      />
+                    </div>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 hover:bg-black dark:hover:bg-white text-white font-bold text-sm transition-all active:scale-[0.98] disabled:opacity-50"
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {loading ? 'Gönderiliyor...' : 'Mesajı Gönder'}
-                </button>
-              </form>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block">Mesajın</label>
+                      <textarea
+                        value={form.message}
+                        onChange={(e) => setForm({ ...form, message: e.target.value })}
+                        required minLength={10} maxLength={2000} rows={6}
+                        placeholder="Mesajını yaz..."
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-medium focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all resize-none"
+                      />
+                      <p className="text-[10px] font-semibold text-slate-400 mt-1.5 text-right">{form.message.length}/2000</p>
+                    </div>
+
+                    <button
+                      type="submit" disabled={loading}
+                      className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 hover:bg-black dark:hover:bg-white text-white font-bold text-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      {loading ? 'Gönderiliyor...' : 'Mesajı Gönder'}
+                    </button>
+                  </motion.form>
+                ) : (
+                  <motion.form
+                    key="complaint"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    onSubmit={handleComplaint}
+                    className="space-y-4"
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
+                        <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white">Şikayet bildir</h2>
+                        <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Yaşadığın sorunu detaylıca anlat, ekibimiz takibe alsın.</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-amber-50 dark:bg-amber-500/5 border border-amber-200/80 dark:border-amber-500/20 p-3 flex gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
+                        Şikayetin kayıt altına alınır ve üzerinde iz bırakır. PNR numaran varsa biletle eşleştirir, çözüm sürecini hızlandırırız.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block">Ad Soyad</label>
+                        <input
+                          value={complaint.name}
+                          onChange={(e) => setComplaint({ ...complaint, name: e.target.value })}
+                          required minLength={2} maxLength={100}
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-semibold focus:border-red-500 focus:ring-4 focus:ring-red-500/10 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block">E-posta</label>
+                        <input
+                          type="email"
+                          value={complaint.email}
+                          onChange={(e) => setComplaint({ ...complaint, email: e.target.value })}
+                          required
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-semibold focus:border-red-500 focus:ring-4 focus:ring-red-500/10 outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-2 block">Kategori</label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {COMPLAINT_CATEGORIES.map(cat => (
+                          <button
+                            key={cat.value}
+                            type="button"
+                            onClick={() => setComplaint({ ...complaint, category: cat.value })}
+                            className={`text-left px-3 py-2.5 rounded-xl border transition-all ${
+                              complaint.category === cat.value
+                                ? 'border-red-500 bg-red-50 dark:bg-red-500/10 ring-2 ring-red-500/20'
+                                : 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
+                            }`}
+                          >
+                            <p className={`text-xs font-black ${complaint.category === cat.value ? 'text-red-700 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>{cat.label}</p>
+                            <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium mt-0.5 leading-tight">{cat.desc}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block">Konu</label>
+                        <input
+                          value={complaint.subject}
+                          onChange={(e) => setComplaint({ ...complaint, subject: e.target.value })}
+                          required minLength={3} maxLength={200}
+                          placeholder="Örn: Otobüs 45 dakika geç geldi"
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-semibold focus:border-red-500 focus:ring-4 focus:ring-red-500/10 outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block flex items-center gap-1.5">
+                          <Ticket className="w-3 h-3" /> PNR <span className="text-slate-400 normal-case tracking-normal">(opsiyonel)</span>
+                        </label>
+                        <input
+                          value={complaint.pnr}
+                          onChange={(e) => setComplaint({ ...complaint, pnr: e.target.value.toUpperCase() })}
+                          maxLength={20}
+                          placeholder="ABC1234"
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-bold tracking-wider focus:border-red-500 focus:ring-4 focus:ring-red-500/10 outline-none transition-all uppercase"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5 block">Detaylı açıklama</label>
+                      <textarea
+                        value={complaint.description}
+                        onChange={(e) => setComplaint({ ...complaint, description: e.target.value })}
+                        required minLength={10} maxLength={5000} rows={7}
+                        placeholder="Ne yaşadın? Ne zaman oldu? Hangi personel / araç söz konusuydu? Beklentin nedir?"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-medium focus:border-red-500 focus:ring-4 focus:ring-red-500/10 outline-none transition-all resize-none"
+                      />
+                      <p className="text-[10px] font-semibold text-slate-400 mt-1.5 text-right">{complaint.description.length}/5000</p>
+                    </div>
+
+                    <button
+                      type="submit" disabled={loading}
+                      className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-all active:scale-[0.98] disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldAlert className="w-4 h-4" />}
+                      {loading ? 'Gönderiliyor...' : 'Şikayeti Gönder'}
+                    </button>
+                  </motion.form>
+                )}
+              </AnimatePresence>
             )}
           </div>
 
@@ -262,5 +462,13 @@ export default function ContactPage() {
 
       <SiteFooter />
     </div>
+  );
+}
+
+export default function ContactPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 dark:bg-zinc-950" />}>
+      <ContactPageInner />
+    </Suspense>
   );
 }

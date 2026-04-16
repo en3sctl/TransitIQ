@@ -27,6 +27,7 @@ const SECTIONS = [
       { label: 'Yardım Merkezi', href: '/yardim' },
       { label: 'SSS', href: '/sss' },
       { label: 'İletişim', href: '/iletisim' },
+      { label: 'Şikayet Bildir', href: '/iletisim?tab=complaint' },
       { label: 'İade Politikası', href: '/iade-politikasi' },
     ],
   },

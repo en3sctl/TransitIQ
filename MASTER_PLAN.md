@@ -724,13 +724,18 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [x] Email doğrulama kayıtta
 - [x] Login brute-force koruması (in-memory tracker, 5 deneme/15dk)
 - [x] Google OAuth (passport-google-oauth20, auto user create/link)
+- [x] **Güvenlik denetimi** — WebSocket CORS lockdown, PNR PII redaction, Docker JWT_SECRET, MockAuthMiddleware silindi, payment/initialize JWT+server-side price, bcrypt 10→12, password min 8
+- [x] Helmet.js + CSP headers (prod'da CSP aktif, dev'de devre dışı)
 - [ ] 2FA (TOTP) admin + driver için
 - [ ] Session revocation (aktif device listesi + logout all)
 - [ ] Refresh token akışı
-- [x] Helmet.js + CSP headers (prod'da CSP aktif, dev'de devre dışı)
-- [ ] Sentry entegrasyonu
+- [ ] Sentry entegrasyonu (free tier 5k events/ay)
 - [ ] KVKK self-servis: veri indirme + hesap silme
 - [ ] Çerez consent banner
+- [ ] Bot koruması — Cloudflare Turnstile (ücretsiz, reCAPTCHA alternatifi)
+- [ ] Untyped `@Body()` parametrelerini DTO'ya dönüştür (auth reset endpoints, ai, passenger-features, booking admin cancel)
+- [ ] File upload validation (ileride server-side upload açılırsa)
+- [ ] VERBİS kayıt (KVKK Kurumu — ücretsiz, şirket kurulunca)
 
 ### Faz 5 — Operasyon Gücü
 - [ ] OPERATOR rolü implementation (kısıtlı yetki matrix)
@@ -740,8 +745,15 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [ ] Dinamik fiyat kuralı motoru (ör: kalkışa 24sa kala %10 indirim)
 - [x] Promosyon kodu sistemi (CRUD + apply at checkout + admin panel)
 - [x] CSV export (tüm panellerde: araç, sefer, rota, istasyon, şoför, bilet, denetim, promo)
-- [ ] Şikayet / destek talebi sistemi
-- [ ] Yolcu değerlendirme sistemi (review + tags)
+- [x] Şikayet / destek talebi sistemi (kategori, öncelik, durum yönetimi, admin panel)
+- [x] Yolcu değerlendirme sistemi (1-5 yıldız, tag'ler, hide moderation, biletlerim'de modal)
+- [x] CSV import — araç, istasyon, şoför toplu yükleme (şablon indirme + hata raporu)
+- [x] **Kullanıcı şikayet formu** — `/iletisim?tab=complaint` (guest+auth), kategori seçici, PNR ile bilet eşleştirme (server-side), biletlerim'de her bilete "Sorun Bildir" butonu, footer linki
+- [x] **İstasyon autocomplete** — custom Combobox, TR-insensitive arama (İ↔i), son seçilenler localStorage, klavye navigasyonu
+- [x] **Tarih şeridi** — sonuçlar sayfasında 7 günlük şerit + haftalık ok tuşları + her güne en düşük fiyat (en ucuz gün yeşil vurgulu). Yeni endpoint `/booking/search/price-strip`
+- [x] **Dinamik hero badge** — gerçek veri: "X yeni rota · Y yeni şehir" (son 30 gün), veri yoksa fallback mesaj
+- [x] **Trip kartlarında şoför puanı** — yıldız + ortalama + yorum sayısı (≥3 yorum olunca). `/booking/search` response'una `driverRating` eklendi
+- [x] **Yolcu yorumları panel** — seçili sefer alt kısmında son 5 yorum (PII-maskelenmiş: "M. Y."), ortalama puan rozeti. Endpoint `/booking/trips/:id/reviews`
 
 ### Faz 6 — Büyüme & SEO
 - [ ] Her rota için SEO-dostu URL (/rotalar/istanbul-ankara)
@@ -752,6 +764,21 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [ ] Loyalty puan sistemi
 - [ ] Abonelik modeli (aylık paket)
 - [ ] Affiliate programı
+
+### Faz 6.5 — Büyüme & UX Geliştirmeleri (yeni eklendi)
+- [ ] **Kurumsal/B2B yolcu hesabı** — şirketler çalışanları için bilet alır (fatura + tek onay)
+- [ ] **Bekleme listesi** — dolu seferlere kayıt → boşalınca bildirim
+- [ ] **Bilet devretme / hediye** — başkasına PNR transfer
+- [ ] **Hediye kartları** — tutar yükleyip başkasına hediye etme
+- [ ] **Loyalty seviyeleri** — Silver/Gold/Platinum (rozet sisteminin üstüne)
+- [ ] **Grup rezervasyonu indirimleri** — 5+ kişi %10, 10+ kişi %15
+- [ ] **Yolcu profili tercihi** — pencere/koridor, ön/arka, favori güzergâh
+- [ ] **Saved cards** — Iyzico tokenize edilmiş kart, tek tık ödeme (3DS atlanır)
+- [ ] **Split payment** — %50 cüzdan + %50 kart
+- [ ] **A/B testing framework** — fiyat/düzen testleri
+- [ ] **Feature flags** — deploy'suz özellik aç/kapat
+- [ ] **Erişilebilirlik** — tekerlekli sandalye notu, refakatçi indirimi, WCAG AA uyumu
+- [ ] **Sesli destek** — AI chatbot'un sesli versiyonu (opsiyonel, ücretsiz Web Speech API)
 
 ### Faz 7 — İleri Analitik
 - [ ] Admin ciro dashboard (grafikler)

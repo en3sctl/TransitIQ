@@ -31,7 +31,7 @@ export class UsersService {
     // Hash password (mocking bcrypt for now as we don't have it installed/setup fully)
     // Actually, I should probably use a simple placeholder if bcrypt isn't installed.
     // Let's assume bcrypt will be available.
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
 
     const created = await this.prisma.user.create({
       data: {
@@ -96,7 +96,7 @@ export class UsersService {
       data.email = dto.email;
     }
     if (dto.phoneNumber !== undefined) data.phoneNumber = dto.phoneNumber || null;
-    if (dto.password) data.passwordHash = await bcrypt.hash(dto.password, 10);
+    if (dto.password) data.passwordHash = await bcrypt.hash(dto.password, 12);
 
     const updated = await this.prisma.user.update({
       where: { id: driverId },

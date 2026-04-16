@@ -20,6 +20,7 @@ import {
   MapPin,
   Percent,
   TrendingUp,
+  MessageSquare,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -40,6 +41,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: "bookings", icon: Ticket, label: 'Bilet Yönetimi' },
     { id: "drivers", icon: Users, label: 'Sürücü Paneli' },
     { id: "promo", icon: Percent, label: 'Promo Kodları' },
+    { id: "feedback", icon: MessageSquare, label: 'Geri Bildirim' },
   ];
 
   const secondaryItems = [

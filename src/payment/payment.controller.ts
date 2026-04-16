@@ -1,9 +1,12 @@
-import { Controller, Post, Body, Res, Inject, forwardRef } from '@nestjs/common';
+import { Controller, Post, Body, Res, Req, Inject, forwardRef, BadRequestException, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { PaymentService } from './payment.service';
 import { InitializePaymentDto } from './dto/initialize-payment.dto';
 import { BookingService } from '../booking/booking.service';
+import { PrismaService } from '../common/prisma/prisma.service';
+import { PromoService } from '../promo/promo.service';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { Throttle } from '@nestjs/throttler';
 
 @Controller('payment')
@@ -15,15 +18,75 @@ export class PaymentController {
     @Inject(forwardRef(() => BookingService))
     private readonly bookingService: BookingService,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly promoService: PromoService,
   ) {
     this.frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3001');
   }
 
   @Post('initialize')
+  @UseGuards(OptionalJwtAuthGuard)
   @Throttle({ short: { limit: 3, ttl: 10000 } })
-  async initializePayment(@Body() dto: InitializePaymentDto) {
+  async initializePayment(@Req() req: any, @Body() dto: InitializePaymentDto) {
+    // SECURITY: ignore client-supplied userId and price. Trust only JWT + server-side calc.
+    const authUserId: string | undefined = req.user?.id;
+
+    if (!dto.tripId || !dto.passengers || dto.passengers.length === 0) {
+      throw new BadRequestException('Sefer ve yolcu bilgileri eksik');
+    }
+
+    // 1) Fetch trip + compute base price server-side
+    const trip = await this.prisma.trip.findUnique({
+      where: { id: dto.tripId },
+      include: { route: true },
+    });
+    if (!trip) throw new BadRequestException('Sefer bulunamadı');
+    if (trip.status === 'CANCELLED' || trip.status === 'COMPLETED') {
+      throw new BadRequestException('Bu sefere bilet alınamaz');
+    }
+
+    const seatsCount = dto.passengers.length;
+    const tripGross = Math.round(Number(trip.route.basePrice) * seatsCount * 100) / 100;
+
+    // 2) Apply promo code (server-side validation)
+    let promoDiscount = 0;
+    let validatedPromoCodeId: string | undefined;
+    if (dto.promoCodeId && authUserId) {
+      try {
+        const promo = await this.prisma.promoCode.findUnique({ where: { id: dto.promoCodeId } });
+        if (promo) {
+          const applied = await this.promoService.applyCode(promo.code, tripGross, authUserId);
+          promoDiscount = applied.discount;
+          validatedPromoCodeId = applied.promoCodeId;
+        }
+      } catch {
+        // Invalid promo → silently ignore (don't leak why)
+      }
+    }
+
+    // 3) Apply wallet (server-side cap to actual balance)
+    let walletDebit = 0;
+    if (dto.walletAmount && dto.walletAmount > 0 && authUserId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: authUserId },
+        select: { walletBalance: true },
+      });
+      if (user) {
+        const available = Number(user.walletBalance);
+        const requested = Number(dto.walletAmount);
+        walletDebit = Math.min(available, Math.max(0, requested), tripGross - promoDiscount);
+        walletDebit = Math.round(walletDebit * 100) / 100;
+      }
+    }
+
+    // 4) Final price to charge via Iyzico
+    const finalPrice = Math.max(0, Math.round((tripGross - promoDiscount - walletDebit) * 100) / 100);
+    if (finalPrice <= 0) {
+      throw new BadRequestException('Ödenecek tutar 0 veya negatif olamaz. Kart ödemesi gerekli.');
+    }
+
     const result = await this.paymentService.initializeCheckoutForm({
-      price: dto.price,
+      price: String(finalPrice),
       buyerName: dto.buyerName,
       buyerSurname: dto.buyerSurname,
       buyerTc: dto.buyerTc,
@@ -31,20 +94,16 @@ export class PaymentController {
       buyerPhone: dto.buyerPhone,
     });
 
-    // Store booking data keyed by Iyzico token (reliable across callback)
-    if (dto.tripId && dto.passengers && dto.passengers.length > 0) {
-      await this.paymentService.storePendingBooking(result.token, result.conversationId, {
-        tripId: dto.tripId,
-        passengers: dto.passengers,
-        contactEmail: dto.buyerEmail,
-        contactPhone: dto.buyerPhone,
-        price: dto.price,
-        userId: dto.userId,
-        walletAmount: dto.walletAmount,
-        promoCodeId: dto.promoCodeId,
-      });
-      console.log('[Payment Init] Stored pending booking with token:', result.token.substring(0, 20) + '...', '| userId:', dto.userId || 'guest');
-    }
+    await this.paymentService.storePendingBooking(result.token, result.conversationId, {
+      tripId: dto.tripId,
+      passengers: dto.passengers,
+      contactEmail: dto.buyerEmail,
+      contactPhone: dto.buyerPhone,
+      price: String(finalPrice),
+      userId: authUserId,
+      walletAmount: walletDebit,
+      promoCodeId: validatedPromoCodeId,
+    });
 
     return { checkoutFormContent: result.checkoutFormContent };
   }

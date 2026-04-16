@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { OtogarPicker } from "./otogar-picker";
+import { CSVImport } from "./csv-import";
 
 interface Station {
   id: string;
@@ -175,6 +176,14 @@ export function StationsPanel() {
                 <Trash2 className="w-3.5 h-3.5" /> {selected.size} Sil
               </button>
             )}
+            <CSVImport title="İstasyon" endpoint="/stations" onComplete={load}
+              sampleRow={{ name: 'Esenler Otogarı', city: 'İstanbul', locationLat: '41.0435', locationLng: '28.8930' }}
+              columns={[
+                { csvHeader: 'Ad', payloadKey: 'name', required: true },
+                { csvHeader: 'Şehir', payloadKey: 'city', required: true },
+                { csvHeader: 'Enlem', payloadKey: 'locationLat', transform: Number },
+                { csvHeader: 'Boylam', payloadKey: 'locationLng', transform: Number },
+              ]} />
             <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors">
               <Plus className="w-3.5 h-3.5" /> İstasyon Ekle
             </button>

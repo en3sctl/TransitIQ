@@ -6,7 +6,7 @@ export class CustomerRegisterDto {
   email: string;
 
   @IsString()
-  @MinLength(6, { message: 'Şifre en az 6 karakter olmalıdır' })
+  @MinLength(8, { message: 'Şifre en az 8 karakter olmalıdır' })
   password: string;
 
   @IsString()
