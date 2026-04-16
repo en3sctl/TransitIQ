@@ -135,7 +135,7 @@ export class TripsService {
    * Reassign driver or vehicle to an existing trip.
    * Used when original driver is sick, vehicle broke down, etc.
    */
-  async update(tenantId: string, actorId: string, tripId: string, dto: { driverId?: string; vehicleId?: string }) {
+  async update(tenantId: string, actorId: string, tripId: string, dto: { driverId?: string; vehicleId?: string; departureTime?: string; estimatedArrival?: string; status?: string; notes?: string }) {
     const trip = await this.prisma.trip.findFirst({ where: { id: tripId, tenantId } });
     if (!trip) throw new NotFoundException('Sefer bulunamadı');
     if (trip.status === 'COMPLETED' || trip.status === 'CANCELLED') {
@@ -163,6 +163,23 @@ export class TripsService {
       data.vehicleId = dto.vehicleId;
       oldValues.vehicleId = trip.vehicleId;
       newValues.vehicleId = dto.vehicleId;
+    }
+
+    if (dto.departureTime) {
+      data.departureTime = new Date(dto.departureTime);
+      oldValues.departureTime = trip.departureTime;
+      newValues.departureTime = dto.departureTime;
+    }
+    if (dto.estimatedArrival) {
+      data.estimatedArrival = new Date(dto.estimatedArrival);
+    }
+    if (dto.notes !== undefined) {
+      data.notes = dto.notes;
+    }
+    if (dto.status && ['PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED'].includes(dto.status)) {
+      data.status = dto.status;
+      oldValues.status = trip.status;
+      newValues.status = dto.status;
     }
 
     if (Object.keys(data).length === 0) return trip;
@@ -193,6 +210,27 @@ export class TripsService {
         oldValues, newValues,
       });
     }
+
+    return updated;
+  }
+
+  async cancelTrip(tenantId: string, actorId: string, tripId: string) {
+    const trip = await this.prisma.trip.findFirst({ where: { id: tripId, tenantId } });
+    if (!trip) throw new NotFoundException('Sefer bulunamadı');
+    if (trip.status === 'COMPLETED') throw new ForbiddenException('Tamamlanmış sefer iptal edilemez');
+
+    const updated = await this.prisma.trip.update({
+      where: { id: tripId },
+      data: { status: 'CANCELLED' },
+    });
+
+    this.audit.log({
+      tenantId, userId: actorId,
+      action: 'DELETE',
+      entityType: 'TRIP', entityId: tripId,
+      oldValues: { status: trip.status },
+      newValues: { status: 'CANCELLED' },
+    });
 
     return updated;
   }

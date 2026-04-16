@@ -78,6 +78,52 @@ export class TasksService {
   }
 
   /**
+   * Checks vehicle inspection (muayene) and insurance (sigorta) expiry dates.
+   * Logs warnings for vehicles expiring within 30 days or already expired.
+   * Runs daily at 8 AM Istanbul time.
+   */
+  @Cron('0 8 * * *', { timeZone: 'Europe/Istanbul' })
+  async checkVehicleExpiryDates() {
+    const now = new Date();
+    const in30days = new Date(now.getTime() + 30 * 86400000);
+
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: {
+        deletedAt: null,
+        status: 'ACTIVE',
+        OR: [
+          { muayeneTarihi: { lte: in30days } },
+          { sigortaTarihi: { lte: in30days } },
+        ],
+      },
+      select: {
+        id: true,
+        registrationPlate: true,
+        muayeneTarihi: true,
+        sigortaTarihi: true,
+        tenant: { select: { name: true } },
+      },
+    });
+
+    for (const v of vehicles) {
+      if (v.muayeneTarihi && v.muayeneTarihi < now) {
+        this.logger.warn(`[ARAÇ UYARI] ${v.registrationPlate} (${v.tenant.name}) — MUAYENE SÜRESİ GEÇMİŞ (${v.muayeneTarihi.toISOString().slice(0, 10)})`);
+      } else if (v.muayeneTarihi && v.muayeneTarihi <= in30days) {
+        this.logger.warn(`[ARAÇ UYARI] ${v.registrationPlate} (${v.tenant.name}) — Muayene 30 gün içinde (${v.muayeneTarihi.toISOString().slice(0, 10)})`);
+      }
+      if (v.sigortaTarihi && v.sigortaTarihi < now) {
+        this.logger.warn(`[ARAÇ UYARI] ${v.registrationPlate} (${v.tenant.name}) — SİGORTA SÜRESİ GEÇMİŞ (${v.sigortaTarihi.toISOString().slice(0, 10)})`);
+      } else if (v.sigortaTarihi && v.sigortaTarihi <= in30days) {
+        this.logger.warn(`[ARAÇ UYARI] ${v.registrationPlate} (${v.tenant.name}) — Sigorta 30 gün içinde (${v.sigortaTarihi.toISOString().slice(0, 10)})`);
+      }
+    }
+
+    if (vehicles.length > 0) {
+      this.logger.log(`[ARAÇ] ${vehicles.length} araçta muayene/sigorta uyarısı var`);
+    }
+  }
+
+  /**
    * Marks confirmed bookings on completed trips as NO_SHOW if not used.
    * (Future enhancement: only mark NO_SHOW if check-in is missing)
    */

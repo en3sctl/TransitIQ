@@ -1,6 +1,6 @@
 # TransitIQ — Master Plan
 
-**Son güncelleme:** 2026-04-15
+**Son güncelleme:** 2026-04-16
 **Kurucu:** Enes Çatal
 **Merkez:** İstanbul, Türkiye
 **Durum:** Private beta, üretime hazırlık fazı
@@ -539,9 +539,10 @@ CREATE INDEX idx_audit_timestamp ON audit_logs(tenant_id, timestamp DESC);
 - `GET /audit-logs` — admin denetim
 
 ### 7.9 Eklenecek Endpoint'ler
-- `POST /auth/password-reset/request` → email gönderir
-- `POST /auth/password-reset/confirm` → token doğrular + yeni şifre
-- `POST /auth/verify-email` → kayıt sonrası doğrulama linki
+- ~~`POST /auth/password-reset/request`~~ ✅
+- ~~`POST /auth/password-reset/confirm`~~ ✅
+- ~~`POST /auth/verify-email/send` + `/confirm`~~ ✅
+- ~~`GET /auth/google` + `/auth/google/callback`~~ ✅
 - `POST /auth/2fa/enable` + `/2fa/verify` → TOTP
 - `POST /user/delete-account` → KVKK self-servis
 - `GET /user/data-export` → KVKK self-servis JSON export
@@ -579,8 +580,9 @@ Mevcut:
 
 Eklenecek:
 - `/rotalar/[slug]` — SEO-dostu (ör. `/rotalar/istanbul-ankara`)
-- `/sifre-sifirla` — şifre sıfırlama
-- `/email-dogrula` — email verification landing
+- ~~`/sifre-sifirla`~~ ✅
+- ~~`/email-dogrula`~~ ✅
+- ~~`/google-callback`~~ ✅
 - `/hesap/ayarlar/guvenlik` — 2FA, aktif sessionlar
 - `/hesap/ayarlar/bildirimler` — notification preferences
 - `/hesap/veri-indir` — KVKK export
@@ -717,22 +719,23 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [ ] Push notification gönderim sistemi (sefer hatırlatma cron)
 - [ ] Mobil UX iyileştirmeleri
 
-### Faz 4 — Güvenlik & Güven (sonraki)
-- [ ] Şifre sıfırlama akışı (email token)
-- [ ] Email doğrulama kayıtta
+### Faz 4 — Güvenlik & Güven (aktif)
+- [x] Şifre sıfırlama akışı (email token + Resend)
+- [x] Email doğrulama kayıtta
+- [x] Login brute-force koruması (in-memory tracker, 5 deneme/15dk)
+- [x] Google OAuth (passport-google-oauth20, auto user create/link)
 - [ ] 2FA (TOTP) admin + driver için
-- [ ] Login brute-force koruması (failed attempt counter + Redis)
 - [ ] Session revocation (aktif device listesi + logout all)
 - [ ] Refresh token akışı
-- [ ] Helmet.js + CSP headers
+- [x] Helmet.js + CSP headers (prod'da CSP aktif, dev'de devre dışı)
 - [ ] Sentry entegrasyonu
 - [ ] KVKK self-servis: veri indirme + hesap silme
 - [ ] Çerez consent banner
 
 ### Faz 5 — Operasyon Gücü
 - [ ] OPERATOR rolü implementation (kısıtlı yetki matrix)
-- [ ] **OSM Overpass entegrasyonu** — otogar otomatik çekme
-- [ ] Araç maintenance log + fuel log + uyarı cron
+- [x] **OSM Nominatim entegrasyonu** — otogar otomatik çekme (Overpass→Nominatim geçildi)
+- [x] Araç maintenance log + fuel log + uyarı cron (günlük 08:00 İstanbul)
 - [ ] Tekrarlayan sefer şablonu
 - [ ] Dinamik fiyat kuralı motoru (ör: kalkışa 24sa kala %10 indirim)
 - [ ] Promosyon kodu sistemi
@@ -758,12 +761,19 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [ ] Lifecycle email (hoşgeldin, hatırlatma, re-engagement)
 - [ ] A/B test framework
 
-### Faz 8 — Platform Growth
+### Faz 8 — Mobil Uygulamalar (React Native / Expo)
+- [ ] Yolcu uygulaması (iOS + Android): arama, ödeme, biletlerim, canlı takip, push
+- [ ] Şoför uygulaması (iOS + Android): sefer listesi, QR check-in, GPS push (arka plan), manifesto
+- [ ] Admin: mobil-responsive web yeterli (ayrı uygulama gereksiz)
+- [ ] Shared NestJS API — aynı backend, yeni client
+- [ ] Apple Wallet / Google Wallet bilet pass entegrasyonu
+- [ ] App Store + Play Store yayını
+
+### Faz 9 — Platform Growth
 - [ ] Super admin paneli
 - [ ] Tenant onboarding akışı
 - [ ] Komisyon takibi
 - [ ] Multi-language (EN/AR/DE)
-- [ ] Mobil uygulama (React Native) — opsiyonel, PWA yeterli olabilir
 
 ---
 
@@ -838,7 +848,8 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 | Araç maintenance/fuel log | Yüksek | Orta | **HEMEN** |
 | PWA + offline bilet | Yüksek | Yüksek | Sonraki |
 | Push notifications | Yüksek | Orta | Sonraki |
-| Şifre sıfırlama | Kritik | Düşük | Sonraki |
+| ~~Şifre sıfırlama~~ | ~~Kritik~~ | ~~Düşük~~ | ✅ |
+| ~~Google OAuth~~ | ~~Yüksek~~ | ~~Orta~~ | ✅ |
 | 2FA | Yüksek | Orta | Sonraki |
 | Sentry | Orta | Düşük | Sonraki |
 | Promo kodu | Yüksek | Orta | Faz 5 |

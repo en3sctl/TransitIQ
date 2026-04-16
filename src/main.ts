@@ -12,7 +12,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // ─── Security Headers ───
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+      crossOriginEmbedderPolicy: false, // allow Leaflet tiles + Google OAuth redirects
+    }),
+  );
 
   // ─── CORS ───
   const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3001')

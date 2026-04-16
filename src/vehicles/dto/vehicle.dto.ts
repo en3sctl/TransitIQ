@@ -1,4 +1,4 @@
-import { IsString, IsInt, IsNotEmpty, Min, Matches } from 'class-validator';
+import { IsString, IsInt, IsNotEmpty, IsOptional, Min, Matches } from 'class-validator';
 
 export class CreateVehicleDto {
   @IsString()
@@ -31,27 +31,53 @@ export class CreateVehicleDto {
 }
 
 export class UpdateVehicleDto {
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   registrationPlate?: string;
 
+  @IsOptional()
   @IsString()
   make?: string;
 
+  @IsOptional()
   @IsString()
   model?: string;
 
+  @IsOptional()
   @IsInt()
   @Min(1900)
   year?: number;
 
+  @IsOptional()
   @IsString()
   chassisNumber?: string;
 
+  @IsOptional()
+  @IsString()
+  engineNumber?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   capacity?: number;
 
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d\+\d$/, { message: 'layoutType must be like "2+1", "2+2", or "1+1"' })
+  layoutType?: string;
+
+  @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsInt()
+  currentMileage?: number;
+
+  @IsOptional()
+  muayeneTarihi?: Date;
+
+  @IsOptional()
+  sigortaTarihi?: Date;
 }

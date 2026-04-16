@@ -9,6 +9,7 @@ import { AdminBookingsPanel } from "@/components/admin/bookings-panel";
 import { AdminDriversPanel } from "@/components/admin/drivers-panel";
 import { AdminAuditLogsPanel } from "@/components/admin/audit-logs-panel";
 import { VehicleDetailModal } from "@/components/admin/vehicle-detail-modal";
+import { VehiclesPanel } from "@/components/admin/vehicles-panel";
 import { OtogarPicker } from "@/components/admin/otogar-picker";
 import { RuhsatUploader } from "@/components/admin/ruhsat-uploader";
 import { Button } from "@/components/ui/button";
@@ -40,8 +41,6 @@ import {
 import {
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
 } from "@/components/ui/tabs";
 import {
   Select,
@@ -132,8 +131,6 @@ function AdminDashboardContent() {
   const [tripForm, setTripForm] = useState({ routeId: "", vehicleId: "", departureTime: "", estimatedArrival: "", driverId: "" });
 
   const [drivers, setDrivers] = useState<any[]>([]);
-  const [vehicleDetailId, setVehicleDetailId] = useState<string | null>(null);
-
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -296,12 +293,12 @@ function AdminDashboardContent() {
               <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-800 mx-2" />
 
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                {activeTab !== 'overview' && activeTab !== 'bookings' && (
+                {activeTab !== 'overview' && activeTab !== 'bookings' && activeTab !== 'audit' && activeTab !== 'drivers' && activeTab !== 'settings' && (
                   <DialogTrigger
                     render={
                       <Button className="bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-white rounded-xl h-10 px-5 text-xs font-black shadow-sm transition-all active:scale-[0.98]">
                         <Plus className="mr-2 h-4 w-4 stroke-[3]" />
-                        {activeTab === 'vehicles' ? 'Araç Ekle' : activeTab === 'stations' ? 'İstasyon Ekle' : activeTab === 'routes' ? 'Rota Oluştur' : 'Sefer Ata'}
+                        {activeTab === 'vehicles' ? 'Araç Ekle' : activeTab === 'stations' ? 'İstasyon Ekle' : activeTab === 'routes' ? 'Rota Oluştur' : activeTab === 'trips' ? 'Sefer Ata' : 'Ekle'}
                       </Button>
                     }
                   />
@@ -340,38 +337,40 @@ function AdminDashboardContent() {
             {/* Welcome Section */}
             <div className="space-y-2">
               <h2 className="text-4xl font-black tracking-tighter text-zinc-900 dark:text-zinc-100">
-                {activeTab === 'overview' ? `Merhaba, ${user?.name.split(' ')[0]} 👋` : 
-                 activeTab === 'vehicles' ? 'Araç Filosu' : 
+                {activeTab === 'overview' ? `Merhaba, ${user?.name.split(' ')[0]}` :
+                 activeTab === 'vehicles' ? 'Araç Filosu' :
                  activeTab === 'stations' ? 'İstasyonlar & Terminaller' :
-                 activeTab === 'routes' ? 'Rota Havuzu' : 'Operasyonel Akış'}
+                 activeTab === 'routes' ? 'Rota Havuzu' :
+                 activeTab === 'trips' ? 'Sefer Takvimi' :
+                 activeTab === 'bookings' ? 'Bilet Yönetimi' :
+                 activeTab === 'drivers' ? 'Sürücü Paneli' :
+                 activeTab === 'audit' ? 'Denetim Logu' :
+                 'Panel'}
               </h2>
               <p className="text-zinc-500 dark:text-zinc-400 font-medium text-lg leading-snug">
-                Modern lojistik yönetimi için verileriniz burada.
+                {activeTab === 'overview' ? 'Operasyonel özet ve sistem durumu.' :
+                 activeTab === 'vehicles' ? 'Filonuzdaki araçları ve bakım durumlarını yönetin.' :
+                 activeTab === 'stations' ? 'Otogar ve terminal lokasyonlarınız.' :
+                 activeTab === 'routes' ? 'Kalkış-varış rotalarınız ve fiyatlandırma.' :
+                 activeTab === 'trips' ? 'Planlanan ve aktif seferleriniz.' :
+                 activeTab === 'bookings' ? 'Bilet satışları, iptaller ve iadeler.' :
+                 activeTab === 'drivers' ? 'Şoför kadronuz ve yetkileri.' :
+                 activeTab === 'audit' ? 'Tüm kritik işlemlerin denetim kaydı.' :
+                 'Verileriniz burada.'}
               </p>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+            {/* Stats Grid — only on overview */}
+            {activeTab === 'overview' && <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                <StatsCard label="Aktif Araçlar" value={vehicles.length.toString()} icon={Bus} trend="+4 yeni" color="bg-indigo-50 text-indigo-600" />
                <StatsCard label="Sistem Rotaları" value={routes.length.toString()} icon={RouteIcon} trend="Aktif ağ" color="bg-amber-50 text-amber-600" />
                <StatsCard label="Toplam Sefer" value={trips.length.toString()} icon={Activity} trend="99% verim" color="bg-emerald-50 text-emerald-600" />
                <StatsCard label="Operasyonel Güç" value="%94" icon={TrendingUp} trend="Mükemmel" color="bg-rose-50 text-rose-600" />
-            </div>
+            </div>}
 
             {/* Tabs Content */}
             <div className="space-y-8">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="bg-zinc-100 dark:bg-zinc-900 p-1 mb-10 rounded-2xl w-full md:w-fit h-12 inline-flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 transition-colors">
-                  <TabsTrigger value="overview" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Genel Bakış</TabsTrigger>
-                  <TabsTrigger value="vehicles" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Filo</TabsTrigger>
-                  <TabsTrigger value="stations" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">İstasyonlar</TabsTrigger>
-                  {/* Temporarily disabled Routes and Trips for schema alignment */}
-                  <TabsTrigger value="routes" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Rotalar</TabsTrigger>
-                  <TabsTrigger value="trips" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Seferler</TabsTrigger>
-                  <TabsTrigger value="bookings" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Biletler</TabsTrigger>
-                  <TabsTrigger value="drivers" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Şoförler</TabsTrigger>
-                  <TabsTrigger value="audit" className="px-6 rounded-xl font-bold text-xs uppercase tracking-widest py-2 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-950 dark:data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm transition-all">Denetim</TabsTrigger>
-                </TabsList>
 
                 <TabsContent value="overview">
                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -407,7 +406,7 @@ function AdminDashboardContent() {
                    </div>
                 </TabsContent>
 
-                <TabsContent value="vehicles"><TableCard title="Filo Yönetimi" count={vehicles.length} actionLabel="Araç Ekle" onAction={() => setIsDialogOpen(true)}><VehiclesTable vehicles={vehicles} onSelect={setVehicleDetailId} /></TableCard></TabsContent>
+                <TabsContent value="vehicles"><VehiclesPanel /></TabsContent>
                 <TabsContent value="stations"><TableCard title="İstasyon Yönetimi" count={stations.length} actionLabel="İstasyon Ekle" onAction={() => setIsDialogOpen(true)}><StationsTable stations={stations} /></TableCard></TabsContent>
                 <TabsContent value="routes"><TableCard title="Ağ Haritası" count={routes.length} actionLabel="Rota Oluştur" onAction={() => setIsDialogOpen(true)}><RoutesTable routes={routes} /></TableCard></TabsContent>
                 <TabsContent value="trips"><TableCard title="Sefer Kayıtları" count={trips.length} actionLabel="Sefer Ata" onAction={() => setIsDialogOpen(true)}><TripsTable trips={trips} /></TableCard></TabsContent>
@@ -426,8 +425,6 @@ function AdminDashboardContent() {
         </div>
       </main>
 
-      {/* Vehicle detail modal */}
-      <VehicleDetailModal vehicleId={vehicleDetailId} onClose={() => setVehicleDetailId(null)} />
     </div>
   );
 }
@@ -471,52 +468,6 @@ function TableCard({ title, count, children, actionLabel, onAction }: { title: s
       </CardHeader>
       <CardContent className="p-0">{children}</CardContent>
     </Card>
-  );
-}
-
-function VehiclesTable({ vehicles, onSelect }: { vehicles: Vehicle[]; onSelect?: (id: string) => void }) {
-  if (vehicles.length === 0) return <EmptyState icon={Bus} label="Henüz araç eklenmemiş" />;
-  return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/50 border-b border-zinc-100 dark:border-zinc-800">
-          <TableRow className="hover:bg-transparent border-none font-black text-[11px] uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500 h-14">
-            <TableHead className="px-8">Araç / Plaka</TableHead>
-            <TableHead>Model</TableHead>
-            <TableHead>Düzen</TableHead>
-            <TableHead>Kapasite</TableHead>
-            <TableHead className="text-right px-8">Durum</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {vehicles.map((v) => (
-            <TableRow
-              key={v.id}
-              onClick={() => onSelect?.(v.id)}
-              className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50 transition-colors group cursor-pointer"
-            >
-              <TableCell className="py-6 px-8 text-zinc-900 dark:text-zinc-100 font-bold text-base">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center border border-zinc-200 dark:border-zinc-800 group-hover:bg-white dark:group-hover:bg-zinc-800 transition-all">
-                    <Bus size={20} className="text-zinc-600 dark:text-zinc-400" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span>{v.registrationPlate}</span>
-                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider">{v.make}</span>
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell className="text-zinc-900 dark:text-zinc-100 font-semibold">{v.model} ({v.year})</TableCell>
-              <TableCell><span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">{v.layoutType || '2+1'}</span></TableCell>
-              <TableCell className="text-zinc-500 dark:text-zinc-400 font-semibold">{v.capacity} Kişi</TableCell>
-              <TableCell className="text-right px-8">
-                <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50">{v.status}</span>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
   );
 }
 

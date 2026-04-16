@@ -2,21 +2,22 @@
 
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
-import { usePathname } from "next/navigation";
+// import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { 
-  Bus, 
-  LayoutDashboard, 
-  Users, 
-  Route as RouteIcon, 
-  CalendarDays, 
-  Settings, 
-  LogOut, 
+import {
+  Bus,
+  LayoutDashboard,
+  Users,
+  Route as RouteIcon,
+  CalendarDays,
+  Settings,
+  LogOut,
   ChevronRight,
   ShieldCheck,
-  CreditCard,
-  Bell
+  Ticket,
+  FileText,
+  MapPin,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -30,15 +31,15 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const menuItems = [
     { id: "overview", icon: LayoutDashboard, label: 'Merkezi Kontrol' },
     { id: "vehicles", icon: Bus, label: 'Araç Filosu' },
-    { id: "stations", icon: RouteIcon, label: 'İstasyonlar' },
+    { id: "stations", icon: MapPin, label: 'İstasyonlar' },
     { id: "routes", icon: RouteIcon, label: 'Rota Havuzu' },
     { id: "trips", icon: CalendarDays, label: 'Sefer Takvimi' },
+    { id: "bookings", icon: Ticket, label: 'Bilet Yönetimi' },
     { id: "drivers", icon: Users, label: 'Sürücü Paneli' },
   ];
 
   const secondaryItems = [
-    { id: "billing", icon: CreditCard, label: 'Ödemeler' },
-    { id: "notifications", icon: Bell, label: 'Bildirimler' },
+    { id: "audit", icon: FileText, label: 'Denetim Logu' },
     { id: "settings", icon: Settings, label: 'Ayarlar' },
   ];
 
