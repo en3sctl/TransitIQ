@@ -301,6 +301,7 @@ model Booking {
   boardingStatus  BoardingStatus @default(PENDING) @map("boarding_status")
   boardedAt       DateTime?      @map("boarded_at")
   boardedBy       String?        @map("boarded_by")
+  reminderSentAt  DateTime?      @map("reminder_sent_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
   trip   Trip   @relation(fields: [tripId], references: [id])

@@ -761,6 +761,23 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [ ] Lifecycle email (hoşgeldin, hatırlatma, re-engagement)
 - [ ] A/B test framework
 
+### Faz 7.5 — TÜRKİYE RESMİ ENTEGRASYONLAR ⚠️ (İlk müşteri öncesi ŞART)
+
+**Yasal zorunluluk (yapılmazsa ceza/kapatma):**
+- [ ] **U-ETDS entegrasyonu** — T.C. Ulaştırma Bakanlığı, sefer + yolcu anlık raporlama. SOAP API ücretsiz. `servis.uab.gov.tr/uetds/api/`. D1/D2/D4 yetki belgeli firmalar için ŞART.
+- [ ] **e-Bilet (GİB)** — Logo/Uyumsoft/Mikro entegratörü üzerinden (~₺1500-2000/ay). 5M+ ciroda zorunlu.
+- [ ] **e-Arşiv Fatura** — Aynı entegratörler. 5M+ ciroda zorunlu.
+
+**Çok önerilen:**
+- [ ] **NVI KPS TC kimlik doğrulama** — Yolcu kayıtta TC + ad soyad eşleşme. ~₺500 başlangıç + sorgu ücreti.
+- [ ] **K-Yetki Belgesi sorgulama** — UAB U-Net üzerinden plaka yetki kontrolü
+- [ ] **SRC Belgesi sorgulama** — Şoför yetki kontrolü
+- [ ] **VERBİS kayıt** — KVKK Kurumu resmi kayıt (ücretsiz, yapmak ŞART)
+
+**Stratejik avantaj:** U-ETDS'i kendimiz yazarsak (entegratör kullanmadan) bunu **B2B değer önermesi** olarak sunabiliriz — Obilet/Enuygun bunu entegratör üzerinden yapıyor, biz native yaparız.
+
+**Ne zaman:** Şirket kurulduktan ve ilk gerçek otobüs firması müşterisi geldikten hemen sonra.
+
 ### Faz 8 — Mobil Uygulamalar (React Native / Expo)
 - [ ] Yolcu uygulaması (iOS + Android): arama, ödeme, biletlerim, canlı takip, push
 - [ ] Şoför uygulaması (iOS + Android): sefer listesi, QR check-in, GPS push (arka plan), manifesto

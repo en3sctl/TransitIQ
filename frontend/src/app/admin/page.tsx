@@ -13,6 +13,8 @@ import { RoutesPanel } from "@/components/admin/routes-panel";
 import { StationsPanel } from "@/components/admin/stations-panel";
 import { PromoPanel } from "@/components/admin/promo-panel";
 import { OverviewDashboard } from "@/components/admin/overview-dashboard";
+import { SystemOverview } from "@/components/admin/system-overview";
+import { NotificationBell } from "@/components/admin/notification-bell";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -58,7 +60,8 @@ function AdminDashboardContent() {
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+             <NotificationBell onNavigate={setActiveTab} />
              <Button
                 variant="ghost"
                 size="icon"
@@ -67,7 +70,6 @@ function AdminDashboardContent() {
               >
                 <RefreshCw className="w-4 h-4" />
               </Button>
-
           </div>
         </header>
 
@@ -84,6 +86,7 @@ function AdminDashboardContent() {
             <div className="space-y-2">
               <h2 className="text-4xl font-black tracking-tighter text-zinc-900 dark:text-zinc-100">
                 {activeTab === 'overview' ? `Merhaba, ${user?.name.split(' ')[0]}` :
+                 activeTab === 'revenue' ? 'Ciro & Analiz' :
                  activeTab === 'vehicles' ? 'Araç Filosu' :
                  activeTab === 'stations' ? 'İstasyonlar & Terminaller' :
                  activeTab === 'routes' ? 'Rota Havuzu' :
@@ -95,7 +98,8 @@ function AdminDashboardContent() {
                  'Panel'}
               </h2>
               <p className="text-zinc-500 dark:text-zinc-400 font-medium text-lg leading-snug">
-                {activeTab === 'overview' ? 'Operasyonel özet ve sistem durumu.' :
+                {activeTab === 'overview' ? 'Günlük operasyonel özet, uyarılar ve canlı durum.' :
+                 activeTab === 'revenue' ? 'Detaylı gelir analizi, trend, saat yoğunluk haritası ve top listeler.' :
                  activeTab === 'vehicles' ? 'Filonuzdaki araçları ve bakım durumlarını yönetin.' :
                  activeTab === 'stations' ? 'Otogar ve terminal lokasyonlarınız.' :
                  activeTab === 'routes' ? 'Kalkış-varış rotalarınız ve fiyatlandırma.' :
@@ -114,6 +118,10 @@ function AdminDashboardContent() {
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 
                 <TabsContent value="overview">
+                  <SystemOverview onNavigate={setActiveTab} refreshKey={refreshKey} />
+                </TabsContent>
+
+                <TabsContent value="revenue">
                   <OverviewDashboard onNavigate={setActiveTab} />
                 </TabsContent>
 

@@ -3,10 +3,11 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
-  TrendingUp, TrendingDown, Minus, Bus, CalendarDays, Activity, Users,
-  MapPin, Target, AlertCircle, DollarSign, Ticket, ArrowUpRight, ArrowDownRight,
-  CheckCircle2, Clock, Loader2,
+  TrendingUp, Minus, Bus, CalendarDays, Activity,
+  Target, AlertCircle, DollarSign, Ticket, ArrowUpRight, ArrowDownRight,
+  Loader2, Download, FileText, Receipt,
 } from "lucide-react";
+import { toast } from "sonner";
 import api from "@/lib/api";
 
 interface Dashboard {
@@ -315,7 +316,128 @@ export function OverviewDashboard({ onNavigate }: { onNavigate?: (tab: string) =
           </div>
         </div>
       </div>
+
+      {/* Muhasebe / KDV */}
+      <TaxReportCard />
     </motion.div>
+  );
+}
+
+function TaxReportCard() {
+  const [tax, setTax] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    api.get('/analytics/tax').then(r => setTax(r.data)).catch(() => setTax(null)).finally(() => setLoading(false));
+  }, []);
+
+  const exportMonthly = async () => {
+    setExporting(true);
+    try {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const res = await api.get('/booking/admin/bookings', {
+        params: {
+          status: 'CONFIRMED',
+          from: monthStart.toISOString(),
+          to: now.toISOString(),
+          take: 10000,
+          skip: 0,
+        },
+      });
+      const list = Array.isArray(res.data) ? res.data : res.data?.bookings || [];
+      if (list.length === 0) {
+        toast.info('Bu ay için kayıt yok');
+        return;
+      }
+      const rows = list.map((b: any) => {
+        const gross = Number(b.pricePaid);
+        const net = gross / 1.20;
+        const vat = gross - net;
+        return [
+          b.pnrCode || '',
+          b.passengerName || '',
+          b.passengerTcNo || '',
+          new Date(b.bookingTime).toLocaleDateString('tr-TR'),
+          net.toFixed(2).replace('.', ','),
+          vat.toFixed(2).replace('.', ','),
+          gross.toFixed(2).replace('.', ','),
+          b.trip?.origin?.city || b.trip?.route?.originStation?.city || '',
+          b.trip?.destination?.city || b.trip?.route?.destinationStation?.city || '',
+        ];
+      });
+      const headers = ['PNR', 'Yolcu', 'TC', 'Tarih', 'Net (TL)', 'KDV %20 (TL)', 'Brüt (TL)', 'Kalkış', 'Varış'];
+      const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(';')).join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `muhasebe_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      toast.success(`${list.length} kayıt CSV olarak indirildi`);
+    } catch (e: any) {
+      console.error('CSV export error:', e);
+      toast.error(e.response?.data?.message || 'İndirilemedi');
+    }
+    finally { setExporting(false); }
+  };
+
+  if (loading || !tax) return null;
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl overflow-hidden">
+      <div className="p-5 border-b border-zinc-200/80 dark:border-zinc-800 flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h3 className="text-base font-black tracking-tight text-zinc-900 dark:text-white flex items-center gap-2">
+            <Receipt className="w-4 h-4 text-indigo-500" />
+            Muhasebe & KDV
+          </h3>
+          <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest mt-0.5">Otomatik vergi hesabı (%{(tax.vatRate * 100).toFixed(0)})</p>
+        </div>
+        <button onClick={exportMonthly} disabled={exporting}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors disabled:opacity-50">
+          {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+          Aylık Muhasebe Raporu (CSV)
+        </button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-200 dark:divide-zinc-800">
+        <div className="p-5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-3">Bu Ay</p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-zinc-500">Net Tutar</span>
+              <span className="text-sm font-black text-zinc-900 dark:text-white tabular-nums">₺{tax.month.net.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-zinc-500">KDV (%{(tax.vatRate * 100).toFixed(0)})</span>
+              <span className="text-sm font-black text-amber-600 dark:text-amber-400 tabular-nums">₺{tax.month.vat.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800">
+              <span className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-widest">Brüt</span>
+              <span className="text-base font-black text-zinc-900 dark:text-white tabular-nums">₺{tax.month.gross.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <p className="text-[10px] font-semibold text-zinc-400 pt-1">{tax.month.bookings} bilet</p>
+          </div>
+        </div>
+        <div className="p-5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-3">Yıl Başından Bugüne</p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-zinc-500">Net Tutar</span>
+              <span className="text-sm font-black text-zinc-900 dark:text-white tabular-nums">₺{tax.year.net.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-zinc-500">KDV (%{(tax.vatRate * 100).toFixed(0)})</span>
+              <span className="text-sm font-black text-amber-600 dark:text-amber-400 tabular-nums">₺{tax.year.vat.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800">
+              <span className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-widest">Brüt</span>
+              <span className="text-base font-black text-zinc-900 dark:text-white tabular-nums">₺{tax.year.gross.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <p className="text-[10px] font-semibold text-zinc-400 pt-1">{tax.year.bookings} bilet</p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

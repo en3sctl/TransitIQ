@@ -58,6 +58,84 @@ export class NotificationsService {
   }
 
   /**
+   * Send 24h-before trip reminder email.
+   */
+  async sendTripReminder(booking: any) {
+    if (!this.enabled || !this.resend) return;
+    const depTime = new Date(booking.trip.departureTime);
+    const dateStr = depTime.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+    const timeStr = depTime.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    const origin = booking.trip.route.originStation;
+    const dest = booking.trip.route.destinationStation;
+
+    const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f1f5f9;padding:40px 20px;margin:0"><div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.05)">
+      <h1 style="font-size:22px;font-weight:900;margin:0 0 8px;color:#0f172a">Yarın yola çıkıyorsun! 🚌</h1>
+      <p style="color:#475569;line-height:1.6;margin:0 0 24px">Merhaba ${escapeHtml(booking.passengerName)}, biletini hatırlatıyoruz.</p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:20px">
+        <p style="color:#0f172a;font-weight:800;font-size:18px;margin:0 0 8px">${escapeHtml(origin.city)} → ${escapeHtml(dest.city)}</p>
+        <p style="color:#64748b;font-size:13px;margin:0"><strong>${dateStr}</strong> · Kalkış saat <strong>${timeStr}</strong></p>
+        <p style="color:#64748b;font-size:13px;margin:6px 0 0">Kalkış: ${escapeHtml(origin.name)}</p>
+        <p style="color:#64748b;font-size:13px;margin:6px 0 0">Koltuk: <strong>${booking.seatId ? '—' : '—'}</strong> · Plaka: ${escapeHtml(booking.trip.vehicle.registrationPlate)}</p>
+        <p style="color:#64748b;font-size:13px;margin:6px 0 0">PNR: <strong style="font-family:monospace;letter-spacing:1px">${escapeHtml(booking.pnrCode)}</strong></p>
+      </div>
+      <p style="color:#475569;font-size:13px;line-height:1.6;margin:0 0 20px">Otogara kalkıştan <strong>en az 15 dakika önce</strong> gelmeni öneririz. Biniş için PNR kodunu ve kimliğini hazır bulundur.</p>
+      <p style="color:#94a3b8;font-size:11px;margin:24px 0 0">İyi yolculuklar! ✨</p>
+    </div></body></html>`;
+
+    try {
+      await this.resend.emails.send({
+        from: this.fromAddress, to: booking.contactEmail,
+        subject: `Yarın yolculuk — ${origin.city} → ${dest.city}`,
+        html,
+      });
+    } catch (err) {
+      this.logger.error(`[REMINDER] Failed: ${err}`);
+    }
+  }
+
+  /**
+   * Send weekly revenue report to admins every Monday.
+   */
+  async sendWeeklyRevenueReport(to: string, adminName: string, data: { tenantName: string; revenue: number; bookings: number; cancelled: number; from: Date; to: Date }) {
+    if (!this.enabled || !this.resend) return;
+    const fmtDate = (d: Date) => d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
+    const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f1f5f9;padding:40px 20px;margin:0"><div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.05)">
+      <h1 style="font-size:22px;font-weight:900;margin:0 0 4px;color:#0f172a">Haftalık Özet 📊</h1>
+      <p style="color:#94a3b8;font-size:12px;margin:0 0 24px">${fmtDate(data.from)} — ${fmtDate(data.to)} · ${escapeHtml(data.tenantName)}</p>
+      <div style="display:flex;gap:12px;margin-bottom:24px">
+        <div style="flex:1;background:#eef2ff;border-radius:12px;padding:16px;text-align:center">
+          <p style="color:#4f46e5;font-size:24px;font-weight:900;margin:0">₺${data.revenue.toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</p>
+          <p style="color:#64748b;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:4px 0 0">Haftalık Ciro</p>
+        </div>
+        <div style="flex:1;background:#ecfdf5;border-radius:12px;padding:16px;text-align:center">
+          <p style="color:#10b981;font-size:24px;font-weight:900;margin:0">${data.bookings}</p>
+          <p style="color:#64748b;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:4px 0 0">Bilet Satışı</p>
+        </div>
+        <div style="flex:1;background:#fef2f2;border-radius:12px;padding:16px;text-align:center">
+          <p style="color:#ef4444;font-size:24px;font-weight:900;margin:0">${data.cancelled}</p>
+          <p style="color:#64748b;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:4px 0 0">İptal</p>
+        </div>
+      </div>
+      <p style="color:#475569;font-size:13px;line-height:1.6;margin:0 0 20px">Merhaba ${escapeHtml(adminName)}, geçen haftaya ait özet raporun hazır. Detaylı analiz için <a href="${this.frontendUrl()}/admin" style="color:#4f46e5;font-weight:700">admin paneline</a> gelebilirsin.</p>
+      <p style="color:#94a3b8;font-size:11px;margin:24px 0 0">TransitIQ — Otomatik haftalık rapor</p>
+    </div></body></html>`;
+
+    try {
+      await this.resend.emails.send({
+        from: this.fromAddress, to,
+        subject: `📊 Haftalık Özet — ${escapeHtml(data.tenantName)}`,
+        html,
+      });
+    } catch (err) {
+      this.logger.error(`[WEEKLY REPORT] Failed: ${err}`);
+    }
+  }
+
+  private frontendUrl(): string {
+    return this.config.get<string>('FRONTEND_URL', 'http://localhost:3001');
+  }
+
+  /**
    * Send booking confirmation email with PDF tickets attached.
    * Called after a successful reservation.
    */

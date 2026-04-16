@@ -1,13 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { PaymentService } from '../payment/payment.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { SeatStatus, BookingStatus } from '@prisma/client';
 
 @Injectable()
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentService: PaymentService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   /**
    * Releases expired seat locks every minute.
@@ -121,6 +127,150 @@ export class TasksService {
     if (vehicles.length > 0) {
       this.logger.log(`[ARAÇ] ${vehicles.length} araçta muayene/sigorta uyarısı var`);
     }
+  }
+
+  /**
+   * Retry failed Iyzico refunds every 6 hours.
+   * Bookings cancelled but refund failed get another attempt.
+   */
+  @Cron(CronExpression.EVERY_6_HOURS)
+  async retryFailedRefunds() {
+    const failedBookings = await this.prisma.booking.findMany({
+      where: {
+        status: 'CANCELLED',
+        refundStatus: 'FAILED',
+        paymentTransactionId: { not: null },
+      },
+      take: 20,
+    });
+
+    if (failedBookings.length === 0) return;
+
+    let recovered = 0;
+    for (const b of failedBookings) {
+      if (!b.paymentTransactionId) continue;
+      try {
+        const result = await this.paymentService.refundPayment(
+          b.paymentTransactionId,
+          String(b.pricePaid),
+        );
+        if (result.success) {
+          await this.prisma.booking.update({
+            where: { id: b.id },
+            data: { refundStatus: 'REFUNDED' },
+          });
+          recovered++;
+        }
+      } catch {
+        // Still failing — will retry next cycle
+      }
+    }
+
+    if (recovered > 0) {
+      this.logger.log(`[REFUND RETRY] Kurtarıldı: ${recovered}/${failedBookings.length}`);
+    }
+  }
+
+  /**
+   * Send trip reminder email 24 hours before departure.
+   * Runs every hour, checks bookings whose trip departs in ~24h window.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async sendTripReminders() {
+    const now = new Date();
+    const in23h = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+    const in25h = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+
+    const bookings = await this.prisma.booking.findMany({
+      where: {
+        status: 'CONFIRMED',
+        reminderSentAt: null,
+        trip: { departureTime: { gte: in23h, lte: in25h } },
+      },
+      include: {
+        trip: {
+          include: {
+            route: { include: { originStation: true, destinationStation: true } },
+            vehicle: true,
+          },
+        },
+      },
+      take: 100,
+    });
+
+    if (bookings.length === 0) return;
+
+    let sent = 0;
+    for (const b of bookings) {
+      try {
+        await this.notificationsService.sendTripReminder(b as any);
+        await this.prisma.booking.update({
+          where: { id: b.id },
+          data: { reminderSentAt: new Date() },
+        });
+        sent++;
+      } catch (e) {
+        this.logger.error(`Trip reminder failed for ${b.pnrCode}: ${e}`);
+      }
+    }
+    if (sent > 0) this.logger.log(`[TRIP REMINDER] ${sent} hatırlatma gönderildi`);
+  }
+
+  /**
+   * Weekly revenue summary — sent every Monday 09:00 Istanbul time.
+   * Admin gets a snapshot of last week's performance.
+   */
+  @Cron('0 9 * * 1', { timeZone: 'Europe/Istanbul' })
+  async sendWeeklyRevenueReport() {
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 86400000);
+
+    const tenants = await this.prisma.tenant.findMany({
+      where: { status: 'ACTIVE', deletedAt: null },
+    });
+
+    for (const tenant of tenants) {
+      try {
+        const [agg, cancelled] = await Promise.all([
+          this.prisma.booking.aggregate({
+            where: {
+              trip: { tenantId: tenant.id },
+              status: 'CONFIRMED',
+              bookingTime: { gte: weekAgo },
+            },
+            _sum: { pricePaid: true },
+            _count: true,
+          }),
+          this.prisma.booking.count({
+            where: {
+              trip: { tenantId: tenant.id },
+              status: 'CANCELLED',
+              bookingTime: { gte: weekAgo },
+            },
+          }),
+        ]);
+
+        const admins = await this.prisma.user.findMany({
+          where: { tenantId: tenant.id, role: { in: ['COMPANY_ADMIN', 'SUPER_ADMIN'] }, deletedAt: null },
+          select: { email: true, name: true },
+        });
+
+        const revenue = Number(agg._sum.pricePaid || 0);
+        const bookings = agg._count;
+
+        for (const admin of admins) {
+          await this.notificationsService.sendWeeklyRevenueReport(admin.email, admin.name, {
+            tenantName: tenant.name,
+            revenue, bookings, cancelled,
+            from: weekAgo, to: now,
+          });
+        }
+      } catch (e) {
+        this.logger.error(`Weekly report failed for tenant ${tenant.id}: ${e}`);
+      }
+    }
+
+    this.logger.log(`[WEEKLY REPORT] ${tenants.length} tenant için gönderildi`);
   }
 
   /**

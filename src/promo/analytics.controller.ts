@@ -24,4 +24,14 @@ export class AnalyticsController {
   getDashboard(@Request() req: any) {
     return this.analyticsService.getDashboard(req.user.tenantId);
   }
+
+  @Get('overview')
+  getSystemOverview(@Request() req: any) {
+    return this.analyticsService.getSystemOverview(req.user.tenantId);
+  }
+
+  @Get('tax')
+  getTaxReport(@Request() req: any) {
+    return this.analyticsService.getTaxReport(req.user.tenantId);
+  }
 }

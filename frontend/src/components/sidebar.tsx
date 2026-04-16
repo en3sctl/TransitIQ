@@ -19,6 +19,7 @@ import {
   FileText,
   MapPin,
   Percent,
+  TrendingUp,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -31,6 +32,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
 
   const menuItems = [
     { id: "overview", icon: LayoutDashboard, label: 'Merkezi Kontrol' },
+    { id: "revenue", icon: TrendingUp, label: 'Ciro & Analiz' },
     { id: "vehicles", icon: Bus, label: 'Araç Filosu' },
     { id: "stations", icon: MapPin, label: 'İstasyonlar' },
     { id: "routes", icon: RouteIcon, label: 'Rota Havuzu' },

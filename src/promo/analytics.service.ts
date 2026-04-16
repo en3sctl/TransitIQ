@@ -228,6 +228,177 @@ export class AnalyticsService {
   }
 
   /**
+   * Operational overview — what's happening RIGHT NOW.
+   * Today's activity, urgent alerts, pending tasks, recent activity.
+   * This is for the admin landing page.
+   */
+  async getSystemOverview(tenantId: string) {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrowStart = new Date(todayStart.getTime() + 86400000);
+    const in30days = new Date(now.getTime() + 30 * 86400000);
+
+    const [
+      todayBookings, todayRevenue,
+      activeTrips, plannedToday,
+      failedRefunds, expiredVehicles, expiringVehicles,
+      upcomingTrips, recentLogs,
+    ] = await Promise.all([
+      this.prisma.booking.count({
+        where: { trip: { tenantId }, status: 'CONFIRMED', bookingTime: { gte: todayStart } },
+      }),
+      this.prisma.booking.aggregate({
+        where: { trip: { tenantId }, status: 'CONFIRMED', bookingTime: { gte: todayStart } },
+        _sum: { pricePaid: true },
+      }),
+      this.prisma.trip.count({ where: { tenantId, status: 'ACTIVE' } }),
+      this.prisma.trip.count({
+        where: {
+          tenantId, status: 'PLANNED',
+          departureTime: { gte: todayStart, lt: tomorrowStart },
+        },
+      }),
+      this.prisma.booking.count({
+        where: {
+          trip: { tenantId },
+          status: 'CANCELLED',
+          refundStatus: 'FAILED',
+        },
+      }),
+      this.prisma.vehicle.findMany({
+        where: {
+          tenantId, deletedAt: null,
+          OR: [
+            { muayeneTarihi: { lt: now } },
+            { sigortaTarihi: { lt: now } },
+          ],
+        },
+        select: { id: true, registrationPlate: true, muayeneTarihi: true, sigortaTarihi: true },
+        take: 5,
+      }),
+      this.prisma.vehicle.findMany({
+        where: {
+          tenantId, deletedAt: null,
+          OR: [
+            { muayeneTarihi: { gte: now, lte: in30days } },
+            { sigortaTarihi: { gte: now, lte: in30days } },
+          ],
+        },
+        select: { id: true, registrationPlate: true, muayeneTarihi: true, sigortaTarihi: true },
+        take: 5,
+      }),
+      this.prisma.trip.findMany({
+        where: {
+          tenantId,
+          status: { in: ['PLANNED', 'ACTIVE'] },
+          departureTime: { gte: now },
+        },
+        orderBy: { departureTime: 'asc' },
+        take: 6,
+        include: {
+          route: { include: { originStation: { select: { city: true } }, destinationStation: { select: { city: true } } } },
+          vehicle: { select: { registrationPlate: true } },
+          driver: { select: { name: true } },
+          _count: { select: { bookings: { where: { status: 'CONFIRMED' } } } },
+        },
+      }),
+      this.prisma.auditLog.findMany({
+        where: { tenantId },
+        orderBy: { timestamp: 'desc' },
+        take: 8,
+        include: { user: { select: { name: true } } },
+      }),
+    ]);
+
+    return {
+      today: {
+        bookings: todayBookings,
+        revenue: Number(todayRevenue._sum.pricePaid || 0),
+      },
+      trips: {
+        active: activeTrips,
+        plannedToday,
+      },
+      alerts: {
+        failedRefunds,
+        expiredVehicles: expiredVehicles.map(v => ({
+          id: v.id, plate: v.registrationPlate,
+          muayeneExpired: v.muayeneTarihi && v.muayeneTarihi < now,
+          sigortaExpired: v.sigortaTarihi && v.sigortaTarihi < now,
+        })),
+        expiringVehicles: expiringVehicles.map(v => ({
+          id: v.id, plate: v.registrationPlate,
+          muayene: v.muayeneTarihi, sigorta: v.sigortaTarihi,
+        })),
+      },
+      upcomingTrips: upcomingTrips.map(t => ({
+        id: t.id,
+        origin: t.route.originStation.city,
+        destination: t.route.destinationStation.city,
+        departureTime: t.departureTime,
+        plate: t.vehicle.registrationPlate,
+        driver: t.driver?.name || null,
+        status: t.status,
+        bookings: t._count.bookings,
+      })),
+      recentActivity: recentLogs.map(l => ({
+        id: l.id,
+        action: l.action,
+        entityType: l.entityType,
+        userName: l.user?.name || null,
+        timestamp: l.timestamp,
+      })),
+    };
+  }
+
+  /**
+   * VAT/tax breakdown for the current month.
+   * Turkish bus tickets are subject to 20% VAT (as of 2024+).
+   */
+  async getTaxReport(tenantId: string) {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+
+    const VAT_RATE = 0.20;
+
+    const [month, year] = await Promise.all([
+      this.prisma.booking.aggregate({
+        where: { trip: { tenantId }, status: 'CONFIRMED', bookingTime: { gte: monthStart } },
+        _sum: { pricePaid: true },
+        _count: true,
+      }),
+      this.prisma.booking.aggregate({
+        where: { trip: { tenantId }, status: 'CONFIRMED', bookingTime: { gte: yearStart } },
+        _sum: { pricePaid: true },
+        _count: true,
+      }),
+    ]);
+
+    const monthGross = Number(month._sum.pricePaid || 0);
+    const yearGross = Number(year._sum.pricePaid || 0);
+    // Gross = Net × (1 + VAT_RATE); Net = Gross / 1.20; VAT = Gross - Net
+    const monthNet = monthGross / (1 + VAT_RATE);
+    const yearNet = yearGross / (1 + VAT_RATE);
+
+    return {
+      vatRate: VAT_RATE,
+      month: {
+        gross: Math.round(monthGross * 100) / 100,
+        net: Math.round(monthNet * 100) / 100,
+        vat: Math.round((monthGross - monthNet) * 100) / 100,
+        bookings: month._count,
+      },
+      year: {
+        gross: Math.round(yearGross * 100) / 100,
+        net: Math.round(yearNet * 100) / 100,
+        vat: Math.round((yearGross - yearNet) * 100) / 100,
+        bookings: year._count,
+      },
+    };
+  }
+
+  /**
    * Route occupancy stats — which routes are most popular.
    */
   async getOccupancyStats(tenantId: string) {
