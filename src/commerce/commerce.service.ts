@@ -174,6 +174,32 @@ export class CommerceService {
     });
     const missingSettlements = Math.max(0, confirmedInPeriod - settlements.length);
 
+    // Tenant'ın hayatı boyunca toplam — periodda 0 ama firmada veri varsa kullanıcıya ipucu ver
+    const [allTimeAgg, latestBooking, earliestBooking] = await Promise.all([
+      this.prisma.booking.aggregate({
+        where: { tenantId, status: 'CONFIRMED' },
+        _count: { _all: true },
+        _sum: { pricePaid: true },
+      }),
+      this.prisma.booking.findFirst({
+        where: { tenantId, status: 'CONFIRMED' },
+        orderBy: { bookingTime: 'desc' },
+        select: { bookingTime: true },
+      }),
+      this.prisma.booking.findFirst({
+        where: { tenantId, status: 'CONFIRMED' },
+        orderBy: { bookingTime: 'asc' },
+        select: { bookingTime: true },
+      }),
+    ]);
+
+    const tenantStats = {
+      totalConfirmed: allTimeAgg._count._all,
+      totalGross: Math.round(Number(allTimeAgg._sum.pricePaid || 0) * 100) / 100,
+      latestBookingDate: latestBooking?.bookingTime || null,
+      earliestBookingDate: earliestBooking?.bookingTime || null,
+    };
+
     return {
       tenant: { id: tenant.id, name: tenant.publicName || tenant.name, plan: tenant.plan?.name },
       bookingCount: settlements.length,
@@ -186,6 +212,7 @@ export class CommerceService {
       taxRate,
       taxAmount,
       total,
+      tenantStats,
     };
   }
 

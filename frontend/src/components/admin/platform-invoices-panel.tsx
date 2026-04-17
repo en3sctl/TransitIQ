@@ -17,6 +17,12 @@ interface Preview {
   subscriptionFee: number;
   taxAmount: number;
   total: number;
+  tenantStats?: {
+    totalConfirmed: number;
+    totalGross: number;
+    latestBookingDate: string | null;
+    earliestBookingDate: string | null;
+  };
 }
 
 function apiBase() { return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'; }
@@ -303,11 +309,38 @@ export function PlatformInvoicesPanel() {
                           </div>
                         )}
 
-                        {preview.bookingCount === 0 && preview.subscriptionFee === 0 && (
-                          <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium italic mt-1">
-                            Bu dönemde satış yok. Boş fatura kesmek istemiyorsan tarih aralığını değiştir.
-                          </p>
-                        )}
+                        {preview.bookingCount === 0 && preview.subscriptionFee === 0 && (() => {
+                          const stats = preview.tenantStats;
+                          const hasOtherSales = stats && stats.totalConfirmed > 0;
+                          if (!hasOtherSales) {
+                            return (
+                              <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium italic mt-1">
+                                Bu firmada hiç onaylı satış yok.
+                              </p>
+                            );
+                          }
+                          // Satış var ama farklı tarihte → önerilen aralığı hesapla
+                          const latest = new Date(stats!.latestBookingDate!);
+                          const monthStart = new Date(latest.getFullYear(), latest.getMonth(), 1);
+                          const monthEnd = new Date(latest.getFullYear(), latest.getMonth() + 1, 0);
+                          const suggestedStart = monthStart.toISOString().slice(0, 10);
+                          const suggestedEnd = monthEnd.toISOString().slice(0, 10);
+                          const monthLabel = latest.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' });
+                          return (
+                            <div className="mt-2 rounded-lg bg-sky-50 dark:bg-sky-500/5 border border-sky-200 dark:border-sky-500/20 p-2.5">
+                              <p className="text-[11px] text-sky-800 dark:text-sky-300 font-bold leading-snug mb-2">
+                                Seçtiğin tarih aralığında satış yok ama bu firmada toplam {stats!.totalConfirmed} bilet (₺{stats!.totalGross.toLocaleString('tr-TR')}) var.
+                                Son satış: {latest.toLocaleDateString('tr-TR')}.
+                              </p>
+                              <button
+                                onClick={() => setRange({ start: suggestedStart, end: suggestedEnd })}
+                                className="px-2.5 py-1 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[10px] font-black uppercase tracking-wider"
+                              >
+                                {monthLabel} aralığını seç →
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
