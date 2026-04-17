@@ -31,6 +31,7 @@ import { FeedbackModule } from './feedback/feedback.module';
 import { WaitingListModule } from './waiting-list/waiting-list.module';
 import { TenantModule } from './tenant/tenant.module';
 import { SettlementModule } from './settlement/settlement.module';
+import { AdminSearchModule } from './search/admin-search.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { SettlementModule } from './settlement/settlement.module';
     WaitingListModule,
     TenantModule,
     SettlementModule,
+    AdminSearchModule,
   ],
   controllers: [AppController],
   providers: [

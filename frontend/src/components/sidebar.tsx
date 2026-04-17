@@ -23,6 +23,8 @@ import {
   MessageSquare,
   BellRing,
   Building2,
+  Wallet,
+  Banknote,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -45,12 +47,16 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: "promo", icon: Percent, label: 'Promo Kodları' },
     { id: "feedback", icon: MessageSquare, label: 'Geri Bildirim' },
     { id: "waiting-list", icon: BellRing, label: 'Bekleme Listesi' },
+    { id: "settlements", icon: Wallet, label: 'Hesap Özeti' },
   ];
 
   const secondaryItems = [
     { id: "tenant", icon: Building2, label: 'Firma Ayarları' },
     ...(user?.role === 'SUPER_ADMIN'
-      ? [{ id: "super-tenants", icon: ShieldCheck, label: 'Platform · Firmalar' }]
+      ? [
+          { id: "super-tenants", icon: ShieldCheck, label: 'Platform · Firmalar' },
+          { id: "super-settlements", icon: Banknote, label: 'Platform · Ödemeler' },
+        ]
       : []),
     { id: "audit", icon: FileText, label: 'Denetim Logu' },
     { id: "settings", icon: Settings, label: 'Ayarlar' },

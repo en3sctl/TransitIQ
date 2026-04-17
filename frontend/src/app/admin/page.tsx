@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import ProtectedRoute from "@/components/protected-route";
 import Sidebar from "@/components/sidebar";
@@ -21,6 +21,7 @@ import { TenantSettingsPanel } from "@/components/admin/tenant-settings-panel";
 import { SuperTenantsPanel } from "@/components/admin/super-tenants-panel";
 import { SettlementPanel } from "@/components/admin/settlement-panel";
 import { SuperSettlementsPanel } from "@/components/admin/super-settlements-panel";
+import { GlobalSearch } from "@/components/admin/global-search";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -31,6 +32,7 @@ import {
 import {
   RefreshCw,
   ChevronRight,
+  Search as SearchIcon,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -45,11 +47,24 @@ function AdminDashboardContent() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const handleRefresh = () => {
     setRefreshKey(k => k + 1);
     toast.success('Yenilendi');
   };
+
+  // Global Cmd/Ctrl+K shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen((o) => !o);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans selection:bg-indigo-100 dark:selection:bg-indigo-900 text-zinc-900 dark:text-zinc-100 transition-colors duration-500">
@@ -58,15 +73,36 @@ function AdminDashboardContent() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Navbar */}
-        <header className="h-20 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between px-10 sticky top-0 z-20 transition-colors duration-500">
-          <div className="flex items-center gap-2">
+        <header className="h-20 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between px-10 sticky top-0 z-20 transition-colors duration-500 gap-4">
+          <div className="flex items-center gap-2 shrink-0">
             <span className="text-zinc-400 text-sm font-bold flex items-center gap-2">
-               Panel <ChevronRight size={14} /> 
+               Panel <ChevronRight size={14} />
                <span className="text-zinc-900 dark:text-zinc-100 capitalize">{activeTab}</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Global search trigger */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="flex-1 max-w-xl hidden md:flex items-center gap-3 px-4 h-10 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-indigo-400 dark:hover:border-indigo-500/40 hover:bg-white dark:hover:bg-zinc-800/50 transition-all group"
+          >
+            <SearchIcon className="w-4 h-4 text-zinc-400 group-hover:text-indigo-500 transition-colors" />
+            <span className="text-sm font-semibold text-zinc-400 dark:text-zinc-500 flex-1 text-left truncate">
+              PNR, plaka, şehir, sürücü, şikayet... her şeyi ara
+            </span>
+            <kbd className="hidden lg:inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 text-[10px] font-bold text-zinc-400 bg-white dark:bg-zinc-950">
+              Ctrl K
+            </kbd>
+          </button>
+
+          <div className="flex items-center gap-2 shrink-0">
+             <button
+                onClick={() => setSearchOpen(true)}
+                className="md:hidden w-10 h-10 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-900 flex items-center justify-center text-zinc-500 dark:text-zinc-400"
+                aria-label="Ara"
+              >
+                <SearchIcon className="w-4 h-4" />
+             </button>
              <NotificationBell onNavigate={setActiveTab} />
              <Button
                 variant="ghost"
@@ -78,6 +114,12 @@ function AdminDashboardContent() {
               </Button>
           </div>
         </header>
+
+        <GlobalSearch
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          onNavigate={(tab) => setActiveTab(tab)}
+        />
 
         {/* Dashboard Body */}
         <div className="flex-1 overflow-y-auto">
