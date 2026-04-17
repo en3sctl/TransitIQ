@@ -30,6 +30,7 @@ import { PromoModule } from './promo/promo.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { WaitingListModule } from './waiting-list/waiting-list.module';
 import { TenantModule } from './tenant/tenant.module';
+import { SettlementModule } from './settlement/settlement.module';
 
 @Module({
   imports: [
@@ -83,6 +84,7 @@ import { TenantModule } from './tenant/tenant.module';
     FeedbackModule,
     WaitingListModule,
     TenantModule,
+    SettlementModule,
   ],
   controllers: [AppController],
   providers: [

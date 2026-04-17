@@ -10,6 +10,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { PaymentModule } from '../payment/payment.module';
 import { PassengerFeaturesModule } from '../passenger-features/passenger-features.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { WaitingListModule } from '../waiting-list/waiting-list.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     forwardRef(() => PaymentModule),
     forwardRef(() => PassengerFeaturesModule),
     forwardRef(() => NotificationsModule),
+    forwardRef(() => WaitingListModule),
   ],
   providers: [AuthService, JwtStrategy, GoogleStrategy, PrismaService],
   controllers: [AuthController],

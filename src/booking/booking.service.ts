@@ -69,9 +69,16 @@ export class BookingService {
             stops: { include: { station: true }, orderBy: { stopOrder: 'asc' } },
           },
         },
-        vehicle: true,
+        // Include vehicle + its seats so we can compute real availability
+        // (excluding BLOCKED driver seats, expired locks, etc.)
+        vehicle: {
+          include: {
+            seats: { select: { id: true, status: true, lockedUntil: true } },
+          },
+        },
         bookings: {
           where: { status: BookingStatus.CONFIRMED },
+          select: { id: true, seatId: true },
         },
       },
       orderBy: { departureTime: 'asc' },
@@ -98,9 +105,23 @@ export class BookingService {
       }, {} as Record<string, { avg: number; count: number }>);
     }
 
+    const now = new Date();
     return trips.map((trip) => {
-      const bookedCount = trip.bookings.length;
-      const availableSeats = trip.vehicle.capacity - bookedCount;
+      // Real availability: vehicle.seats minus CONFIRMED bookings for this
+      // trip, minus BLOCKED seats, minus currently-LOCKED seats.
+      let availableSeats: number;
+      if (trip.vehicle.seats.length > 0) {
+        const bookedSeatIds = new Set(trip.bookings.map((b) => b.seatId));
+        availableSeats = trip.vehicle.seats.filter((s) => {
+          if (bookedSeatIds.has(s.id)) return false;
+          if (s.status === 'BLOCKED') return false;
+          if (s.status === 'LOCKED' && s.lockedUntil && s.lockedUntil > now) return false;
+          return true;
+        }).length;
+      } else {
+        // Fallback for trips without provisioned seat rows
+        availableSeats = trip.vehicle.capacity - trip.bookings.length;
+      }
       const stats = driverStats[trip.driverId];
       // Prefer GPS-derived road distance when stations have coords,
       // fall back to the admin-entered totalDistanceKm.
@@ -215,8 +236,13 @@ export class BookingService {
       select: {
         departureTime: true,
         route: { select: { basePrice: true } },
-        vehicle: { select: { capacity: true } },
-        bookings: { where: { status: BookingStatus.CONFIRMED }, select: { id: true } },
+        vehicle: {
+          select: {
+            capacity: true,
+            seats: { select: { id: true, status: true, lockedUntil: true } },
+          },
+        },
+        bookings: { where: { status: BookingStatus.CONFIRMED }, select: { seatId: true } },
       },
     });
 
@@ -229,16 +255,29 @@ export class BookingService {
       buckets.set(key, { tripCount: 0, minPrice: null, availableSeats: 0 });
     }
 
+    const nowTs = new Date();
     for (const t of trips) {
       const d = new Date(t.departureTime);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const bucket = buckets.get(key);
       if (!bucket) continue;
       const price = Number(t.route.basePrice);
-      const available = t.vehicle.capacity - t.bookings.length;
-      if (available <= 0) continue;
+      let available: number;
+      if (t.vehicle.seats.length > 0) {
+        const bookedIds = new Set(t.bookings.map((b) => b.seatId));
+        available = t.vehicle.seats.filter((s) => {
+          if (bookedIds.has(s.id)) return false;
+          if (s.status === 'BLOCKED') return false;
+          if (s.status === 'LOCKED' && s.lockedUntil && s.lockedUntil > nowTs) return false;
+          return true;
+        }).length;
+      } else {
+        available = t.vehicle.capacity - t.bookings.length;
+      }
+      // Count the trip even if it's full — the ribbon should distinguish
+      // "no trip at all" (tripCount=0) from "fully sold" (tripCount>0, available=0).
       bucket.tripCount += 1;
-      bucket.availableSeats += available;
+      bucket.availableSeats += Math.max(0, available);
       bucket.minPrice = bucket.minPrice == null ? price : Math.min(bucket.minPrice, price);
     }
 

@@ -19,6 +19,8 @@ import { FeedbackPanel } from "@/components/admin/feedback-panel";
 import { WaitingListPanel } from "@/components/admin/waiting-list-panel";
 import { TenantSettingsPanel } from "@/components/admin/tenant-settings-panel";
 import { SuperTenantsPanel } from "@/components/admin/super-tenants-panel";
+import { SettlementPanel } from "@/components/admin/settlement-panel";
+import { SuperSettlementsPanel } from "@/components/admin/super-settlements-panel";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -103,6 +105,8 @@ function AdminDashboardContent() {
                  activeTab === 'waiting-list' ? 'Bekleme Listesi' :
                  activeTab === 'tenant' ? 'Firma Ayarları' :
                  activeTab === 'super-tenants' ? 'Platform · Firmalar' :
+                 activeTab === 'settlements' ? 'Hesap Özeti' :
+                 activeTab === 'super-settlements' ? 'Platform · Ödeme Takibi' :
                  'Panel'}
               </h2>
               <p className="text-zinc-500 dark:text-zinc-400 font-medium text-lg leading-snug">
@@ -120,6 +124,8 @@ function AdminDashboardContent() {
                  activeTab === 'waiting-list' ? 'Dolu seferlere kayıt olan yolcular; koltuk boşalınca otomatik e-posta atılır.' :
                  activeTab === 'tenant' ? 'Firma profili, logo, marka, iletişim, yasal bilgiler ve ödeme yönlendirme.' :
                  activeTab === 'super-tenants' ? 'Platformdaki tüm firmaları yönet: onay, askıya alma, komisyon oranı.' :
+                 activeTab === 'settlements' ? 'Ciro, platform komisyonu, net alacak ve ödeme durumu.' :
+                 activeTab === 'super-settlements' ? 'Tüm firmaların brut/komisyon/net kayıtları ve ödeme işaretleme.' :
                  'Verileriniz burada.'}
               </p>
             </div>
@@ -148,7 +154,9 @@ function AdminDashboardContent() {
                 <TabsContent value="feedback"><FeedbackPanel /></TabsContent>
                 <TabsContent value="waiting-list"><WaitingListPanel /></TabsContent>
                 <TabsContent value="tenant"><TenantSettingsPanel /></TabsContent>
+                <TabsContent value="settlements"><SettlementPanel /></TabsContent>
                 <TabsContent value="super-tenants"><SuperTenantsPanel /></TabsContent>
+                <TabsContent value="super-settlements"><SuperSettlementsPanel /></TabsContent>
               </Tabs>
             </div>
 

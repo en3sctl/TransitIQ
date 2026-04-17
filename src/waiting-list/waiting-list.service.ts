@@ -216,11 +216,17 @@ export class WaitingListService {
    */
   async handleSeatsFreed(tripId: string) {
     try {
+      this.logger.log(`[handleSeatsFreed] Triggered for tripId=${tripId}`);
       const trip = await this.prisma.trip.findUnique({
         where: { id: tripId },
         include: {
-          vehicle: { select: { capacity: true } },
-          bookings: { where: { status: 'CONFIRMED' }, select: { id: true } },
+          vehicle: {
+            select: {
+              capacity: true,
+              seats: { select: { id: true, status: true, lockedUntil: true } },
+            },
+          },
+          bookings: { where: { status: 'CONFIRMED' }, select: { id: true, seatId: true } },
           route: {
             include: {
               originStation: { select: { city: true, name: true } },
@@ -229,13 +235,39 @@ export class WaitingListService {
           },
         },
       });
-      if (!trip || trip.status !== 'PLANNED') return;
-      if (trip.departureTime.getTime() < Date.now()) return;
-
-      const available = trip.vehicle.capacity - trip.bookings.length;
-      if (available <= 0) return;
+      if (!trip) {
+        this.logger.warn(`[handleSeatsFreed] Trip ${tripId} not found`);
+        return;
+      }
+      if (trip.status !== 'PLANNED') {
+        this.logger.log(`[handleSeatsFreed] Trip ${tripId} status=${trip.status}, skipping`);
+        return;
+      }
+      if (trip.departureTime.getTime() < Date.now()) {
+        this.logger.log(`[handleSeatsFreed] Trip ${tripId} has already departed, skipping`);
+        return;
+      }
 
       const now = new Date();
+      // Real availability (excludes BLOCKED seats and active locks)
+      let available: number;
+      if (trip.vehicle.seats.length > 0) {
+        const bookedIds = new Set(trip.bookings.map((b) => b.seatId));
+        available = trip.vehicle.seats.filter((s) => {
+          if (bookedIds.has(s.id)) return false;
+          if (s.status === 'BLOCKED') return false;
+          if (s.status === 'LOCKED' && s.lockedUntil && s.lockedUntil > now) return false;
+          return true;
+        }).length;
+      } else {
+        available = trip.vehicle.capacity - trip.bookings.length;
+      }
+
+      if (available <= 0) {
+        this.logger.log(`[handleSeatsFreed] Trip ${tripId} has no actual availability (${available})`);
+        return;
+      }
+
       const renotifyCutoff = new Date(now.getTime() - this.RENOTIFY_MIN_HOURS * 3600 * 1000);
 
       const candidates = await this.prisma.waitingListEntry.findMany({
@@ -249,6 +281,7 @@ export class WaitingListService {
         take: this.NOTIFY_BATCH_LIMIT,
       });
 
+      this.logger.log(`[handleSeatsFreed] Trip ${tripId} — available=${available}, eligible candidates=${candidates.length}`);
       if (candidates.length === 0) return;
 
       const tripSummary = {
@@ -259,6 +292,7 @@ export class WaitingListService {
 
       for (const entry of candidates) {
         try {
+          this.logger.log(`[handleSeatsFreed] Notifying ${entry.contactEmail} for trip ${tripId}`);
           await this.notifications.sendSeatAvailable({
             to: entry.contactEmail,
             name: entry.contactName,

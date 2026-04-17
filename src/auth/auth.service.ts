@@ -8,6 +8,7 @@ import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto, UpdateProfileDto, ChangePasswordDto } from './dto/customer-auth.dto';
 import { BadRequestException } from '@nestjs/common';
 import { PaymentService } from '../payment/payment.service';
+import { WaitingListService } from '../waiting-list/waiting-list.service';
 import { ReferralService } from '../passenger-features/referral.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -58,6 +59,8 @@ export class AuthService {
     @Inject(forwardRef(() => ReferralService))
     private referralService: ReferralService,
     private notifications: NotificationsService,
+    @Inject(forwardRef(() => WaitingListService))
+    private waitingList: WaitingListService,
   ) {}
 
   private getFrontendUrl(): string {
@@ -601,6 +604,13 @@ export class AuthService {
         data: { refundStatus: 'MANUAL' },
       });
     }
+
+    // Notify top waiting-list members for this trip (fire-and-forget).
+    // Passenger-initiated cancels go through this path, so it's the
+    // primary trigger for seat-available emails.
+    this.waitingList.handleSeatsFreed(booking.tripId).catch((err) => {
+      console.error('[cancelOwnBooking] handleSeatsFreed failed:', err);
+    });
 
     return {
       message: `Bilet iptal edildi. ${refundMessage}`,

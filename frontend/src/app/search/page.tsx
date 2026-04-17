@@ -1,10 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { BrandLogo } from '@/components/brand-logo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Bus, Calendar, Clock, Lock, CheckCircle2, ShieldCheck, LifeBuoy, RefreshCcw, Users, Star } from "lucide-react";
+import { ArrowLeft, Bus, Calendar, Clock, Lock, CheckCircle2, ShieldCheck, LifeBuoy, RefreshCcw, Users, Star, BadgeCheck } from "lucide-react";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useBookingStore } from '@/store/useBookingStore';
@@ -415,18 +416,64 @@ function SearchResultsPageContent() {
 
                   <div className="flex flex-col gap-6">
                     {trips.map((trip) => (
-                      <div key={trip.id} className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-3xl p-5 shadow-sm flex flex-col w-full gap-3 hover:shadow-md hover:-translate-y-1 transition-all duration-300">
-                        {/* 0. Firma Header Row */}
+                      <div
+                        key={trip.id}
+                        className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-3xl shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-1 transition-all duration-300 flex flex-col xl:flex-row items-stretch w-full"
+                      >
+                        {/* 0. Firma block (Obilet-style, left column) */}
                         {trip.tenant && (
-                          <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800">
-                            <FirmaBadge tenant={trip.tenant} />
-                            <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">
-                              {trip.distanceKm ? `${trip.distanceKm} km` : 'Direkt sefer'}
-                            </span>
+                          <div
+                            className="w-full xl:w-44 flex xl:flex-col items-center xl:items-center justify-start xl:justify-center gap-3 xl:gap-2 px-5 py-4 xl:py-6 shrink-0 border-b xl:border-b-0 xl:border-r border-slate-100 dark:border-zinc-800"
+                            style={trip.tenant.brandColor ? {
+                              background: `linear-gradient(135deg, ${trip.tenant.brandColor}14, transparent 70%)`,
+                            } : undefined}
+                          >
+                            <Link
+                              href={`/firma/${trip.tenant.slug}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="shrink-0 hover:opacity-80 transition-opacity"
+                            >
+                              {trip.tenant.logoUrl ? (
+                                <div className="w-16 h-16 rounded-xl bg-white dark:bg-zinc-100 border border-slate-200 dark:border-zinc-300 overflow-hidden flex items-center justify-center p-1">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000') + trip.tenant.logoUrl}
+                                    alt={trip.tenant.name}
+                                    className="w-full h-full object-contain"
+                                  />
+                                </div>
+                              ) : (
+                                <div
+                                  className="w-16 h-16 rounded-xl flex items-center justify-center text-white text-2xl font-black"
+                                  style={{ backgroundColor: trip.tenant.brandColor || '#4f46e5' }}
+                                >
+                                  {trip.tenant.name[0].toUpperCase()}
+                                </div>
+                              )}
+                            </Link>
+                            <div className="flex-1 xl:flex-none xl:text-center min-w-0">
+                              <Link
+                                href={`/firma/${trip.tenant.slug}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 hover:text-indigo-600 dark:hover:text-indigo-400"
+                              >
+                                <span className="text-sm font-black tracking-tight text-slate-900 dark:text-white truncate max-w-[150px]">
+                                  {trip.tenant.name}
+                                </span>
+                                {trip.tenant.verified && (
+                                  <BadgeCheck className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                                )}
+                              </Link>
+                              {trip.distanceKm && (
+                                <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mt-0.5">
+                                  {trip.distanceKm} km
+                                </p>
+                              )}
+                            </div>
                           </div>
                         )}
 
-                        <div className="flex flex-col xl:flex-row items-center w-full gap-6">
+                        <div className="flex-1 flex flex-col xl:flex-row items-center w-full gap-6 p-5">
 
                         {/* 1. Time & Route Group */}
                         <div className="flex-1 flex items-center w-full gap-4">
@@ -679,59 +726,56 @@ function SearchResultsPageContent() {
 
               {/* Seat rows */}
               <div className="flex flex-col gap-2">
-                {seatLayout.rows.map((row) => (
-                  <div
-                    key={row.rowIndex}
-                    className={`flex items-center justify-between ${row.isBackRow ? 'mt-2 pt-3 border-t border-dashed border-slate-200 dark:border-zinc-800' : ''}`}
-                  >
-                    {/* Left side seats */}
-                    <div className="flex items-center gap-2">
-                      {row.seats.slice(0, seatLayout.leftCols).map((seat) =>
-                        seat ? (
-                          <motion.button
-                            key={seat.seatNumber}
-                            whileTap={seat.status === 'sold' || seat.status === 'locked' ? undefined : { scale: 0.9 }}
-                            disabled={seat.status === 'sold' || seat.status === 'locked'}
-                            onClick={() => handleToggleSeat(seat.seatNumber)}
-                            onMouseEnter={() => seat.status !== 'sold' && seat.status !== 'locked' && broadcastFocus(seat.seatNumber)}
-                            onMouseLeave={() => broadcastFocus(null)}
-                            className={`relative w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs border transition-all ${getSeatStyle(seat.seatNumber)} ${focusedSeats.has(seat.seatNumber) && !selectedSeats.includes(seat.seatNumber) ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-white dark:ring-offset-zinc-900' : ''}`}
-                          >
-                            {seat.seatNumber}
-                            {focusedSeats.has(seat.seatNumber) && !selectedSeats.includes(seat.seatNumber) && seat.status !== 'sold' && seat.status !== 'locked' && (
-                              <span aria-hidden="true" className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-zinc-900 animate-pulse" />
-                            )}
-                          </motion.button>
-                        ) : null
+                {seatLayout.rows.map((row) => {
+                  const seatBtn = (seat: any) => (
+                    <motion.button
+                      key={seat.seatNumber}
+                      whileTap={seat.status === 'sold' || seat.status === 'locked' ? undefined : { scale: 0.9 }}
+                      disabled={seat.status === 'sold' || seat.status === 'locked'}
+                      onClick={() => handleToggleSeat(seat.seatNumber)}
+                      onMouseEnter={() => seat.status !== 'sold' && seat.status !== 'locked' && broadcastFocus(seat.seatNumber)}
+                      onMouseLeave={() => broadcastFocus(null)}
+                      className={`relative w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs border transition-all ${getSeatStyle(seat.seatNumber)} ${focusedSeats.has(seat.seatNumber) && !selectedSeats.includes(seat.seatNumber) ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-white dark:ring-offset-zinc-900' : ''}`}
+                    >
+                      {seat.seatNumber}
+                      {focusedSeats.has(seat.seatNumber) && !selectedSeats.includes(seat.seatNumber) && seat.status !== 'sold' && seat.status !== 'locked' && (
+                        <span aria-hidden="true" className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-zinc-900 animate-pulse" />
                       )}
-                    </div>
+                    </motion.button>
+                  );
 
-                    {/* Aisle gap */}
-                    <div className="w-8" />
+                  // Back row: render ALL seats in sequence (the middle slot is a
+                  // real seat, not an aisle). Regular rows: left | aisle | right.
+                  if (row.isBackRow) {
+                    const realSeats = row.seats.filter((s): s is NonNullable<typeof s> => !!s);
+                    return (
+                      <div
+                        key={row.rowIndex}
+                        className="mt-2 pt-3 border-t border-dashed border-slate-200 dark:border-zinc-800 flex items-center justify-center gap-2"
+                      >
+                        {realSeats.map(seatBtn)}
+                      </div>
+                    );
+                  }
 
-                    {/* Right side seats */}
-                    <div className="flex items-center gap-2">
-                      {row.seats.slice(seatLayout.leftCols + 1).map((seat) =>
-                        seat ? (
-                          <motion.button
-                            key={seat.seatNumber}
-                            whileTap={seat.status === 'sold' || seat.status === 'locked' ? undefined : { scale: 0.9 }}
-                            disabled={seat.status === 'sold' || seat.status === 'locked'}
-                            onClick={() => handleToggleSeat(seat.seatNumber)}
-                            onMouseEnter={() => seat.status !== 'sold' && seat.status !== 'locked' && broadcastFocus(seat.seatNumber)}
-                            onMouseLeave={() => broadcastFocus(null)}
-                            className={`relative w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs border transition-all ${getSeatStyle(seat.seatNumber)} ${focusedSeats.has(seat.seatNumber) && !selectedSeats.includes(seat.seatNumber) ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-white dark:ring-offset-zinc-900' : ''}`}
-                          >
-                            {seat.seatNumber}
-                            {focusedSeats.has(seat.seatNumber) && !selectedSeats.includes(seat.seatNumber) && seat.status !== 'sold' && seat.status !== 'locked' && (
-                              <span aria-hidden="true" className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-zinc-900 animate-pulse" />
-                            )}
-                          </motion.button>
-                        ) : null
-                      )}
+                  return (
+                    <div
+                      key={row.rowIndex}
+                      className="flex items-center justify-between"
+                    >
+                      {/* Left side seats */}
+                      <div className="flex items-center gap-2">
+                        {row.seats.slice(0, seatLayout.leftCols).map((seat) => seat ? seatBtn(seat) : null)}
+                      </div>
+                      {/* Aisle gap */}
+                      <div className="w-8" />
+                      {/* Right side seats */}
+                      <div className="flex items-center gap-2">
+                        {row.seats.slice(seatLayout.leftCols + 1).map((seat) => seat ? seatBtn(seat) : null)}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

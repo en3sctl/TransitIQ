@@ -68,7 +68,11 @@ export function DateRibbon({ from, to, selectedDate, onSelectDate }: Props) {
   }, [from, to, centerDate]);
 
   const minOfAll = useMemo(() => {
-    const prices = days.map((d) => d.minPrice).filter((p): p is number => p !== null);
+    // Only consider days that have available seats — a "cheapest day" marker
+    // is useless if that day is fully sold.
+    const prices = days
+      .filter((d) => d.availableSeats > 0 && d.minPrice !== null)
+      .map((d) => d.minPrice as number);
     return prices.length ? Math.min(...prices) : null;
   }, [days]);
 
@@ -102,7 +106,8 @@ export function DateRibbon({ from, to, selectedDate, onSelectDate }: Props) {
             const isSelected = d.date === selectedDate;
             const past = isPast(d.date);
             const hasTrips = d.tripCount > 0;
-            const isCheapest = minOfAll != null && d.minPrice === minOfAll;
+            const isFull = hasTrips && d.availableSeats === 0;
+            const isCheapest = !isFull && minOfAll != null && d.minPrice === minOfAll;
 
             return (
               <button
@@ -115,6 +120,8 @@ export function DateRibbon({ from, to, selectedDate, onSelectDate }: Props) {
                     ? 'border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                     : past
                     ? 'border-slate-100 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/50 text-slate-300 dark:text-zinc-600 cursor-not-allowed'
+                    : isFull
+                    ? 'border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5 hover:border-amber-400 text-amber-700 dark:text-amber-400'
                     : hasTrips
                     ? 'border-slate-200 dark:border-zinc-800 hover:border-indigo-400 hover:bg-indigo-50/40 dark:hover:bg-indigo-500/5 text-slate-700 dark:text-zinc-200'
                     : 'border-slate-100 dark:border-zinc-900 text-slate-400 dark:text-zinc-600 hover:border-slate-300'
@@ -128,6 +135,10 @@ export function DateRibbon({ from, to, selectedDate, onSelectDate }: Props) {
                 </span>
                 {past ? (
                   <span className="text-[10px] font-semibold">—</span>
+                ) : isFull ? (
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${isSelected ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`}>
+                    Dolu
+                  </span>
                 ) : d.minPrice != null ? (
                   <span
                     className={`text-[11px] font-bold ${
