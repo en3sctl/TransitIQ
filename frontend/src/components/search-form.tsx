@@ -42,15 +42,14 @@ export default function SearchForm() {
       alert('Kalkış ve varış aynı olamaz.');
       return;
     }
-    if (!date) {
-      alert('Lütfen gidiş tarihi seçin.');
-      return;
-    }
+    // Tarih opsiyonel: boş bırakılırsa bugünün tarihi kullanılır.
+    // Kullanıcı şeritten başka günleri ve fiyatlarını görebilir.
+    const effectiveDate = date || new Date().toISOString().slice(0, 10);
     const originStation = stations.find((s) => s.id === origin);
     const destStation = stations.find((s) => s.id === destination);
     const originName = encodeURIComponent(originStation?.city || originStation?.name || '');
     const destName = encodeURIComponent(destStation?.city || destStation?.name || '');
-    router.push(`/search?originId=${origin}&destinationId=${destination}&date=${date}&from=${originName}&to=${destName}`);
+    router.push(`/search?originId=${origin}&destinationId=${destination}&date=${effectiveDate}&from=${originName}&to=${destName}${date ? '' : '&flex=1'}`);
   };
 
   return (
@@ -107,8 +106,11 @@ export default function SearchForm() {
             min={new Date().toISOString().slice(0, 10)}
             onChange={(e) => setDate(e.target.value)}
             className="w-full bg-transparent border-0 p-0 h-auto text-sm font-semibold text-slate-900 focus:ring-0 outline-none [color-scheme:light] cursor-pointer"
-            required
+            aria-label="Tarih (opsiyonel)"
           />
+          {!date && (
+            <span className="text-[10px] font-bold text-indigo-600/80 mt-0.5 hidden md:block">Esnek — günleri karşılaştır</span>
+          )}
         </div>
       </div>
 

@@ -21,6 +21,7 @@ import {
   Percent,
   TrendingUp,
   MessageSquare,
+  BellRing,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -42,6 +43,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: "drivers", icon: Users, label: 'Sürücü Paneli' },
     { id: "promo", icon: Percent, label: 'Promo Kodları' },
     { id: "feedback", icon: MessageSquare, label: 'Geri Bildirim' },
+    { id: "waiting-list", icon: BellRing, label: 'Bekleme Listesi' },
   ];
 
   const secondaryItems = [

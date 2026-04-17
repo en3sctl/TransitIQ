@@ -8,6 +8,7 @@ import { ReferralService } from '../passenger-features/referral.service';
 import { AuditService } from '../common/audit/audit.service';
 import { SeatsGateway } from './seats.gateway';
 import { LocationService } from '../shared/location/location.service';
+import { WaitingListService } from '../waiting-list/waiting-list.service';
 
 const LOCK_DURATION_MINUTES = 10;
 
@@ -24,6 +25,8 @@ export class BookingService {
     @Inject(forwardRef(() => SeatsGateway))
     private seatsGateway: SeatsGateway,
     private location: LocationService,
+    @Inject(forwardRef(() => WaitingListService))
+    private waitingList: WaitingListService,
   ) {}
 
   // ─── Search Trips ───
@@ -124,7 +127,9 @@ export class BookingService {
           offsetMinutes: s.arrivalTimeOffsetMinutes,
         })),
       };
-    }).filter((trip) => trip.availableSeats > 0);
+    });
+    // NOTE: full trips (availableSeats = 0) are intentionally kept in the
+    // response so the UI can offer a "join waiting list" action for them.
   }
 
   // ─── Public: driver reviews (PII-masked) for the selected-trip panel ───
@@ -833,6 +838,10 @@ export class BookingService {
       oldValues: { status: booking.status, pnr: booking.pnrCode },
       newValues: { status: 'CANCELLED', refundRequested: !!opts?.refund },
     });
+
+    // Seat just became available — notify top waiting-list members for this trip.
+    // Fire-and-forget: must never block the cancel response.
+    this.waitingList.handleSeatsFreed(booking.tripId).catch(() => {});
 
     return {
       booking: cancelled,

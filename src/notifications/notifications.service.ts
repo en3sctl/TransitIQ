@@ -209,6 +209,62 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Notify a waiting-list member that a seat has opened up.
+   * Links directly to the seat-selection step with the trip preselected.
+   */
+  async sendSeatAvailable(args: {
+    to: string;
+    name: string;
+    tripId: string;
+    origin: string;
+    destination: string;
+    departureTime: Date;
+    availableSeats: number;
+  }) {
+    if (!this.enabled || !this.resend) {
+      this.logger.warn(`[EMAIL] Seat-available skipped — RESEND_API_KEY missing. Would have notified: ${args.to}`);
+      return;
+    }
+    try {
+      const baseUrl = this.config.get<string>('FRONTEND_URL', 'https://transitiq.com');
+      const dep = new Date(args.departureTime);
+      const dateStr = `${dep.getDate()} ${MONTHS_TR[dep.getMonth()]} ${dep.getFullYear()}`;
+      const timeStr = dep.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      const deepLink = `${baseUrl}/search?from=${encodeURIComponent(args.origin)}&to=${encodeURIComponent(args.destination)}&date=${dep.toISOString().slice(0, 10)}&tripId=${args.tripId}`;
+
+      const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f1f5f9;padding:40px 20px;margin:0"><div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.05)">
+        <div style="display:inline-block;background:#ecfdf5;color:#047857;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:0.04em;margin-bottom:16px">KOLTUK AÇILDI</div>
+        <h1 style="font-size:22px;font-weight:900;margin:0 0 12px;color:#0f172a">${escapeHtml(args.origin)} → ${escapeHtml(args.destination)}</h1>
+        <p style="color:#475569;line-height:1.6;margin:0 0 20px">Merhaba ${escapeHtml(args.name)}, beklediğin seferde koltuk açıldı! Hemen rezervasyon yapabilirsin — ilk gelen kapar, o yüzden hızlı olmalısın.</p>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin:20px 0">
+          <p style="margin:0 0 6px;color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase">Sefer detayı</p>
+          <p style="margin:0 0 4px;color:#0f172a;font-size:16px;font-weight:800">${dateStr} · ${timeStr}</p>
+          <p style="margin:0;color:#64748b;font-size:13px">${args.availableSeats} koltuk mevcut</p>
+        </div>
+        <a href="${deepLink}" style="display:inline-block;background:#10b981;color:white;text-decoration:none;padding:14px 28px;border-radius:12px;font-weight:700;font-size:14px">Koltuğumu Al</a>
+        <p style="color:#94a3b8;font-size:12px;line-height:1.5;margin:32px 0 8px">Artık bu seferle ilgilenmiyorsan e-postayı yok sayabilirsin — listeden çıkmak için hesabındaki "Bekleme Listem" sayfasını kullanabilirsin.</p>
+        <hr style="border:0;border-top:1px solid #e2e8f0;margin:24px 0" />
+        <p style="color:#94a3b8;font-size:11px;margin:0">Bağlantı çalışmıyorsa:<br><span style="word-break:break-all">${escapeHtml(deepLink)}</span></p>
+      </div></body></html>`;
+
+      const result: any = await this.resend.emails.send({
+        from: this.fromAddress,
+        to: args.to,
+        subject: `Koltuk açıldı — ${args.origin} → ${args.destination} (${dateStr})`,
+        html,
+      });
+
+      if (result?.error) {
+        this.logger.error(`[EMAIL] Seat-available Resend error for ${args.to}: ${JSON.stringify(result.error)}`);
+      } else {
+        this.logger.log(`[EMAIL] Seat-available sent to ${args.to} (id=${result?.data?.id || 'unknown'})`);
+      }
+    } catch (err) {
+      this.logger.error(`[EMAIL] sendSeatAvailable threw: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
   async sendBookingConfirmation(pnrCodes: string[]) {
     if (!this.enabled || !this.resend || pnrCodes.length === 0) return;
 

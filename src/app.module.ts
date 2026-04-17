@@ -26,6 +26,7 @@ import { OtogarModule } from './shared/otogar/otogar.module';
 import { PassengerFeaturesModule } from './passenger-features/passenger-features.module';
 import { PromoModule } from './promo/promo.module';
 import { FeedbackModule } from './feedback/feedback.module';
+import { WaitingListModule } from './waiting-list/waiting-list.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { FeedbackModule } from './feedback/feedback.module';
     PassengerFeaturesModule,
     PromoModule,
     FeedbackModule,
+    WaitingListModule,
   ],
   controllers: [AppController],
   providers: [

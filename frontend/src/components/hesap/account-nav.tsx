@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Ticket, User, Wallet, Bell, Award, Gift, LogOut } from "lucide-react";
+import { Ticket, User, Wallet, Bell, Award, Gift, LogOut, BellRing } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 
 const ITEMS = [
   { href: '/hesap/biletlerim', label: 'Biletlerim', icon: Ticket },
+  { href: '/hesap/bekleme-listem', label: 'Bekleme Listem', icon: BellRing },
   { href: '/hesap/cuzdan', label: 'Cüzdan', icon: Wallet },
   { href: '/hesap/fiyat-alarmlari', label: 'Fiyat Alarmları', icon: Bell },
   { href: '/hesap/rozetler', label: 'Rozetler', icon: Award },

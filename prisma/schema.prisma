@@ -492,3 +492,24 @@ model Complaint {
   @@index([bookingId])
   @@map("complaints")
 }
+
+model WaitingListEntry {
+  id             String    @id @default(uuid())
+  tenantId       String    @map("tenant_id")
+  tripId         String    @map("trip_id")
+  userId         String?   @map("user_id")  // null = guest entry
+  contactName    String    @map("contact_name")
+  contactEmail   String    @map("contact_email")
+  contactPhone   String?   @map("contact_phone")
+  passengerCount Int       @default(1) @map("passenger_count")
+  status         String    @default("WAITING")  // WAITING, NOTIFIED, CONVERTED, EXPIRED, CANCELLED
+  notifiedAt     DateTime? @map("notified_at")
+  notifyCount    Int       @default(0) @map("notify_count")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([tripId, status, createdAt])
+  @@index([tenantId, status])
+  @@index([userId])
+  @@map("waiting_list")
+}

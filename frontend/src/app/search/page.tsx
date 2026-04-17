@@ -18,6 +18,8 @@ import { MultiLegResults } from '@/components/search/multi-leg-results';
 import { findAdjacentSeats } from '@/lib/seat-grouping';
 import { DateRibbon } from '@/components/search/date-ribbon';
 import { TripReviews } from '@/components/search/trip-reviews';
+import { WaitingListModal } from '@/components/search/waiting-list-modal';
+import { BellRing } from 'lucide-react';
 
 const MAX_SEATS = 5;
 
@@ -56,6 +58,7 @@ function SearchResultsPageContent() {
   // Fallback: if no date specified, default to today (yesterday's cheap-trip links etc.)
   const rawDate = searchParams.get('date');
   const dateStr = rawDate && rawDate.trim() ? rawDate : new Date().toISOString().split('T')[0];
+  const isFlexDate = searchParams.get('flex') === '1';
 
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoadingTrips, setIsLoadingTrips] = useState(true);
@@ -64,6 +67,7 @@ function SearchResultsPageContent() {
   const [isLoadingSeats, setIsLoadingSeats] = useState<boolean>(false);
   const [isRedirectingToCheckout, setIsRedirectingToCheckout] = useState<boolean>(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [waitingListTrip, setWaitingListTrip] = useState<Trip | null>(null);
 
   // Zustand store
   const selectedSeats = useBookingStore((s) => s.selectedSeats);
@@ -155,6 +159,16 @@ function SearchResultsPageContent() {
     });
     return map;
   }, [apiSeats]);
+
+  const isTripFull = useMemo(() => {
+    // Primary source: live seat map (picks up mid-session locks too).
+    if (apiSeats.length > 0) {
+      return apiSeats.every((s) => s.status !== 'AVAILABLE');
+    }
+    // Fallback while apiSeats is still loading — trust the trip's own count.
+    if (selectedTrip) return selectedTrip.availableSeats === 0;
+    return false;
+  }, [apiSeats, selectedTrip]);
 
   // Generate seat layout from engine
   const seatLayout = useMemo(() => {
@@ -353,7 +367,9 @@ function SearchResultsPageContent() {
                   <div className="flex flex-col items-center justify-center py-10 gap-3">
                     <Bus className="w-12 h-12 text-slate-300 dark:text-zinc-600" />
                     <p className="text-base font-bold text-slate-500 dark:text-zinc-400">Bu tarih için direkt sefer bulunamadı</p>
-                    <p className="text-xs text-slate-400 dark:text-zinc-500">Aşağıda aktarmalı seçenekleri kontrol ediyoruz</p>
+                    <p className="text-xs text-slate-400 dark:text-zinc-500">
+                      {isFlexDate ? 'Yukarıdaki şeritten başka bir günü dene veya aktarmalıyı kontrol ediyoruz' : 'Aşağıda aktarmalı seçenekleri kontrol ediyoruz'}
+                    </p>
                   </div>
                   <MultiLegResults
                     from={decodeURIComponent(fromCity)}
@@ -369,8 +385,13 @@ function SearchResultsPageContent() {
                 </div>
               ) : (
                 <>
-                  <div className="flex justify-between items-center text-sm font-bold text-slate-500 dark:text-zinc-400">
+                  <div className="flex justify-between items-center text-sm font-bold text-slate-500 dark:text-zinc-400 flex-wrap gap-2">
                     <span>Mevcut Seferler ({trips.length})</span>
+                    {isFlexDate && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest">
+                        Esnek tarih · Şeritten gün seç
+                      </span>
+                    )}
                   </div>
 
                   {/* Price history + carbon for this route (once, above trips) */}
@@ -426,16 +447,31 @@ function SearchResultsPageContent() {
                         {/* 3. Price & Action */}
                         <div className="w-52 flex-shrink-0 flex items-center justify-end gap-4 border-t xl:border-t-0 xl:border-l border-slate-100 dark:border-zinc-800 pt-4 xl:pt-0 xl:pl-4 h-full">
                           <div className="flex flex-col items-end gap-1">
-                            <span className="bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider">Son {trip.availableSeats} Koltuk</span>
-                            <span className="text-2xl font-black text-slate-900 dark:text-white">₺{trip.price}</span>
+                            {trip.availableSeats === 0 ? (
+                              <span className="bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider">Dolu</span>
+                            ) : (
+                              <span className="bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider">Son {trip.availableSeats} Koltuk</span>
+                            )}
+                            <span className={`text-2xl font-black ${trip.availableSeats === 0 ? 'text-slate-400 dark:text-zinc-600' : 'text-slate-900 dark:text-white'}`}>₺{trip.price}</span>
                           </div>
-                          <Button
-                            onClick={() => handleSelectTrip(trip)}
-                            size="sm"
-                            className="bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl font-bold px-4 active:scale-95 transition-all duration-150"
-                          >
-                            Koltuk Seç
-                          </Button>
+                          {trip.availableSeats === 0 ? (
+                            <Button
+                              onClick={() => setWaitingListTrip(trip)}
+                              size="sm"
+                              className="bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold px-4 active:scale-95 transition-all duration-150 inline-flex items-center gap-1.5"
+                            >
+                              <BellRing className="w-3.5 h-3.5" />
+                              Haber Ver
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={() => handleSelectTrip(trip)}
+                              size="sm"
+                              className="bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl font-bold px-4 active:scale-95 transition-all duration-150"
+                            >
+                              Koltuk Seç
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -529,6 +565,30 @@ function SearchResultsPageContent() {
                 <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{selectedSeats.length}/{MAX_SEATS}</span>
               </div>
             </div>
+
+            {/* Full-trip waiting-list CTA */}
+            {isTripFull && selectedTrip && (
+              <div className="mb-5 rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 p-5">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 dark:bg-amber-500/20 flex items-center justify-center shrink-0">
+                    <BellRing className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-black tracking-tight text-amber-900 dark:text-amber-200 mb-1">Bu sefer tamamen dolu</h4>
+                    <p className="text-xs text-amber-800/80 dark:text-amber-300/80 font-medium leading-relaxed mb-3">
+                      Bekleme listesine gir, koltuk boşalınca ilk 5 kişiye anında e-posta atıyoruz.
+                    </p>
+                    <button
+                      onClick={() => setWaitingListTrip(selectedTrip)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition-colors"
+                    >
+                      <BellRing className="w-3.5 h-3.5" />
+                      Haber Ver Beni
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Legend */}
             <div className="grid grid-cols-2 gap-2 justify-center mb-6 text-xs font-bold text-slate-500 dark:text-zinc-400">
@@ -795,6 +855,18 @@ function SearchResultsPageContent() {
           </div>
         )}
       </main>
+
+      <AnimatePresence>
+        {waitingListTrip && (
+          <WaitingListModal
+            tripId={waitingListTrip.id}
+            origin={waitingListTrip.origin}
+            destination={waitingListTrip.destination}
+            departureTime={waitingListTrip.departureTime}
+            onClose={() => setWaitingListTrip(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

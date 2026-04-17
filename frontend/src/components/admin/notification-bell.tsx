@@ -1,59 +1,86 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, AlertTriangle, RotateCcw, Bus, Clock, CheckCircle2, ShieldAlert, MessageSquareWarning } from "lucide-react";
+import { Bell, AlertTriangle, RotateCcw, Bus, Clock, CheckCircle2, ShieldAlert, MessageSquareWarning, ChevronDown, ChevronRight, CheckCheck } from "lucide-react";
 import api from "@/lib/api";
+
+type NotifType = 'CRITICAL' | 'WARNING' | 'INFO';
+type NotifCategory = 'COMPLAINTS' | 'VEHICLES' | 'PAYMENTS' | 'OTHER';
 
 interface Notif {
   id: string;
-  type: 'CRITICAL' | 'WARNING' | 'INFO';
+  type: NotifType;
+  category: NotifCategory;
   title: string;
   description: string;
   tab: string;
   icon: any;
 }
 
+const CATEGORY_META: Record<NotifCategory, { label: string; icon: any; tone: string }> = {
+  COMPLAINTS: { label: 'Şikayetler', icon: ShieldAlert, tone: 'rose' },
+  VEHICLES: { label: 'Araç Uyarıları', icon: Bus, tone: 'amber' },
+  PAYMENTS: { label: 'Ödeme / İade', icon: RotateCcw, tone: 'indigo' },
+  OTHER: { label: 'Diğer', icon: AlertTriangle, tone: 'slate' },
+};
+
+const CATEGORY_ORDER: NotifCategory[] = ['COMPLAINTS', 'PAYMENTS', 'VEHICLES', 'OTHER'];
+const TONE_CLASS: Record<string, string> = {
+  rose: 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400',
+  amber: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  indigo: 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+  slate: 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400',
+};
+
 const COMPLAINT_CATEGORY_LABELS: Record<string, string> = {
-  DELAY: 'Gecikme',
-  DRIVER: 'Şoför',
-  CLEANLINESS: 'Temizlik',
-  PAYMENT: 'Ödeme',
-  SEAT: 'Koltuk',
-  OTHER: 'Diğer',
+  DELAY: 'Gecikme', DRIVER: 'Şoför', CLEANLINESS: 'Temizlik',
+  PAYMENT: 'Ödeme', SEAT: 'Koltuk', OTHER: 'Diğer',
 };
 const COMPLAINT_PRIORITY_LABELS: Record<string, string> = {
-  LOW: 'Düşük',
-  NORMAL: 'Normal',
-  HIGH: 'Yüksek',
-  URGENT: 'Acil',
+  LOW: 'Düşük', NORMAL: 'Normal', HIGH: 'Yüksek', URGENT: 'Acil',
 };
 const categoryLabel = (c: string) => COMPLAINT_CATEGORY_LABELS[c] || c;
 const priorityLabel = (p: string) => COMPLAINT_PRIORITY_LABELS[p] || p;
 
+// Dismissal store — keeps an id → timestamp map. An entry older than TTL is
+// reactivated, so admins are re-notified if the underlying issue persists.
+const DISMISS_KEY = 'transitiq.admin.dismissedNotifs.v1';
+const DISMISS_TTL_MS = 12 * 60 * 60 * 1000;
+
+function loadDismissed(): Record<string, number> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(DISMISS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    const now = Date.now();
+    const fresh: Record<string, number> = {};
+    for (const [id, ts] of Object.entries(parsed)) {
+      if (now - ts < DISMISS_TTL_MS) fresh[id] = ts;
+    }
+    return fresh;
+  } catch {
+    return {};
+  }
+}
+
+function saveDismissed(map: Record<string, number>) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(DISMISS_KEY, JSON.stringify(map));
+}
+
 export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const [open, setOpen] = useState(false);
-  const [notifs, setNotifs] = useState<Notif[]>([]);
+  const [allNotifs, setAllNotifs] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dismissed, setDismissed] = useState<Record<string, number>>({});
+  const [collapsed, setCollapsed] = useState<Record<NotifCategory, boolean>>({
+    COMPLAINTS: false, VEHICLES: false, PAYMENTS: false, OTHER: false,
+  });
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 60000); // refresh every 60s
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    if (open) document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const res = await api.get('/analytics/overview');
       const data = res.data;
@@ -61,8 +88,9 @@ export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) =>
 
       if (data.alerts.failedRefunds > 0) {
         list.push({
-          id: 'failed-refunds',
+          id: `failed-refunds-${data.alerts.failedRefunds}`,
           type: 'CRITICAL',
+          category: 'PAYMENTS',
           title: `${data.alerts.failedRefunds} iade başarısız`,
           description: 'Iyzico üzerinden otomatik iade yapılamadı. Manuel müdahale gerekli.',
           tab: 'bookings',
@@ -70,10 +98,11 @@ export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) =>
         });
       }
 
-      data.alerts.expiredVehicles.forEach((v: any, i: number) => {
+      data.alerts.expiredVehicles.forEach((v: any) => {
         list.push({
           id: `expired-${v.id}`,
           type: 'CRITICAL',
+          category: 'VEHICLES',
           title: `${v.plate} süresi geçmiş`,
           description: `${v.muayeneExpired ? 'Muayene' : ''}${v.muayeneExpired && v.sigortaExpired ? ' + ' : ''}${v.sigortaExpired ? 'Sigorta' : ''} süresi dolmuş.`,
           tab: 'vehicles',
@@ -88,6 +117,7 @@ export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) =>
         list.push({
           id: `expiring-${v.id}`,
           type: 'WARNING',
+          category: 'VEHICLES',
           title: `${v.plate} yaklaşıyor`,
           description: `${days} gün içinde muayene/sigorta yenilemesi lazım.`,
           tab: 'vehicles',
@@ -95,12 +125,12 @@ export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) =>
         });
       });
 
-      // Recent complaints (detailed items)
       (data.alerts.recentComplaints || []).forEach((c: any) => {
         const isUrgent = c.priority === 'HIGH' || c.priority === 'URGENT';
         list.push({
           id: `complaint-${c.id}`,
           type: isUrgent ? 'CRITICAL' : 'WARNING',
+          category: 'COMPLAINTS',
           title: c.subject?.length > 60 ? c.subject.slice(0, 57) + '...' : (c.subject || 'Yeni şikayet'),
           description: `${c.contactName || 'Yolcu'} · ${categoryLabel(c.category)}${isUrgent ? ' · ' + priorityLabel(c.priority) : ''}`,
           tab: 'feedback',
@@ -108,30 +138,85 @@ export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) =>
         });
       });
 
-      // Aggregate notice when there are more open complaints than shown in detail
       const openCount = data.alerts.openComplaintsCount || 0;
       const shownCount = (data.alerts.recentComplaints || []).length;
       if (openCount > shownCount) {
+        const remaining = openCount - shownCount;
         list.push({
-          id: 'complaints-more',
+          id: `complaints-more-${remaining}`,
           type: (data.alerts.urgentComplaintsCount || 0) > 0 ? 'CRITICAL' : 'WARNING',
-          title: `${openCount - shownCount} açık şikayet daha`,
+          category: 'COMPLAINTS',
+          title: `${remaining} açık şikayet daha`,
           description: 'Tümünü görüntülemek için şikayetler sekmesine git.',
           tab: 'feedback',
           icon: MessageSquareWarning,
         });
       }
 
-      setNotifs(list);
+      setAllNotifs(list);
     } catch {
       // silent
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  const criticalCount = notifs.filter(n => n.type === 'CRITICAL').length;
-  const totalCount = notifs.length;
+  useEffect(() => {
+    setDismissed(loadDismissed());
+    load();
+    const interval = setInterval(load, 60000);
+    return () => clearInterval(interval);
+  }, [load]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    if (open) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const dismiss = (id: string) => {
+    const next = { ...dismissed, [id]: Date.now() };
+    setDismissed(next);
+    saveDismissed(next);
+  };
+
+  const dismissAll = () => {
+    const now = Date.now();
+    const next = { ...dismissed };
+    for (const n of visible) next[n.id] = now;
+    setDismissed(next);
+    saveDismissed(next);
+  };
+
+  const visible = useMemo(
+    () => allNotifs.filter((n) => !dismissed[n.id]),
+    [allNotifs, dismissed],
+  );
+
+  const grouped = useMemo(() => {
+    const buckets: Record<NotifCategory, Notif[]> = {
+      COMPLAINTS: [], VEHICLES: [], PAYMENTS: [], OTHER: [],
+    };
+    for (const n of visible) buckets[n.category].push(n);
+    return buckets;
+  }, [visible]);
+
+  const criticalCount = visible.filter(n => n.type === 'CRITICAL').length;
+  const totalCount = visible.length;
+
+  const handleClickNotif = (n: Notif) => {
+    dismiss(n.id);
+    setOpen(false);
+    onNavigate?.(n.tab);
+  };
+
+  const toggleCollapse = (cat: NotifCategory) => {
+    setCollapsed((c) => ({ ...c, [cat]: !c[cat] }));
+  };
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -157,45 +242,105 @@ export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) =>
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-12 w-96 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-50"
+            className="absolute right-0 top-12 w-[420px] max-w-[92vw] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden z-50"
           >
-            <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
-              <div className="flex items-center justify-between">
+            <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
                 <h3 className="text-sm font-black tracking-tight text-zinc-900 dark:text-white">Bildirimler</h3>
                 {totalCount > 0 && (
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{totalCount} yeni</span>
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800">
+                    {totalCount}
+                  </span>
                 )}
               </div>
+              {totalCount > 0 && (
+                <button
+                  onClick={dismissAll}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  Tümünü okundu
+                </button>
+              )}
             </div>
-            <div className="max-h-96 overflow-y-auto">
+
+            <div className="max-h-[480px] overflow-y-auto overscroll-contain">
               {loading ? (
                 <div className="p-8 text-center text-xs font-bold text-zinc-400">Yükleniyor...</div>
-              ) : notifs.length === 0 ? (
+              ) : totalCount === 0 ? (
                 <div className="p-8 text-center">
                   <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
                   <p className="text-sm font-bold text-zinc-900 dark:text-white">Her şey yolunda</p>
                   <p className="text-[11px] font-semibold text-zinc-400 mt-1">Acil müdahale gerektiren durum yok</p>
                 </div>
               ) : (
-                <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                  {notifs.map(n => (
-                    <button
-                      key={n.id}
-                      onClick={() => { setOpen(false); onNavigate?.(n.tab); }}
-                      className="w-full flex items-start gap-3 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
-                    >
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        n.type === 'CRITICAL' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400' :
-                        'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                      }`}>
-                        <n.icon className="w-4 h-4" />
+                <div>
+                  {CATEGORY_ORDER.map((cat) => {
+                    const items = grouped[cat];
+                    if (items.length === 0) return null;
+                    const meta = CATEGORY_META[cat];
+                    const CatIcon = meta.icon;
+                    const isCollapsed = collapsed[cat];
+                    const catCritical = items.some((i) => i.type === 'CRITICAL');
+                    return (
+                      <div key={cat} className="border-b last:border-b-0 border-zinc-100 dark:border-zinc-800">
+                        <button
+                          onClick={() => toggleCollapse(cat)}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                        >
+                          {isCollapsed ? <ChevronRight className="w-3 h-3 text-zinc-400" /> : <ChevronDown className="w-3 h-3 text-zinc-400" />}
+                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${TONE_CLASS[meta.tone]}`}>
+                            <CatIcon className="w-3 h-3" />
+                          </div>
+                          <span className="text-[11px] font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300">{meta.label}</span>
+                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ml-auto ${catCritical ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'}`}>
+                            {items.length}
+                          </span>
+                        </button>
+
+                        <AnimatePresence initial={false}>
+                          {!isCollapsed && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.15 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                                {items.map(n => (
+                                  <div key={n.id} className="group flex items-start gap-2 pl-8 pr-2 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                    <button
+                                      onClick={() => handleClickNotif(n)}
+                                      className="flex-1 flex items-start gap-3 text-left min-w-0"
+                                    >
+                                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                        n.type === 'CRITICAL' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400' :
+                                        'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                      }`}>
+                                        <n.icon className="w-3.5 h-3.5" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{n.title}</p>
+                                        <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">{n.description}</p>
+                                      </div>
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); dismiss(n.id); }}
+                                      className="opacity-0 group-hover:opacity-100 shrink-0 text-[10px] font-bold text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 px-2 py-1 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all"
+                                      title="Okundu olarak işaretle"
+                                    >
+                                      Okundu
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-zinc-900 dark:text-white">{n.title}</p>
-                        <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">{n.description}</p>
-                      </div>
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

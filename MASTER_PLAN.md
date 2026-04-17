@@ -767,7 +767,7 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 
 ### Faz 6.5 — Büyüme & UX Geliştirmeleri (yeni eklendi)
 - [ ] **Kurumsal/B2B yolcu hesabı** — şirketler çalışanları için bilet alır (fatura + tek onay)
-- [ ] **Bekleme listesi** — dolu seferlere kayıt → boşalınca bildirim
+- [x] **Bekleme listesi** — dolu seferlere kayıt → koltuk boşalınca ilk 5 kişiye otomatik e-posta; guest+auth; yolcu/admin panelleri; cancel flow'una fire-and-forget hook; 24sa re-notify limit
 - [ ] **Bilet devretme / hediye** — başkasına PNR transfer
 - [ ] **Hediye kartları** — tutar yükleyip başkasına hediye etme
 - [ ] **Loyalty seviyeleri** — Silver/Gold/Platinum (rozet sisteminin üstüne)
