@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, BadgeCheck, Pause, Play, ShieldCheck, Percent, ExternalLink, Search } from "lucide-react";
+import { Loader2, BadgeCheck, Pause, Play, ShieldCheck, Percent, ExternalLink, Search, UserCog } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 
@@ -56,6 +56,29 @@ export function SuperTenantsPanel() {
       load();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Güncellenemedi');
+    }
+  };
+
+  const impersonate = async (id: string, name: string) => {
+    if (!confirm(`"${name}" firmasının admin panelinde oturum açılacak. Tüm aksiyonlar denetim logunda kaydedilir. Devam?`)) return;
+    try {
+      const res = await api.post(`/super-admin/tenants/${id}/impersonate`, {});
+      const { token, user } = res.data;
+      // Save current super-admin session for restoration
+      const currentToken = localStorage.getItem('token');
+      const currentUser = localStorage.getItem('user');
+      if (currentToken && currentUser) {
+        localStorage.setItem('super_admin_token', currentToken);
+        localStorage.setItem('super_admin_user', currentUser);
+      }
+      // Swap to impersonated session
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      toast.success(`${name} olarak giriş yapıldı (30 dk geçerli)`);
+      // Hard reload so all context/state resets
+      window.location.href = '/admin';
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Impersonate başarısız');
     }
   };
 
@@ -220,6 +243,13 @@ export function SuperTenantsPanel() {
                       className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100"
                     >
                       <Percent className="w-3 h-3" /> Komisyon
+                    </button>
+                    <button
+                      onClick={() => impersonate(t.id, t.publicName || t.name)}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 hover:bg-purple-100"
+                      title="Bu firma olarak oturum aç (destek için)"
+                    >
+                      <UserCog className="w-3 h-3" /> Giriş Yap
                     </button>
                     <a
                       href={`/firma/${t.slug}`}

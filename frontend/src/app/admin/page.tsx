@@ -22,6 +22,14 @@ import { SuperTenantsPanel } from "@/components/admin/super-tenants-panel";
 import { SettlementPanel } from "@/components/admin/settlement-panel";
 import { SuperSettlementsPanel } from "@/components/admin/super-settlements-panel";
 import { GlobalSearch } from "@/components/admin/global-search";
+import { PlatformOverviewPanel } from "@/components/admin/platform-overview-panel";
+import { PlatformApprovalsPanel } from "@/components/admin/platform-approvals-panel";
+import { PlatformLookupPanel } from "@/components/admin/platform-lookup-panel";
+import { PlatformAuditPanel } from "@/components/admin/platform-audit-panel";
+import { PlatformAnnouncementsPanel } from "@/components/admin/platform-announcements-panel";
+import { PlatformUsersPanel } from "@/components/admin/platform-users-panel";
+import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { AnnouncementBanner } from "@/components/announcement-banner";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -68,10 +76,12 @@ function AdminDashboardContent() {
 
   return (
     <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans selection:bg-indigo-100 dark:selection:bg-indigo-900 text-zinc-900 dark:text-zinc-100 transition-colors duration-500">
+      <ImpersonationBanner />
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        <AnnouncementBanner audience="COMPANY_ADMINS" />
         {/* Top Navbar */}
         <header className="h-20 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between px-10 sticky top-0 z-20 transition-colors duration-500 gap-4">
           <div className="flex items-center gap-2 shrink-0">
@@ -149,6 +159,12 @@ function AdminDashboardContent() {
                  activeTab === 'super-tenants' ? 'Platform · Firmalar' :
                  activeTab === 'settlements' ? 'Hesap Özeti' :
                  activeTab === 'super-settlements' ? 'Platform · Ödeme Takibi' :
+                 activeTab === 'platform-overview' ? 'Platform · Genel Bakış' :
+                 activeTab === 'platform-approvals' ? 'Platform · Onay Kuyruğu' :
+                 activeTab === 'platform-lookup' ? 'Platform · Bilet Arama (Destek)' :
+                 activeTab === 'platform-audit' ? 'Platform · Denetim Logu' :
+                 activeTab === 'platform-announcements' ? 'Platform · Duyurular' :
+                 activeTab === 'platform-users' ? 'Platform · Kullanıcılar' :
                  'Panel'}
               </h2>
               <p className="text-zinc-500 dark:text-zinc-400 font-medium text-lg leading-snug">
@@ -168,6 +184,12 @@ function AdminDashboardContent() {
                  activeTab === 'super-tenants' ? 'Platformdaki tüm firmaları yönet: onay, askıya alma, komisyon oranı.' :
                  activeTab === 'settlements' ? 'Ciro, platform komisyonu, net alacak ve ödeme durumu.' :
                  activeTab === 'super-settlements' ? 'Tüm firmaların brut/komisyon/net kayıtları ve ödeme işaretleme.' :
+                 activeTab === 'platform-overview' ? 'GMV, platform geliri, büyüme trendi, leaderboard.' :
+                 activeTab === 'platform-approvals' ? 'Yeni firma başvurularını incele ve onayla.' :
+                 activeTab === 'platform-lookup' ? 'Tüm firmalar içinde PNR / e-posta / telefon ile bilet ara — destek aracı.' :
+                 activeTab === 'platform-audit' ? 'Cross-tenant denetim logu. Kim ne yaptı, ne zaman.' :
+                 activeTab === 'platform-announcements' ? 'Platform geneline duyuru yayınla.' :
+                 activeTab === 'platform-users' ? 'Tüm kullanıcılar: askıya al, parola sıfırla, arama.' :
                  'Verileriniz burada.'}
               </p>
             </div>
@@ -199,6 +221,12 @@ function AdminDashboardContent() {
                 <TabsContent value="settlements"><SettlementPanel /></TabsContent>
                 <TabsContent value="super-tenants"><SuperTenantsPanel /></TabsContent>
                 <TabsContent value="super-settlements"><SuperSettlementsPanel /></TabsContent>
+                <TabsContent value="platform-overview"><PlatformOverviewPanel onNavigate={setActiveTab} /></TabsContent>
+                <TabsContent value="platform-approvals"><PlatformApprovalsPanel /></TabsContent>
+                <TabsContent value="platform-lookup"><PlatformLookupPanel /></TabsContent>
+                <TabsContent value="platform-audit"><PlatformAuditPanel /></TabsContent>
+                <TabsContent value="platform-announcements"><PlatformAnnouncementsPanel /></TabsContent>
+                <TabsContent value="platform-users"><PlatformUsersPanel /></TabsContent>
               </Tabs>
             </div>
 

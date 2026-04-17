@@ -104,6 +104,29 @@ model Tenant {
   @@map("tenants")
 }
 
+/**
+ * Platform-wide broadcast banner. Shown to the configured audience until
+ * endsAt elapses. Created by SUPER_ADMIN only.
+ */
+model Announcement {
+  id        String    @id @default(uuid())
+  title     String
+  body      String
+  audience  String    @default("ALL") // ALL | COMPANY_ADMINS | PASSENGERS | DRIVERS
+  severity  String    @default("INFO") // INFO | WARNING | CRITICAL
+  linkUrl   String?   @map("link_url")
+  linkLabel String?   @map("link_label")
+  startsAt  DateTime  @default(now()) @map("starts_at")
+  endsAt    DateTime? @map("ends_at")
+  active    Boolean   @default(true)
+  createdBy String    @map("created_by")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([active, startsAt, endsAt])
+  @@map("announcements")
+}
+
 model Settlement {
   id               String    @id @default(uuid())
   tenantId         String    @map("tenant_id")
@@ -140,6 +163,8 @@ model User {
   emailVerifiedAt DateTime? @map("email_verified_at")
   googleId     String?   @unique @map("google_id")
   avatarUrl    String?   @map("avatar_url")
+  suspendedAt  DateTime? @map("suspended_at")
+  suspendedReason String? @map("suspended_reason")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?

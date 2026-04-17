@@ -32,6 +32,7 @@ import { WaitingListModule } from './waiting-list/waiting-list.module';
 import { TenantModule } from './tenant/tenant.module';
 import { SettlementModule } from './settlement/settlement.module';
 import { AdminSearchModule } from './search/admin-search.module';
+import { PlatformModule } from './platform/platform.module';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { AdminSearchModule } from './search/admin-search.module';
     TenantModule,
     SettlementModule,
     AdminSearchModule,
+    PlatformModule,
   ],
   controllers: [AppController],
   providers: [

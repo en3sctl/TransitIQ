@@ -2,14 +2,20 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 export type AuditEntity =
-  | 'BOOKING' | 'TRIP' | 'VEHICLE' | 'STATION' | 'ROUTE' | 'DRIVER' | 'USER' | 'PAYMENT';
+  | 'BOOKING' | 'TRIP' | 'VEHICLE' | 'STATION' | 'ROUTE' | 'DRIVER' | 'USER' | 'PAYMENT'
+  | 'TENANT' | 'ANNOUNCEMENT';
 
 export type AuditAction =
   | 'CREATE' | 'UPDATE' | 'DELETE'
   | 'BOOKING_CANCEL' | 'BOOKING_REFUND'
   | 'TRIP_REASSIGN_DRIVER' | 'TRIP_REASSIGN_VEHICLE' | 'TRIP_STATUS_CHANGE'
   | 'DRIVER_CREATE' | 'DRIVER_UPDATE' | 'DRIVER_DELETE'
-  | 'PASSENGER_CHECK_IN' | 'PASSENGER_NO_SHOW';
+  | 'PASSENGER_CHECK_IN' | 'PASSENGER_NO_SHOW'
+  // Super-admin / platform-level
+  | 'TENANT_APPROVE' | 'TENANT_REJECT' | 'TENANT_SUSPEND' | 'TENANT_REACTIVATE'
+  | 'IMPERSONATE_START' | 'IMPERSONATE_END'
+  | 'USER_SUSPEND' | 'USER_UNSUSPEND' | 'USER_PASSWORD_RESET'
+  | 'ANNOUNCEMENT_CREATE' | 'ANNOUNCEMENT_UPDATE' | 'ANNOUNCEMENT_DELETE';
 
 /**
  * Central audit log for admin/driver/system-level mutations.

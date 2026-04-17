@@ -10,10 +10,12 @@ import { HeroSpotlight } from "@/components/landing/hero-spotlight";
 import { HeroCarousel } from "@/components/landing/hero-carousel";
 import { DiscoverTurkey } from "@/components/landing/discover-turkey";
 import { HeroBadge } from "@/components/landing/hero-badge";
+import { AnnouncementBanner } from "@/components/announcement-banner";
 
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 overflow-hidden relative">
+      <AnnouncementBanner audience="PASSENGERS" />
       <LandingNav />
 
       {/* Hero */}

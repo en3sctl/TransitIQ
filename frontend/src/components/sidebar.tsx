@@ -25,6 +25,12 @@ import {
   Building2,
   Wallet,
   Banknote,
+  LineChart,
+  FileCheck,
+  Search as SearchIcon,
+  Activity,
+  Megaphone,
+  UserCog,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -52,15 +58,23 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
 
   const secondaryItems = [
     { id: "tenant", icon: Building2, label: 'Firma Ayarları' },
-    ...(user?.role === 'SUPER_ADMIN'
-      ? [
-          { id: "super-tenants", icon: ShieldCheck, label: 'Platform · Firmalar' },
-          { id: "super-settlements", icon: Banknote, label: 'Platform · Ödemeler' },
-        ]
-      : []),
     { id: "audit", icon: FileText, label: 'Denetim Logu' },
     { id: "settings", icon: Settings, label: 'Ayarlar' },
   ];
+
+  // Platform group — only visible to SUPER_ADMIN
+  const platformItems = user?.role === 'SUPER_ADMIN'
+    ? [
+        { id: "platform-overview", icon: LineChart, label: 'Genel Bakış' },
+        { id: "platform-approvals", icon: FileCheck, label: 'Onay Kuyruğu' },
+        { id: "super-tenants", icon: Building2, label: 'Firmalar' },
+        { id: "platform-users", icon: UserCog, label: 'Kullanıcılar' },
+        { id: "super-settlements", icon: Banknote, label: 'Ödemeler' },
+        { id: "platform-lookup", icon: SearchIcon, label: 'Bilet Arama' },
+        { id: "platform-announcements", icon: Megaphone, label: 'Duyurular' },
+        { id: "platform-audit", icon: Activity, label: 'Denetim Logu' },
+      ]
+    : [];
 
   return (
     <aside className="w-80 h-screen bg-white dark:bg-zinc-950 border-r border-zinc-100 dark:border-zinc-800 flex flex-col transition-colors duration-500">
@@ -104,12 +118,12 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         <nav className="space-y-1">
           <p className="px-4 text-[10px] font-black text-zinc-400 dark:text-zinc-600 uppercase tracking-[0.2em] mb-4">Sistem</p>
           {secondaryItems.map((item) => (
-            <button 
+            <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={`w-full group flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-200 ${
-                activeTab === item.id 
-                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-sm' 
+                activeTab === item.id
+                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-sm'
                   : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-900'
               }`}
             >
@@ -120,6 +134,32 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             </button>
           ))}
         </nav>
+
+        {/* Platform group (SUPER_ADMIN only) */}
+        {platformItems.length > 0 && (
+          <nav className="space-y-1">
+            <p className="px-4 text-[10px] font-black text-purple-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-1.5">
+              <ShieldCheck className="w-3 h-3" />
+              Platform
+            </p>
+            {platformItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full group flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-200 ${
+                  activeTab === item.id
+                    ? 'bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 shadow-sm'
+                    : 'text-zinc-500 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50/50 dark:hover:bg-purple-500/5'
+                }`}
+              >
+                <div className="flex items-center gap-3 text-[13px]">
+                  <item.icon className={`w-[18px] h-[18px] ${activeTab === item.id ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-400 group-hover:text-purple-500'}`} />
+                  {item.label}
+                </div>
+              </button>
+            ))}
+          </nav>
+        )}
 
         {/* Tenant Status */}
         <div className="px-2 pt-2">
