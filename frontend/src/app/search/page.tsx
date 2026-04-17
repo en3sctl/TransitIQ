@@ -20,6 +20,7 @@ import { DateRibbon } from '@/components/search/date-ribbon';
 import { TripReviews } from '@/components/search/trip-reviews';
 import { WaitingListModal } from '@/components/search/waiting-list-modal';
 import { BellRing } from 'lucide-react';
+import { FirmaBadge } from '@/components/firma-badge';
 
 const MAX_SEATS = 5;
 
@@ -40,6 +41,14 @@ interface Trip {
   distanceKm?: number | null;
   driverRating?: number | null;
   driverReviewCount?: number;
+  tenant?: {
+    id: string;
+    name: string;
+    slug: string;
+    logoUrl: string | null;
+    brandColor: string | null;
+    verified: boolean;
+  };
   stops: { name: string; city: string; offsetMinutes: number }[];
 }
 
@@ -406,7 +415,18 @@ function SearchResultsPageContent() {
 
                   <div className="flex flex-col gap-6">
                     {trips.map((trip) => (
-                      <div key={trip.id} className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col xl:flex-row items-center w-full gap-6 hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+                      <div key={trip.id} className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-3xl p-5 shadow-sm flex flex-col w-full gap-3 hover:shadow-md hover:-translate-y-1 transition-all duration-300">
+                        {/* 0. Firma Header Row */}
+                        {trip.tenant && (
+                          <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-zinc-800">
+                            <FirmaBadge tenant={trip.tenant} />
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">
+                              {trip.distanceKm ? `${trip.distanceKm} km` : 'Direkt sefer'}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col xl:flex-row items-center w-full gap-6">
 
                         {/* 1. Time & Route Group */}
                         <div className="flex-1 flex items-center w-full gap-4">
@@ -472,6 +492,7 @@ function SearchResultsPageContent() {
                               Koltuk Seç
                             </Button>
                           )}
+                        </div>
                         </div>
                       </div>
                     ))}

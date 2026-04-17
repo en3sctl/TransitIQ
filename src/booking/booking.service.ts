@@ -42,6 +42,8 @@ export class BookingService {
       where: {
         ...(tenantId && { tenantId }),
         status: TripStatus.PLANNED,
+        // Only surface trips belonging to active (non-suspended) tenants
+        tenant: { status: 'ACTIVE' },
         departureTime: {
           gte: searchDate,
           lt: nextDay,
@@ -54,6 +56,12 @@ export class BookingService {
         },
       },
       include: {
+        tenant: {
+          select: {
+            id: true, name: true, publicName: true, slug: true,
+            logoUrl: true, brandColor: true, verifiedAt: true,
+          },
+        },
         route: {
           include: {
             originStation: true,
@@ -108,6 +116,14 @@ export class BookingService {
         departureTime: trip.departureTime,
         estimatedArrival: trip.estimatedArrival,
         status: trip.status,
+        tenant: {
+          id: trip.tenant.id,
+          name: trip.tenant.publicName || trip.tenant.name,
+          slug: trip.tenant.slug,
+          logoUrl: trip.tenant.logoUrl,
+          brandColor: trip.tenant.brandColor,
+          verified: !!trip.tenant.verifiedAt,
+        },
         origin: trip.route.originStation.city,
         destination: trip.route.destinationStation.city,
         originStation: trip.route.originStation.name,

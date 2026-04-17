@@ -754,6 +754,9 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [x] **Dinamik hero badge** — gerçek veri: "X yeni rota · Y yeni şehir" (son 30 gün), veri yoksa fallback mesaj
 - [x] **Trip kartlarında şoför puanı** — yıldız + ortalama + yorum sayısı (≥3 yorum olunca). `/booking/search` response'una `driverRating` eklendi
 - [x] **Yolcu yorumları panel** — seçili sefer alt kısmında son 5 yorum (PII-maskelenmiş: "M. Y."), ortalama puan rozeti. Endpoint `/booking/trips/:id/reviews`
+- [x] **Multi-tenant marka sistemi (Faz 1)** — Tenant modeline branding alanları (logoUrl, brandColor, publicName, aboutShort/Long, supportEmail/Phone, website, address, taxId/MERSIS/D1-D2-D4). Logo upload endpoint (sharp ile 512x512 webp). Search response'unda `trip.tenant: {id, name, slug, logoUrl, brandColor, verified}`. Trip kartlarında firma logo + isim + doğrulanmış rozeti. Firma profil sayfası `/firma/[slug]` (stats, hakkında, iletişim, marka rengi hero). Admin "Firma Ayarları" paneli (tüm branding/iletişim/yasal formlar, live logo preview, ödeme modu seçimi)
+- [x] **Multi-tenant ödeme yönlendirme (Faz 2)** — Her tenant için `iyzicoMode: PLATFORM | OWN` + kendi API/Secret anahtarı. PaymentService `getClientForTenant(tenantId)` ile dinamik Iyzipay client (per-tenant cached). Checkout akışında trip.tenantId kullanılarak doğru hesaba para akıtılır. Settlement modeli eklendi: her booking için `grossAmount`, `commissionAmount`, `netAmount`, `commissionRate` kayıt (varsayılan %8 komisyon)
+- [x] **Super-admin firma yönetimi** — `/super-admin/tenants` endpoint (list), status change (ACTIVE/SUSPENDED/PENDING), komisyon oranı set, verify (doğrulanmış rozet). Admin panelde "Platform · Firmalar" sekmesi (sadece SUPER_ADMIN). Search query artık sadece `tenant.status = ACTIVE` olanları gösteriyor
 
 ### Faz 6 — Büyüme & SEO
 - [ ] Her rota için SEO-dostu URL (/rotalar/istanbul-ankara)

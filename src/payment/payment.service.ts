@@ -24,6 +24,8 @@ export interface PendingBookingData {
 @Injectable()
 export class PaymentService {
   private iyzipay: any;
+  /** Cached per-tenant Iyzipay clients (keyed by tenantId). */
+  private tenantClients = new Map<string, any>();
 
   constructor(
     private configService: ConfigService,
@@ -34,6 +36,77 @@ export class PaymentService {
       secretKey: this.configService.get<string>('IYZICO_SECRET_KEY'),
       uri: this.configService.get<string>('IYZICO_BASE_URL'),
     });
+  }
+
+  /**
+   * Returns the correct Iyzipay client for a tenant. If the tenant runs in
+   * OWN mode and has valid credentials, uses their account; otherwise falls
+   * back to the platform client (configured via env).
+   */
+  private async getClientForTenant(tenantId?: string): Promise<any> {
+    if (!tenantId) return this.iyzipay;
+    if (this.tenantClients.has(tenantId)) return this.tenantClients.get(tenantId);
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { iyzicoMode: true, iyzicoApiKey: true, iyzicoSecretKey: true },
+    });
+
+    if (tenant?.iyzicoMode === 'OWN' && tenant.iyzicoApiKey && tenant.iyzicoSecretKey) {
+      const client = new Iyzipay({
+        apiKey: tenant.iyzicoApiKey,
+        secretKey: tenant.iyzicoSecretKey,
+        uri: this.configService.get<string>('IYZICO_BASE_URL'),
+      });
+      this.tenantClients.set(tenantId, client);
+      return client;
+    }
+
+    // Platform mode — use shared client
+    return this.iyzipay;
+  }
+
+  /** Invalidate cached client (call after tenant updates keys). */
+  invalidateTenantClient(tenantId: string) {
+    this.tenantClients.delete(tenantId);
+  }
+
+  /**
+   * Record settlement (platform commission split) once a booking is confirmed.
+   * Idempotent — unique by bookingId.
+   */
+  async recordSettlement(bookingId: string) {
+    try {
+      const booking = await this.prisma.booking.findUnique({
+        where: { id: bookingId },
+        select: {
+          id: true, tenantId: true, pricePaid: true, status: true,
+          tenant: { select: { commissionRate: true } },
+        },
+      });
+      if (!booking || booking.status !== 'CONFIRMED') return;
+
+      const gross = Number(booking.pricePaid);
+      const rate = Number(booking.tenant.commissionRate) || 0;
+      const commission = Math.round(gross * rate * 100) / 100;
+      const net = Math.round((gross - commission) * 100) / 100;
+
+      await this.prisma.settlement.upsert({
+        where: { bookingId: booking.id },
+        create: {
+          tenantId: booking.tenantId,
+          bookingId: booking.id,
+          grossAmount: gross,
+          commissionAmount: commission,
+          netAmount: net,
+          commissionRate: rate,
+          status: 'PENDING',
+        },
+        update: {}, // no-op on duplicate
+      });
+    } catch (err) {
+      console.error('[recordSettlement] failed:', err);
+    }
   }
 
   async storePendingBooking(token: string, conversationId: string, data: PendingBookingData) {
@@ -170,8 +243,10 @@ export class PaymentService {
     buyerTc: string;
     buyerEmail: string;
     buyerPhone: string;
+    tenantId?: string;
   }): Promise<{ checkoutFormContent: string; token: string; conversationId: string }> {
-    const { price, buyerName, buyerSurname, buyerTc, buyerEmail, buyerPhone } = params;
+    const { price, buyerName, buyerSurname, buyerTc, buyerEmail, buyerPhone, tenantId } = params;
+    const client = await this.getClientForTenant(tenantId);
 
     const conversationId = `transit-${Date.now()}`;
 
@@ -227,7 +302,7 @@ export class PaymentService {
     };
 
     return new Promise((resolve, reject) => {
-      this.iyzipay.checkoutFormInitialize.create(request, (err: any, result: any) => {
+      client.checkoutFormInitialize.create(request, (err: any, result: any) => {
         if (err) {
           reject(err);
         } else {
@@ -241,9 +316,10 @@ export class PaymentService {
     });
   }
 
-  async retrieveCheckoutForm(token: string): Promise<{ status: string; conversationId: string; paymentId: string; itemTransactions?: any[] }> {
+  async retrieveCheckoutForm(token: string, tenantId?: string): Promise<{ status: string; conversationId: string; paymentId: string; itemTransactions?: any[] }> {
+    const client = await this.getClientForTenant(tenantId);
     return new Promise((resolve, reject) => {
-      this.iyzipay.checkoutForm.retrieve(
+      client.checkoutForm.retrieve(
         { locale: 'tr', token },
         (err: any, result: any) => {
           if (err) {
@@ -265,9 +341,10 @@ export class PaymentService {
    * Refund a payment via Iyzico using the paymentTransactionId.
    * Note: refund requires `paymentTransactionId` (per-item), NOT the top-level `paymentId`.
    */
-  async refundPayment(paymentTransactionId: string, price: string): Promise<{ success: boolean; refundId?: string; errorMessage?: string }> {
+  async refundPayment(paymentTransactionId: string, price: string, tenantId?: string): Promise<{ success: boolean; refundId?: string; errorMessage?: string }> {
+    const client = await this.getClientForTenant(tenantId);
     return new Promise((resolve) => {
-      this.iyzipay.refund.create(
+      client.refund.create(
         {
           locale: 'tr',
           conversationId: `refund-${Date.now()}`,
@@ -294,9 +371,10 @@ export class PaymentService {
   /**
    * Retrieve full payment details via Iyzico to extract paymentTransactionId for each basket item.
    */
-  async getPaymentDetails(paymentId: string): Promise<any> {
+  async getPaymentDetails(paymentId: string, tenantId?: string): Promise<any> {
+    const client = await this.getClientForTenant(tenantId);
     return new Promise((resolve, reject) => {
-      this.iyzipay.payment.retrieve(
+      client.payment.retrieve(
         {
           locale: 'tr',
           conversationId: `lookup-${Date.now()}`,

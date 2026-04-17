@@ -16,6 +16,9 @@ async function bootstrap() {
     helmet({
       contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
       crossOriginEmbedderPolicy: false, // allow Leaflet tiles + Google OAuth redirects
+      // Allow frontend on a different origin to load our static assets
+      // (tenant logos, future uploads). XSS / CSRF are handled separately.
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
 

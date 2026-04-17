@@ -56,23 +56,72 @@ enum BoardingStatus {
 
 model Tenant {
   id        String    @id @default(uuid())
-  name      String
+  name      String    // legal / internal
+  publicName String?  @map("public_name") // shown to passengers (e.g. "Metro Turizm")
   domain    String?   @unique
   slug      String    @unique
-  status    String    @default("ACTIVE")
+  status    String    @default("ACTIVE") // ACTIVE, PENDING, SUSPENDED
+
+  // Branding
+  logoUrl    String?  @map("logo_url")
+  brandColor String?  @map("brand_color") // hex, e.g. "#4f46e5"
+  aboutShort String?  @map("about_short") @db.VarChar(240)
+  aboutLong  String?  @map("about_long")
+
+  // Contact
+  supportEmail String? @map("support_email")
+  supportPhone String? @map("support_phone")
+  website      String?
+  address      String?
+
+  // Verification / TR legal fields
+  taxId        String?   @map("tax_id")
+  mersisNo     String?   @map("mersis_no")
+  uetdsLicense String?   @map("uetds_license") // D1/D2/D4 belge no
+  verifiedAt   DateTime? @map("verified_at")
+
+  // Payment — per-tenant Iyzico credentials (fallback: platform keys in .env)
+  iyzicoMode      String  @default("PLATFORM") @map("iyzico_mode") // PLATFORM | OWN
+  iyzicoApiKey    String? @map("iyzico_api_key")
+  iyzicoSecretKey String? @map("iyzico_secret_key")
+
+  // Commission rate platform keeps on each booking (0.0–1.0). 0 = no cut.
+  commissionRate Decimal @default(0.08) @map("commission_rate") @db.Decimal(5, 4)
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  users     User[]
-  vehicles  Vehicle[]
-  stations  Station[]
-  routes    Route[]
-  trips     Trip[]
-  bookings  Booking[]
-  auditLogs AuditLog[]
+  users       User[]
+  vehicles    Vehicle[]
+  stations    Station[]
+  routes      Route[]
+  trips       Trip[]
+  bookings    Booking[]
+  auditLogs   AuditLog[]
+  settlements Settlement[]
 
   @@map("tenants")
+}
+
+model Settlement {
+  id               String    @id @default(uuid())
+  tenantId         String    @map("tenant_id")
+  bookingId        String    @unique @map("booking_id")
+  grossAmount      Decimal   @map("gross_amount") @db.Decimal(10, 2)
+  commissionAmount Decimal   @map("commission_amount") @db.Decimal(10, 2)
+  netAmount        Decimal   @map("net_amount") @db.Decimal(10, 2)
+  commissionRate   Decimal   @map("commission_rate") @db.Decimal(5, 4)
+  status           String    @default("PENDING") // PENDING, SETTLED, REVERSED
+  settledAt        DateTime? @map("settled_at")
+  notes            String?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status, createdAt])
+  @@map("settlements")
 }
 
 model User {

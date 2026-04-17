@@ -92,6 +92,7 @@ export class PaymentController {
       buyerTc: dto.buyerTc,
       buyerEmail: dto.buyerEmail,
       buyerPhone: dto.buyerPhone,
+      tenantId: trip.tenantId,  // routes payment to tenant's Iyzico account if in OWN mode
     });
 
     await this.paymentService.storePendingBooking(result.token, result.conversationId, {
@@ -114,12 +115,22 @@ export class PaymentController {
     @Res() res: Response,
   ) {
     try {
-      const result = await this.paymentService.retrieveCheckoutForm(body.token);
+      // Resolve tenantId from pending record so we can retrieve with the same Iyzico client
+      // that initialized the checkout form.
+      const pendingData = await this.paymentService.getPendingBookingByToken(body.token);
+      let tenantId: string | undefined;
+      if (pendingData?.tripId) {
+        const trip = await this.prisma.trip.findUnique({
+          where: { id: pendingData.tripId },
+          select: { tenantId: true },
+        });
+        tenantId = trip?.tenantId;
+      }
+
+      const result = await this.paymentService.retrieveCheckoutForm(body.token, tenantId);
       console.log('[Payment Callback] Status:', result.status);
 
       if (result.status === 'success') {
-        // Look up pending booking by the SAME token used in callback
-        const pendingData = await this.paymentService.getPendingBookingByToken(body.token);
         console.log('[Payment Callback] PendingData found:', !!pendingData);
 
         if (pendingData) {
@@ -148,6 +159,11 @@ export class PaymentController {
                 walletAmount: pendingData.walletAmount,
                 promoCodeId: pendingData.promoCodeId,
               });
+            }
+
+            // Record platform commission split for each booking (fire-and-forget)
+            for (const b of (bookingResult as any).bookings || []) {
+              this.paymentService.recordSettlement(b.id).catch(() => {});
             }
 
             await this.paymentService.removePendingBookingByToken(body.token);

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -27,11 +29,20 @@ import { PassengerFeaturesModule } from './passenger-features/passenger-features
 import { PromoModule } from './promo/promo.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { WaitingListModule } from './waiting-list/waiting-list.module';
+import { TenantModule } from './tenant/tenant.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+      serveStaticOptions: {
+        maxAge: 1000 * 60 * 60 * 24, // 24h browser cache
+        immutable: true,
+      },
+    }),
     ThrottlerModule.forRoot([
       {
         name: 'short',
@@ -71,6 +82,7 @@ import { WaitingListModule } from './waiting-list/waiting-list.module';
     PromoModule,
     FeedbackModule,
     WaitingListModule,
+    TenantModule,
   ],
   controllers: [AppController],
   providers: [

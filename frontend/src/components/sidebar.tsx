@@ -22,6 +22,7 @@ import {
   TrendingUp,
   MessageSquare,
   BellRing,
+  Building2,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -47,6 +48,10 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   ];
 
   const secondaryItems = [
+    { id: "tenant", icon: Building2, label: 'Firma Ayarları' },
+    ...(user?.role === 'SUPER_ADMIN'
+      ? [{ id: "super-tenants", icon: ShieldCheck, label: 'Platform · Firmalar' }]
+      : []),
     { id: "audit", icon: FileText, label: 'Denetim Logu' },
     { id: "settings", icon: Settings, label: 'Ayarlar' },
   ];
