@@ -85,6 +85,14 @@ export class CommerceController {
     });
   }
 
+  @Post('super-admin/invoices/preview')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  preview(@Request() req: any, @Body() body: { tenantId: string; periodStart: string; periodEnd: string }) {
+    this.assertSuper(req.user);
+    return this.service.previewInvoice(body.tenantId, new Date(body.periodStart), new Date(body.periodEnd));
+  }
+
   @Post('super-admin/invoices/generate')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

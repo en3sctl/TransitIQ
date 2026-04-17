@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Building2, Search, X, Check, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -33,7 +34,9 @@ export function TenantPicker({ value, onChange, label, placeholder = 'Firma seç
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -43,10 +46,34 @@ export function TenantPicker({ value, onChange, label, placeholder = 'Firma seç
       .finally(() => setLoading(false));
   }, []);
 
+  // Konum hesapla — buton viewport'ta nerede ise dropdown'u oraya yerleştir
+  const computePos = () => {
+    const btn = wrapRef.current?.querySelector('button');
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    setPos({ top: r.bottom + 8, left: r.left, width: r.width });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    computePos();
+    const onScroll = () => computePos();
+    const onResize = () => computePos();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const h = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (wrapRef.current?.contains(target)) return;
+      if (dropRef.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
@@ -113,17 +140,30 @@ export function TenantPicker({ value, onChange, label, placeholder = 'Firma seç
         )}
       </button>
 
-      {open && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-50 flex flex-col" style={{ maxHeight: 'min(360px, calc(100vh - 200px))' }}>
+      {open && pos && typeof window !== 'undefined' && createPortal((
+        <div
+          ref={dropRef}
+          className="fixed bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col"
+          style={{
+            top: pos.top,
+            left: pos.left,
+            width: pos.width,
+            maxHeight: `min(420px, calc(100vh - ${pos.top + 16}px))`,
+            zIndex: 200,
+          }}
+        >
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100 dark:border-zinc-800 shrink-0">
             <Search className="w-4 h-4 text-slate-400" />
             <input
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Firma ara..."
+              placeholder={`Firma ara... (${tenants.length} firma)`}
               className="flex-1 bg-transparent outline-none text-sm font-medium text-slate-900 dark:text-zinc-100 placeholder:text-slate-400"
             />
+            <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 shrink-0">
+              {filtered.length}/{tenants.length}
+            </span>
             {query && <button onClick={() => setQuery('')} className="text-slate-400 hover:text-slate-600"><X className="w-3.5 h-3.5" /></button>}
           </div>
           <div className="flex-1 overflow-y-auto overscroll-contain">
@@ -165,7 +205,7 @@ export function TenantPicker({ value, onChange, label, placeholder = 'Firma seç
             )}
           </div>
         </div>
-      )}
+      ), document.body)}
     </div>
   );
 }

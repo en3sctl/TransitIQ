@@ -164,7 +164,7 @@ export function PlatformFlagsPanel() {
           </div>
           <div className="flex gap-2">
             <button onClick={create} className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">Oluştur</button>
-            <button onClick={() => setCreating(false)} className="px-4 py-2 rounded-lg bg-slate-100 text-xs font-bold">İptal</button>
+            <button onClick={() => setCreating(false)} className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs font-bold hover:bg-slate-200 dark:hover:bg-zinc-700">İptal</button>
           </div>
         </div>
       )}
@@ -471,7 +471,7 @@ export function PlatformIncidentsPanel() {
           </select>
           <div className="flex gap-2">
             <button onClick={create} className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold">Oluştur</button>
-            <button onClick={() => setCreating(false)} className="px-4 py-2 rounded-lg bg-slate-100 text-xs font-bold">İptal</button>
+            <button onClick={() => setCreating(false)} className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs font-bold hover:bg-slate-200 dark:hover:bg-zinc-700">İptal</button>
           </div>
         </div>
       )}

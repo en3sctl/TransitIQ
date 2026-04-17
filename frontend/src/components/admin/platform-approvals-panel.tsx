@@ -184,14 +184,12 @@ export function PlatformApprovalsPanel() {
                     <XCircle className="w-3.5 h-3.5" />
                     Reddet
                   </button>
-                  <a
-                    href={`/firma/${t.slug}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-xs font-bold hover:bg-slate-200 dark:hover:bg-zinc-700"
+                  <span
+                    title="Public profil sayfası firma onaylandıktan sonra oluşur"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/50 text-slate-400 dark:text-zinc-600 text-xs font-bold cursor-not-allowed"
                   >
-                    <ExternalLink className="w-3 h-3" /> Profil
-                  </a>
+                    <ExternalLink className="w-3 h-3" /> Profil (onay sonrası)
+                  </span>
                 </div>
               </motion.div>
             );

@@ -2,11 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, FileText, Download, Check, Plus, X, Calendar } from "lucide-react";
+import { Loader2, FileText, Download, Check, Plus, X, Calendar, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { TenantPicker } from "./tenant-picker";
 import { confirmDialog } from "@/components/ui/dialogs";
+
+interface Preview {
+  bookingCount: number;
+  confirmedInPeriod: number;
+  missingSettlements: number;
+  grossTotal: number;
+  commissionTotal: number;
+  subscriptionFee: number;
+  taxAmount: number;
+  total: number;
+}
 
 function apiBase() { return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'; }
 function toAbs(u: string | null) { return u ? (u.startsWith('http') ? u : apiBase() + u) : null; }
@@ -53,6 +64,36 @@ export function PlatformInvoicesPanel() {
   const [creatorOpen, setCreatorOpen] = useState(false);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [range, setRange] = useState(lastMonthRange);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Tenant veya tarih değiştikçe önizleme tazele
+  useEffect(() => {
+    if (!tenantId || !creatorOpen) { setPreview(null); return; }
+    setPreviewLoading(true);
+    const tid = setTimeout(() => {
+      api.post('/super-admin/invoices/preview', {
+        tenantId,
+        periodStart: new Date(range.start).toISOString(),
+        periodEnd: new Date(range.end + 'T23:59:59').toISOString(),
+      })
+        .then((res) => setPreview(res.data))
+        .catch(() => setPreview(null))
+        .finally(() => setPreviewLoading(false));
+    }, 250);
+    return () => clearTimeout(tid);
+  }, [tenantId, range.start, range.end, creatorOpen]);
+
+  const runBackfill = async () => {
+    try {
+      const res = await api.post('/super-admin/settlements/backfill', {});
+      toast.success(`${res.data?.created || 0} settlement oluşturuldu`);
+      // Önizlemeyi tetikle
+      setRange((r) => ({ ...r }));
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Backfill başarısız');
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -221,6 +262,56 @@ export function PlatformInvoicesPanel() {
                     <button onClick={() => setRange(currentMonthRange())} className="px-2 py-1 rounded bg-slate-100 dark:bg-zinc-800 text-[10px] font-bold">Bu Ay</button>
                   </div>
                 </div>
+
+                {/* Önizleme — fatura kesmeden önce ne çıkacağını göster */}
+                {tenantId && (
+                  <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/50 p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Önizleme</p>
+                      {previewLoading && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
+                    </div>
+                    {previewLoading && (
+                      <p className="text-xs text-slate-400 font-medium">Hesaplanıyor...</p>
+                    )}
+                    {!preview && !previewLoading && (
+                      <p className="text-xs text-rose-500 font-medium">Önizleme alınamadı. Backend restart gerekli olabilir.</p>
+                    )}
+                    {preview && (
+                      <div className="space-y-1.5">
+                        <Row label="Bilet (settlement)" value={`${preview.bookingCount} bilet`} />
+                        <Row label="Brüt satış" value={`₺${preview.grossTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`} />
+                        <Row label="Komisyon" value={`₺${preview.commissionTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`} />
+                        {preview.subscriptionFee > 0 && <Row label="Abonelik" value={`₺${preview.subscriptionFee.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`} />}
+                        <Row label="KDV (%18)" value={`₺${preview.taxAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`} />
+                        <div className="border-t border-slate-200 dark:border-zinc-800 mt-2 pt-2 flex justify-between">
+                          <span className="text-xs font-black text-slate-900 dark:text-white">TOPLAM</span>
+                          <span className="text-base font-black text-indigo-600 dark:text-indigo-400">₺{preview.total.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+
+                        {/* Backfill önerisi */}
+                        {preview.missingSettlements > 0 && (
+                          <div className="mt-2 rounded-lg bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 p-2.5 flex gap-2">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-snug">
+                                {preview.missingSettlements} confirmed bilet için settlement kaydı eksik. Bu bilgiler faturaya yansımaz.
+                              </p>
+                              <button onClick={runBackfill} className="mt-1.5 px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black uppercase tracking-wider">
+                                Backfill Çalıştır
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {preview.bookingCount === 0 && preview.subscriptionFee === 0 && (
+                          <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium italic mt-1">
+                            Bu dönemde satış yok. Boş fatura kesmek istemiyorsan tarih aralığını değiştir.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="px-5 py-3 bg-slate-50 dark:bg-zinc-950/50 flex items-center justify-end gap-2">
@@ -238,6 +329,15 @@ export function PlatformInvoicesPanel() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between items-center text-xs">
+      <span className="text-slate-500 dark:text-zinc-400 font-medium">{label}</span>
+      <span className="font-bold text-slate-900 dark:text-white font-mono">{value}</span>
     </div>
   );
 }
