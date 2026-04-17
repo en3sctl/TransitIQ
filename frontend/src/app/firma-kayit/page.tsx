@@ -43,6 +43,43 @@ function slugify(text: string): string {
     .slice(0, 50);
 }
 
+// VergiNo: 10 hane (sadece rakam)
+function formatTaxId(raw: string): string {
+  return raw.replace(/\D/g, '').slice(0, 10);
+}
+
+// MERSİS: 16 hane → "XXXX-XXXX-XXXX-XXXX" (kullanıcı yazarken tireler kendiliğinden gelir)
+function formatMersis(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 16);
+  const parts = [digits.slice(0, 4), digits.slice(4, 8), digits.slice(8, 12), digits.slice(12, 16)].filter(Boolean);
+  return parts.join('-');
+}
+
+// D Belgesi: TR formatı "[Harf][Rakam]-[Rakamlar]" (örn: D1-12345, K2-987)
+// Kullanıcı "D112345" yazsa bile otomatik "D1-12345" yapılır.
+function formatLicense(raw: string): string {
+  const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (cleaned.length === 0) return '';
+  // İlk karakter harf, ikinci karakter rakam, sonrasında tire ile rakamlar
+  const letter = cleaned.slice(0, 1).replace(/[^A-Z]/g, '');
+  if (!letter) return '';
+  const rest = cleaned.slice(1);
+  if (rest.length === 0) return letter;
+  const digit = rest.slice(0, 1).replace(/\D/g, '');
+  if (!digit) return letter;
+  const tail = rest.slice(1).replace(/\D/g, '').slice(0, 15);
+  return tail ? `${letter}${digit}-${tail}` : `${letter}${digit}`;
+}
+
+// Telefon: 0XXX XXX XX XX (11 hane, otomatik gruplama)
+function formatPhone(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 4) return d;
+  if (d.length <= 7) return `${d.slice(0, 4)} ${d.slice(4)}`;
+  if (d.length <= 9) return `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+  return `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7, 9)} ${d.slice(9)}`;
+}
+
 export default function FirmaRegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -376,14 +413,31 @@ function Step2({ form, update }: any) {
           Eksik bırakırsanız doğrulanmış rozeti almazsınız.
         </p>
       </div>
-      <Field label="Vergi Numarası">
-        <input value={form.taxId} onChange={(e) => update('taxId', e.target.value)} className={inputCls} placeholder="10 haneli" maxLength={11} />
+      <Field label="Vergi Numarası" hint="10 haneli, sadece rakam">
+        <input
+          inputMode="numeric"
+          value={form.taxId}
+          onChange={(e) => update('taxId', formatTaxId(e.target.value))}
+          className={inputCls}
+          placeholder="1234567890"
+        />
       </Field>
-      <Field label="MERSİS Numarası">
-        <input value={form.mersisNo} onChange={(e) => update('mersisNo', e.target.value)} className={inputCls} placeholder="0123-4567-8901-2345" maxLength={20} />
+      <Field label="MERSİS Numarası" hint="16 haneli, tireler otomatik eklenir">
+        <input
+          inputMode="numeric"
+          value={form.mersisNo}
+          onChange={(e) => update('mersisNo', formatMersis(e.target.value))}
+          className={inputCls}
+          placeholder="0123-4567-8901-2345"
+        />
       </Field>
-      <Field label="D1/D2/D4 Yetki Belgesi No" hint="UAB (Ulaştırma Bakanlığı) tarafından verilen belge numarası">
-        <input value={form.uetdsLicense} onChange={(e) => update('uetdsLicense', e.target.value)} className={inputCls} placeholder="D1-12345" maxLength={30} />
+      <Field label="D1/D2/D4 Yetki Belgesi No" hint="UAB tarafından verilen belge numarası — otomatik büyük harf">
+        <input
+          value={form.uetdsLicense}
+          onChange={(e) => update('uetdsLicense', formatLicense(e.target.value))}
+          className={inputCls}
+          placeholder="D1-12345"
+        />
       </Field>
     </div>
   );
@@ -399,8 +453,8 @@ function Step3({ form, update }: any) {
       <Field label="Destek E-postası">
         <input type="email" value={form.supportEmail} onChange={(e) => update('supportEmail', e.target.value)} className={inputCls} placeholder="destek@firma.com" />
       </Field>
-      <Field label="Destek Telefonu">
-        <input type="tel" value={form.supportPhone} onChange={(e) => update('supportPhone', e.target.value)} className={inputCls} placeholder="0850 xxx xx xx" />
+      <Field label="Destek Telefonu" hint="Otomatik gruplanır">
+        <input type="tel" inputMode="tel" value={form.supportPhone} onChange={(e) => update('supportPhone', formatPhone(e.target.value))} className={inputCls} placeholder="0850 123 45 67" />
       </Field>
       <Field label="Website">
         <input type="url" value={form.website} onChange={(e) => update('website', e.target.value)} className={inputCls} placeholder="https://firma.com" />
@@ -428,8 +482,8 @@ function Step4({ form, update }: any) {
         <Field label="E-posta (giriş için)" required>
           <input type="email" value={form.adminEmail} onChange={(e) => update('adminEmail', e.target.value)} className={inputCls} />
         </Field>
-        <Field label="Cep Telefonu">
-          <input type="tel" value={form.adminPhone} onChange={(e) => update('adminPhone', e.target.value)} className={inputCls} placeholder="05xx xxx xx xx" />
+        <Field label="Cep Telefonu" hint="Otomatik gruplanır">
+          <input type="tel" inputMode="tel" value={form.adminPhone} onChange={(e) => update('adminPhone', formatPhone(e.target.value))} className={inputCls} placeholder="0532 123 45 67" />
         </Field>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

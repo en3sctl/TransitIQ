@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "super-admin": "ts-node -r dotenv/config scripts/create-super-admin.ts"
+    "super-admin": "ts-node -r dotenv/config scripts/create-super-admin.ts",
+    "maintenance": "ts-node -r dotenv/config scripts/maintenance.ts"
   },
   "dependencies": {
     "@fontsource/roboto": "^5.2.10",

@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Save, RotateCcw, Settings as SettingsIcon, Shield, DollarSign, Briefcase, Palette, ShieldCheck } from "lucide-react";
+import { Loader2, Save, RotateCcw, Settings as SettingsIcon, Shield, DollarSign, Briefcase, Palette, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Setting {
   key: string;
@@ -63,13 +64,41 @@ export function PlatformSettingsPanel() {
   };
 
   const reset = async (key: string) => {
-    if (!confirm('Varsayılan değere dönülsün mü?')) return;
+    const ok = await confirmDialog({
+      title: 'Varsayılana dön',
+      message: `"${key}" ayarı varsayılan değere dönecek. Onaylıyor musun?`,
+      confirmLabel: 'Sıfırla',
+      variant: 'warning',
+    });
+    if (!ok) return;
     try {
       await api.delete(`/super-admin/settings/${key}`);
       toast.success('Varsayılana dönüldü');
       load();
     } catch { toast.error('Sıfırlanamadı'); }
   };
+
+  // Hızlı maintenance toggle (tek tıkla, save'siz)
+  const quickToggleMaintenance = async () => {
+    const current = settings.find((s) => s.key === 'MAINTENANCE_MODE')?.value;
+    const next = !current;
+    if (next === true) {
+      const ok = await confirmDialog({
+        title: 'Bakım Modunu Aç',
+        message: 'Bakım modu aktif olduğunda tüm yazma işlemleri (rezervasyon, kayıt, ödeme) durur. Sadece okuma çalışır. Onaylıyor musun?',
+        confirmLabel: 'Bakıma Al',
+        variant: 'danger',
+      });
+      if (!ok) return;
+    }
+    try {
+      await api.patch('/super-admin/settings/MAINTENANCE_MODE', { value: next });
+      toast.success(next ? 'Bakım modu AÇIK' : 'Bakım modu KAPALI');
+      load();
+    } catch { toast.error('Güncellenemedi'); }
+  };
+
+  const maintenanceOn = settings.find((s) => s.key === 'MAINTENANCE_MODE')?.value === true;
 
   const grouped = settings.reduce((acc, s) => {
     if (!acc[s.category]) acc[s.category] = [];
@@ -81,6 +110,35 @@ export function PlatformSettingsPanel() {
 
   return (
     <div className="space-y-5">
+      {/* Maintenance hero status — net görsün */}
+      <div className={`rounded-2xl border p-5 flex items-center gap-4 ${
+        maintenanceOn
+          ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-300 dark:border-rose-500/40'
+          : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30'
+      }`}>
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white ${maintenanceOn ? 'bg-rose-600' : 'bg-emerald-600'}`}>
+          {maintenanceOn ? <AlertTriangle className="w-6 h-6" /> : <Shield className="w-6 h-6" />}
+        </div>
+        <div className="flex-1">
+          <p className={`text-base font-black ${maintenanceOn ? 'text-rose-900 dark:text-rose-200' : 'text-emerald-900 dark:text-emerald-200'}`}>
+            {maintenanceOn ? 'Bakım Modu AÇIK — yeni rezervasyon/ödeme alınmıyor' : 'Bakım Modu KAPALI — sistem normal çalışıyor'}
+          </p>
+          <p className={`text-xs font-medium mt-0.5 ${maintenanceOn ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+            {maintenanceOn
+              ? 'Yolcu/firma kayıtları, rezervasyon, ödeme, iptal — hepsi blokeli. Hemen kapatabilirsin.'
+              : 'Tek tıkla bakıma alabilirsin (acil durumda).'}
+          </p>
+        </div>
+        <button
+          onClick={quickToggleMaintenance}
+          className={`px-5 py-2.5 rounded-xl text-white font-black text-sm shadow-md ${
+            maintenanceOn ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
+          }`}
+        >
+          {maintenanceOn ? 'Bakımı Kapat' : 'Bakıma Al'}
+        </button>
+      </div>
+
       {Object.entries(grouped).map(([cat, items]) => {
         const meta = CATEGORY_META[cat] || { label: cat, icon: SettingsIcon, tone: 'slate' };
         const Icon = meta.icon;

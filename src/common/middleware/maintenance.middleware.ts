@@ -17,9 +17,12 @@ export class MaintenanceMiddleware implements NestMiddleware {
       return next();
     }
 
-    // Always allow these paths (super-admin needs to toggle off + auth)
+    // Always allow these paths (super-admin needs to toggle off + auth + onboarding)
     const allowedPrefixes = [
       '/auth/', '/super-admin/', '/health', '/platform/maintenance',
+      '/onboarding/', // yeni firma başvuruları her zaman alınmalı
+      '/security/', // 2FA kurulum / oturum yönetimi
+      '/compliance/tickets', // destek talepleri (public)
     ];
     if (allowedPrefixes.some((p) => req.path.startsWith(p))) {
       return next();
