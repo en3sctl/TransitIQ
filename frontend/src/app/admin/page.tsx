@@ -30,6 +30,9 @@ import { PlatformAnnouncementsPanel } from "@/components/admin/platform-announce
 import { PlatformUsersPanel } from "@/components/admin/platform-users-panel";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { AnnouncementBanner } from "@/components/announcement-banner";
+import { PlatformSettingsPanel } from "@/components/admin/platform-settings-panel";
+import { PlatformKvkkPanel } from "@/components/admin/platform-kvkk-panel";
+import { PlatformHealthPanel } from "@/components/admin/platform-health-panel";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -165,6 +168,9 @@ function AdminDashboardContent() {
                  activeTab === 'platform-audit' ? 'Platform · Denetim Logu' :
                  activeTab === 'platform-announcements' ? 'Platform · Duyurular' :
                  activeTab === 'platform-users' ? 'Platform · Kullanıcılar' :
+                 activeTab === 'platform-settings' ? 'Platform · Ayarlar' :
+                 activeTab === 'platform-kvkk' ? 'Platform · KVKK Talepleri' :
+                 activeTab === 'platform-health' ? 'Platform · Sistem Sağlığı' :
                  'Panel'}
               </h2>
               <p className="text-zinc-500 dark:text-zinc-400 font-medium text-lg leading-snug">
@@ -190,6 +196,9 @@ function AdminDashboardContent() {
                  activeTab === 'platform-audit' ? 'Cross-tenant denetim logu. Kim ne yaptı, ne zaman.' :
                  activeTab === 'platform-announcements' ? 'Platform geneline duyuru yayınla.' :
                  activeTab === 'platform-users' ? 'Tüm kullanıcılar: askıya al, parola sıfırla, arama.' :
+                 activeTab === 'platform-settings' ? 'Komisyon, bakım modu, min/max fiyat, oturum süresi gibi global ayarlar.' :
+                 activeTab === 'platform-kvkk' ? 'KVKK veri silme / indirme / düzeltme talepleri — 30 gün içinde cevap şart.' :
+                 activeTab === 'platform-health' ? 'DB, e-posta, ödeme servisi ve iş metriklerinin canlı durumu.' :
                  'Verileriniz burada.'}
               </p>
             </div>
@@ -227,6 +236,9 @@ function AdminDashboardContent() {
                 <TabsContent value="platform-audit"><PlatformAuditPanel /></TabsContent>
                 <TabsContent value="platform-announcements"><PlatformAnnouncementsPanel /></TabsContent>
                 <TabsContent value="platform-users"><PlatformUsersPanel /></TabsContent>
+                <TabsContent value="platform-settings"><PlatformSettingsPanel /></TabsContent>
+                <TabsContent value="platform-kvkk"><PlatformKvkkPanel /></TabsContent>
+                <TabsContent value="platform-health"><PlatformHealthPanel /></TabsContent>
               </Tabs>
             </div>
 

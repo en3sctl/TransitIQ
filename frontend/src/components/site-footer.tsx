@@ -16,6 +16,7 @@ const SECTIONS = [
     title: 'Kurumsal',
     links: [
       { label: 'Hakkımızda', href: '/hakkimizda' },
+      { label: 'Firma Kayıt', href: '/firma-kayit' },
       { label: 'Kariyer', href: '/kariyer' },
       { label: 'Basın Merkezi', href: '/basin' },
       { label: 'Blog', href: '/blog' },

@@ -33,6 +33,14 @@ import { TenantModule } from './tenant/tenant.module';
 import { SettlementModule } from './settlement/settlement.module';
 import { AdminSearchModule } from './search/admin-search.module';
 import { PlatformModule } from './platform/platform.module';
+import { OperationsModule } from './operations/operations.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
+import { SecurityModule } from './security/security.module';
+import { CommerceModule } from './commerce/commerce.module';
+import { DevopsModule } from './devops/devops.module';
+import { ComplianceModule } from './compliance/compliance.module';
+import { MaintenanceMiddleware } from './common/middleware/maintenance.middleware';
+import { MiddlewareConsumer, NestModule } from '@nestjs/common';
 
 @Module({
   imports: [
@@ -89,6 +97,12 @@ import { PlatformModule } from './platform/platform.module';
     SettlementModule,
     AdminSearchModule,
     PlatformModule,
+    OperationsModule,
+    OnboardingModule,
+    SecurityModule,
+    CommerceModule,
+    DevopsModule,
+    ComplianceModule,
   ],
   controllers: [AppController],
   providers: [
@@ -99,4 +113,8 @@ import { PlatformModule } from './platform/platform.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(MaintenanceMiddleware).forRoutes('*');
+  }
+}

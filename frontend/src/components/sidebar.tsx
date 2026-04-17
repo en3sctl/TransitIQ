@@ -31,6 +31,9 @@ import {
   Activity,
   Megaphone,
   UserCog,
+  Sliders,
+  FileLock,
+  HeartPulse,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -66,13 +69,16 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const platformItems = user?.role === 'SUPER_ADMIN'
     ? [
         { id: "platform-overview", icon: LineChart, label: 'Genel Bakış' },
+        { id: "platform-health", icon: HeartPulse, label: 'Sistem Sağlığı' },
         { id: "platform-approvals", icon: FileCheck, label: 'Onay Kuyruğu' },
         { id: "super-tenants", icon: Building2, label: 'Firmalar' },
         { id: "platform-users", icon: UserCog, label: 'Kullanıcılar' },
         { id: "super-settlements", icon: Banknote, label: 'Ödemeler' },
         { id: "platform-lookup", icon: SearchIcon, label: 'Bilet Arama' },
+        { id: "platform-kvkk", icon: FileLock, label: 'KVKK Talepleri' },
         { id: "platform-announcements", icon: Megaphone, label: 'Duyurular' },
         { id: "platform-audit", icon: Activity, label: 'Denetim Logu' },
+        { id: "platform-settings", icon: Sliders, label: 'Ayarlar' },
       ]
     : [];
 

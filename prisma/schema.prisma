@@ -88,6 +88,12 @@ model Tenant {
   // Commission rate platform keeps on each booking (0.0–1.0). 0 = no cut.
   commissionRate Decimal @default(0.08) @map("commission_rate") @db.Decimal(5, 4)
 
+  // Subscription plan (tier-based pricing)
+  planId String? @map("plan_id")
+
+  // Risk score (0-100, higher = riskier). Computed by background job.
+  riskScore Int @default(0) @map("risk_score")
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -100,6 +106,11 @@ model Tenant {
   bookings    Booking[]
   auditLogs   AuditLog[]
   settlements Settlement[]
+  notes       TenantNote[]
+  tags        TenantTag[]
+  invoices    Invoice[]
+  apiKeys     ApiKey[]
+  plan        SubscriptionPlan? @relation(fields: [planId], references: [id])
 
   @@map("tenants")
 }
@@ -180,6 +191,8 @@ model User {
   auditLogs          AuditLog[]
   priceAlerts        PriceAlert[]
   walletTransactions WalletTransaction[]
+  twoFactor          TwoFactorSecret?
+  sessions           UserSession[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -586,4 +599,288 @@ model WaitingListEntry {
   @@index([tenantId, status])
   @@index([userId])
   @@map("waiting_list")
+}
+
+// ════════════════════════════════════════════════════════════════
+// Platform operator models (SUPER_ADMIN / enterprise)
+// ════════════════════════════════════════════════════════════════
+
+/** Singleton key-value store for platform-wide configuration. */
+model PlatformSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  type      String   @default("string") // string | number | boolean | json
+  updatedAt DateTime @updatedAt
+  updatedBy String?  @map("updated_by")
+  @@map("platform_settings")
+}
+
+/** Dahili firma notları — super-admin'in müşteri ilişkileri CRM'i. */
+model TenantNote {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  authorId  String   @map("author_id")
+  body      String
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, pinned, createdAt])
+  @@map("tenant_notes")
+}
+
+model TenantTag {
+  id       String  @id @default(uuid())
+  tenantId String  @map("tenant_id")
+  label    String
+  color    String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, label])
+  @@map("tenant_tags")
+}
+
+/** KVKK/GDPR veri talebi (indirme, silme, düzeltme). Yasal zorunluluk. */
+model DataRequest {
+  id           String    @id @default(uuid())
+  userId       String?   @map("user_id")
+  contactEmail String    @map("contact_email")
+  contactName  String    @map("contact_name")
+  type         String    // EXPORT | DELETE | CORRECT | RESTRICT
+  status       String    @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED | REJECTED
+  reason       String?
+  resolution   String?
+  resolvedAt   DateTime? @map("resolved_at")
+  handledBy    String?   @map("handled_by")
+  dataUrl      String?   @map("data_url") // if EXPORT completed, link to generated JSON/PDF
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@index([contactEmail])
+  @@map("data_requests")
+}
+
+model SubscriptionPlan {
+  id                 String   @id @default(uuid())
+  name               String   @unique
+  slug               String   @unique
+  description        String?
+  monthlyFee         Decimal  @default(0) @map("monthly_fee") @db.Decimal(10, 2)
+  commissionRate     Decimal  @map("commission_rate") @db.Decimal(5, 4)
+  maxVehicles        Int?     @map("max_vehicles")
+  maxRoutes          Int?     @map("max_routes")
+  maxMonthlyBookings Int?     @map("max_monthly_bookings")
+  features           String[] @default([])
+  active             Boolean  @default(true)
+  sortOrder          Int      @default(0) @map("sort_order")
+  createdAt          DateTime @default(now())
+
+  tenants Tenant[]
+
+  @@map("subscription_plans")
+}
+
+model Invoice {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  invoiceNo       String    @unique @map("invoice_no")
+  periodStart     DateTime  @map("period_start")
+  periodEnd       DateTime  @map("period_end")
+  subscriptionFee Decimal   @default(0) @map("subscription_fee") @db.Decimal(10, 2)
+  commissionTotal Decimal   @map("commission_total") @db.Decimal(10, 2)
+  bookingCount    Int       @map("booking_count")
+  grossTotal      Decimal   @map("gross_total") @db.Decimal(10, 2)
+  netToCompany    Decimal   @map("net_to_company") @db.Decimal(10, 2)
+  taxRate         Decimal   @default(0.18) @map("tax_rate") @db.Decimal(5, 4)
+  taxAmount       Decimal   @default(0) @map("tax_amount") @db.Decimal(10, 2)
+  pdfUrl          String?   @map("pdf_url")
+  status          String    @default("DRAFT") // DRAFT | ISSUED | SENT | PAID | OVERDUE | CANCELLED
+  sentAt          DateTime? @map("sent_at")
+  paidAt          DateTime? @map("paid_at")
+  dueAt           DateTime? @map("due_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status, periodEnd])
+  @@map("invoices")
+}
+
+model TwoFactorSecret {
+  id          String    @id @default(uuid())
+  userId      String    @unique @map("user_id")
+  secret      String    // base32 TOTP secret (encrypted at rest ideally)
+  enabled     Boolean   @default(false)
+  backupCodes String[]  @default([]) @map("backup_codes") // hashed
+  enabledAt   DateTime? @map("enabled_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("two_factor_secrets")
+}
+
+model UserSession {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  tokenHash  String    @unique @map("token_hash") // SHA-256 of JWT
+  userAgent  String?   @map("user_agent")
+  ipAddress  String?   @map("ip_address")
+  lastSeenAt DateTime  @default(now()) @map("last_seen_at")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([tokenHash])
+  @@map("user_sessions")
+}
+
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  key       String   @unique // BOOKING_CONFIRMATION | WELCOME | PASSWORD_RESET | etc.
+  name      String
+  subject   String
+  bodyHtml  String   @map("body_html")
+  variables Json?
+  description String?
+  updatedAt DateTime @updatedAt
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now())
+  @@map("email_templates")
+}
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  name        String
+  description String?
+  enabled     Boolean  @default(false)
+  audience    String   @default("ALL") // ALL | TENANT_IDS | PERCENTAGE
+  rolloutPct  Int      @default(100)
+  tenantIds   String[] @default([]) @map("tenant_ids")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@map("feature_flags")
+}
+
+model ApiKey {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  name       String
+  keyHash    String    @unique @map("key_hash")
+  keyPrefix  String    @map("key_prefix") // "tiq_live_abc123..."
+  scopes     String[]  @default([])
+  lastUsedAt DateTime? @map("last_used_at")
+  expiresAt  DateTime? @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdBy  String    @map("created_by")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, revokedAt])
+  @@map("api_keys")
+}
+
+model Incident {
+  id               String           @id @default(uuid())
+  title            String
+  description      String
+  severity         String           @default("MAJOR") // MINOR | MAJOR | CRITICAL
+  status           String           @default("INVESTIGATING") // INVESTIGATING | IDENTIFIED | MONITORING | RESOLVED
+  affectedServices String[]         @default([]) @map("affected_services")
+  publicMessage    String?          @map("public_message")
+  startedAt        DateTime         @default(now()) @map("started_at")
+  resolvedAt       DateTime?        @map("resolved_at")
+  createdBy        String           @map("created_by")
+
+  updates          IncidentUpdate[]
+
+  @@index([status, startedAt])
+  @@map("incidents")
+}
+
+model IncidentUpdate {
+  id         String   @id @default(uuid())
+  incidentId String   @map("incident_id")
+  status     String
+  message    String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  @@map("incident_updates")
+}
+
+model SupportTicket {
+  id           String           @id @default(uuid())
+  tenantId     String?          @map("tenant_id")
+  userId       String?          @map("user_id")
+  contactEmail String           @map("contact_email")
+  contactName  String           @map("contact_name")
+  subject      String
+  status       String           @default("OPEN") // OPEN | IN_PROGRESS | WAITING | RESOLVED | CLOSED
+  priority     String           @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  category     String?
+  assignedTo   String?          @map("assigned_to")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  messages SupportMessage[]
+
+  @@index([status, priority, createdAt])
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id         String   @id @default(uuid())
+  ticketId   String   @map("ticket_id")
+  authorId   String?  @map("author_id")
+  authorName String   @map("author_name")
+  body       String
+  internal   Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("support_messages")
+}
+
+model TermsVersion {
+  id          String   @id @default(uuid())
+  version     String   @unique
+  kind        String   @default("TERMS") // TERMS | PRIVACY | KVKK | COOKIE
+  bodyHtml    String   @map("body_html")
+  summary     String?
+  publishedAt DateTime @default(now()) @map("published_at")
+  current     Boolean  @default(false)
+
+  @@index([kind, current])
+  @@map("terms_versions")
+}
+
+model ConsentLog {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  email     String?
+  kind      String // TERMS | KVKK | COOKIE_ANALYTICS | COOKIE_MARKETING | MARKETING_EMAIL
+  version   String?
+  granted   Boolean
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, kind])
+  @@index([email, kind])
+  @@map("consent_logs")
 }
