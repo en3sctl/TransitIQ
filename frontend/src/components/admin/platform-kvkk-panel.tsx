@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Download, Trash2, Check, X, Clock, Mail, AlertTriangle, FileText, UserX } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog, promptDialog } from "@/components/ui/dialogs";
 
 interface DataRequest {
   id: string;
@@ -65,7 +66,14 @@ export function PlatformKvkkPanel() {
       a.download = `kvkk-export-${email}-${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      const note = prompt('Dışa aktarma notu (kullanıcıya iletilecek):', 'Kullanıcı verisi JSON olarak indirildi, güvenli kanalla kullanıcıya iletilecek.');
+      const note = await promptDialog({
+        title: 'Dışa Aktarma Notu',
+        message: 'Kullanıcıya e-posta olarak iletilir. Çözüm sürecini anlat.',
+        label: 'Not',
+        type: 'textarea',
+        defaultValue: 'Veriniz JSON olarak dışa aktarıldı, size güvenli kanalla iletilecek.',
+        confirmLabel: 'Tamamlandı İşaretle',
+      });
       await updateStatus(id, 'COMPLETED', note || 'Veri dışa aktarıldı');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Export başarısız');
@@ -73,7 +81,13 @@ export function PlatformKvkkPanel() {
   };
 
   const executeDelete = async (id: string, email: string) => {
-    if (!confirm(`"${email}" için TÜM veriler anonimize edilecek. Bu işlem geri alınamaz!\n\nDevam?`)) return;
+    const ok = await confirmDialog({
+      title: 'Veri Silme Onayı',
+      message: `${email} için TÜM kişisel veriler anonimize edilecek.\n\n• Kullanıcı kaydı: "Silinmiş Kullanıcı" yapılır\n• Bilet geçmişi: maskelenir (yasal kayıt saklanır)\n• Cüzdan, rozet, fiyat alarmları silinir\n\nBu işlem GERİ ALINAMAZ. Devam?`,
+      variant: 'danger',
+      confirmLabel: 'Verileri Sil',
+    });
+    if (!ok) return;
     try {
       const res = await api.post(`/super-admin/kvkk-requests/${id}/execute`, {});
       toast.success(`${res.data.deleted} kullanıcı silindi/anonimize edildi`);
@@ -161,8 +175,16 @@ export function PlatformKvkkPanel() {
                         İnceleme
                       </button>
                       <button
-                        onClick={() => {
-                          const reason = prompt('Red sebebi:');
+                        onClick={async () => {
+                          const reason = await promptDialog({
+                            title: 'Talebi Reddet',
+                            message: 'KVKK talebini reddetmenin yasal bir sebebi olmalı (kimlik doğrulanamadı, zaten silinmiş, vs.).',
+                            label: 'Red sebebi',
+                            type: 'textarea',
+                            variant: 'danger',
+                            confirmLabel: 'Reddet',
+                            minLength: 5,
+                          });
                           if (reason !== null) updateStatus(r.id, 'REJECTED', reason);
                         }}
                         className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-[10px] font-bold"

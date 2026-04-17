@@ -16,6 +16,7 @@ import { AuthProvider } from "@/context/auth-context";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
 import { GlobalShell } from "@/components/shell/global-shell";
+import { DialogsRoot } from "@/components/ui/dialogs";
 
 export default function RootLayout({
   children,
@@ -30,6 +31,7 @@ export default function RootLayout({
             {children}
             <Toaster richColors position="top-center" closeButton />
             <GlobalShell />
+            <DialogsRoot />
           </AuthProvider>
         </ThemeProvider>
       </body>

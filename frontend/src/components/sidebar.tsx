@@ -34,6 +34,14 @@ import {
   Sliders,
   FileLock,
   HeartPulse,
+  Package,
+  Receipt,
+  Flag,
+  Key,
+  AlertOctagon,
+  MessageCircle,
+  Mail,
+  ShieldAlert,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -61,6 +69,8 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
 
   const secondaryItems = [
     { id: "tenant", icon: Building2, label: 'Firma Ayarları' },
+    { id: "security", icon: ShieldCheck, label: 'Güvenlik (2FA)' },
+    { id: "api-keys", icon: Key, label: 'API Anahtarları' },
     { id: "audit", icon: FileText, label: 'Denetim Logu' },
     { id: "settings", icon: Settings, label: 'Ayarlar' },
   ];
@@ -78,6 +88,13 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         { id: "platform-kvkk", icon: FileLock, label: 'KVKK Talepleri' },
         { id: "platform-announcements", icon: Megaphone, label: 'Duyurular' },
         { id: "platform-audit", icon: Activity, label: 'Denetim Logu' },
+        { id: "platform-plans", icon: Package, label: 'Planlar' },
+        { id: "platform-invoices", icon: Receipt, label: 'Faturalar' },
+        { id: "platform-risk", icon: ShieldAlert, label: 'Risk Skorları' },
+        { id: "platform-flags", icon: Flag, label: 'Özellik Bayrakları' },
+        { id: "platform-email-templates", icon: Mail, label: 'E-posta Şablonları' },
+        { id: "platform-incidents", icon: AlertOctagon, label: 'Vaka Kayıtları' },
+        { id: "platform-tickets", icon: MessageCircle, label: 'Destek Talepleri' },
         { id: "platform-settings", icon: Sliders, label: 'Ayarlar' },
       ]
     : [];

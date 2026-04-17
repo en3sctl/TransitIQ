@@ -33,6 +33,11 @@ import { AnnouncementBanner } from "@/components/announcement-banner";
 import { PlatformSettingsPanel } from "@/components/admin/platform-settings-panel";
 import { PlatformKvkkPanel } from "@/components/admin/platform-kvkk-panel";
 import { PlatformHealthPanel } from "@/components/admin/platform-health-panel";
+import { Security2FAPanel } from "@/components/admin/security-2fa-panel";
+import { SecuritySessionsPanel } from "@/components/admin/security-sessions-panel";
+import { PlatformPlansPanel } from "@/components/admin/platform-plans-panel";
+import { PlatformInvoicesPanel } from "@/components/admin/platform-invoices-panel";
+import { TenantApiKeysPanel, PlatformRiskPanel, PlatformFlagsPanel, PlatformEmailTemplatesPanel, PlatformIncidentsPanel, PlatformTicketsPanel } from "@/components/admin/platform-devops-panels";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -171,6 +176,15 @@ function AdminDashboardContent() {
                  activeTab === 'platform-settings' ? 'Platform · Ayarlar' :
                  activeTab === 'platform-kvkk' ? 'Platform · KVKK Talepleri' :
                  activeTab === 'platform-health' ? 'Platform · Sistem Sağlığı' :
+                 activeTab === 'security' ? 'Güvenlik · 2FA & Oturumlar' :
+                 activeTab === 'api-keys' ? 'API Anahtarları' :
+                 activeTab === 'platform-plans' ? 'Platform · Planlar' :
+                 activeTab === 'platform-invoices' ? 'Platform · Faturalar' :
+                 activeTab === 'platform-risk' ? 'Platform · Risk Skorları' :
+                 activeTab === 'platform-flags' ? 'Platform · Özellik Bayrakları' :
+                 activeTab === 'platform-email-templates' ? 'Platform · E-posta Şablonları' :
+                 activeTab === 'platform-incidents' ? 'Platform · Vaka Kayıtları' :
+                 activeTab === 'platform-tickets' ? 'Platform · Destek Talepleri' :
                  'Panel'}
               </h2>
               <p className="text-zinc-500 dark:text-zinc-400 font-medium text-lg leading-snug">
@@ -239,6 +253,15 @@ function AdminDashboardContent() {
                 <TabsContent value="platform-settings"><PlatformSettingsPanel /></TabsContent>
                 <TabsContent value="platform-kvkk"><PlatformKvkkPanel /></TabsContent>
                 <TabsContent value="platform-health"><PlatformHealthPanel /></TabsContent>
+                <TabsContent value="security"><div className="space-y-6"><Security2FAPanel /><SecuritySessionsPanel /></div></TabsContent>
+                <TabsContent value="api-keys"><TenantApiKeysPanel /></TabsContent>
+                <TabsContent value="platform-plans"><PlatformPlansPanel /></TabsContent>
+                <TabsContent value="platform-invoices"><PlatformInvoicesPanel /></TabsContent>
+                <TabsContent value="platform-risk"><PlatformRiskPanel /></TabsContent>
+                <TabsContent value="platform-flags"><PlatformFlagsPanel /></TabsContent>
+                <TabsContent value="platform-email-templates"><PlatformEmailTemplatesPanel /></TabsContent>
+                <TabsContent value="platform-incidents"><PlatformIncidentsPanel /></TabsContent>
+                <TabsContent value="platform-tickets"><PlatformTicketsPanel /></TabsContent>
               </Tabs>
             </div>
 

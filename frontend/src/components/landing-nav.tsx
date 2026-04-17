@@ -45,6 +45,7 @@ export function LandingNav() {
         <Link href="/fiyatlandirma" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Fiyatlandırma</Link>
         <Link href="/hakkimizda" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Hakkımızda</Link>
         <Link href="/bilet-takip" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Biletimi Bul</Link>
+        <Link href="/firma-kayit" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors">Firma Kayıt</Link>
       </div>
 
       {/* Right side */}

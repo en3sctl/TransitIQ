@@ -763,6 +763,26 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [x] **Tenant Impersonation** — Super admin herhangi firmanın panelinde oturum açabilir (30 dk kısa süreli JWT, `impersonatedBy` claim). Super admin token'ı localStorage'da saklanıyor, "Çık" deyince orijinal oturuma geri dönüyor. Alt kısımda mor gradient banner: "X olarak görüntülüyorsun · aksiyonlar denetim logunda". Audit'e IMPERSONATE_START kaydı
 - [x] **Announcement system** — `Announcement` modeli (title, body, audience: ALL/COMPANY_ADMINS/PASSENGERS/DRIVERS, severity: INFO/WARNING/CRITICAL, linkUrl, startsAt/endsAt, active). Public endpoint `/announcements/active` role'e göre filtreli. Banner component landing + admin sayfalarında, kullanıcı kapatınca 7 gün localStorage'da dismissed
 - [x] **User suspension + parola sıfırlama** — Super admin kötü niyetli kullanıcıyı askıya alır (User.suspendedAt + reason, audit'e yazılır). Parola sıfırlama: rastgele 12 karakterlik geçici parola üretir, super admin'e bir kere gösterilir (güvenli kanalla iletmesi için)
+- [x] **MEGA SPRINT: Enterprise Platform Konsolu** — 14 yeni Prisma modeli, 5 yeni servis modülü (operations, onboarding, security, commerce, devops, compliance), 15+ yeni panel:
+  - **Firma Onboarding** — `/firma-kayit` 6 adımlı multi-step form (Firma → Yasal → İletişim → Admin → Plan → Onay). Slug availability check live. Sözleşme + KVKK onayı consent log'a kaydedilir
+  - **Platform Settings** — Singleton key-value store: maintenance mode, default komisyon, min/max fiyat, iptal penceresi, 2FA zorunluluğu, oturum süresi. Kategorize UI (Platform/Finans/Politika/Güvenlik/Marka). Varsayılana dönüş butonu
+  - **KVKK Data Requests** — `/hesap/kvkk` müşteri formu (EXPORT/DELETE/CORRECT/RESTRICT). Super admin queue: 30 gün yasal süre uyarısı (urgent rozeti), JSON export, kullanıcı veri anonimizasyonu (bilet maskelenir, ad "Silinmiş Kullanıcı" olur)
+  - **System Health** — DB latency, Resend/Iyzico/uploads/memory check'leri, uptime, Node/platform info, 24 saatlik iş metrikleri (bilet, iade, sefer, şikayet, kvkk). 30s auto-refresh
+  - **Tenant Notes + Tags + Timeline** — Dahili CRM notları (pinned destekli), etiketler (VIP/riskli/yeni), tenant aktivite timeline (audit log'dan derlenir)
+  - **Subscription Plans** — Başlangıç (%10, ₺0/ay) / Pro (%7, ₺999/ay) / Kurumsal (%5, ₺2999/ay). Tier'a özel: max araç, max rota, max aylık bilet, özellik listesi. Seed butonu, her field editable
+  - **Invoice Generation** — PDF (pdfkit), otomatik fatura numarası (TIQ-YYYYAA-XXXXX), dönem aggregation, KDV %18, due date. Super admin panelden manuel üret, status değiştir. Firma admin kendi faturalarını görür
+  - **2FA (TOTP)** — otplib ile TOTP üretimi, QR kod (otpauth:// URI), 6 haneli doğrulama, 10 yedek kod (bcrypt hash), setup → verify → backup codes flow. `/hesap/guvenlik` customer sayfası
+  - **Session Tracking** — SHA-256 hashed token, user-agent + IP takibi, son aktivite zamanı, revoke one / revoke all (except current), super admin tüm sessions görür + force-logout
+  - **Risk Scoring** — Her firmaya 0-100 skor: iptal oranı (30p), başarısız iade (20p), açık şikayet (15p), urgent şikayet (15p), yeni firma boost (10p). Recompute butonu, dashboard renkli (yeşil<30, amber 30-60, kırmızı 60+)
+  - **Email Templates CRUD** — Key-based template store (WELCOME, TENANT_APPROVED, INVOICE_SENT, vs.). Subject + HTML body editable, {{variables}} listesi, seed default templates
+  - **Feature Flags** — Audience-based (ALL / TENANT_IDS / PERCENTAGE rollout), deterministic hashing per tenant, toggle, create/delete. Public `/feature-flags/resolve` endpoint frontend için
+  - **API Keys** — Firma admin kendi API key'lerini yönetir. `tiq_live_` prefixli, SHA-256 hashed. Oluşturulunca full key bir kere gösterilir, sonra sadece prefix. Scopes + expiresAt + revoke
+  - **Incident Log** — Public status page feed. Create, add updates (INVESTIGATING/IDENTIFIED/MONITORING/RESOLVED), severity, affected services, public vs internal message
+  - **Support Tickets** — Guest + auth ticket create, super admin inbox (conversation thread), dahili notlar, status değiştirme, öncelik
+  - **Terms Versions + Consent Log** — Versiyonlanmış kullanım şartları (kind: TERMS/PRIVACY/KVKK/COOKIE), her versiyon bir current olarak işaretlenir. Consent log: kim neye ne zaman hangi versiyona onay verdi (IP + UA + timestamp)
+  - **Cookie Consent Banner** — Üç kategori (necessary/analytics/marketing), detay paneli, localStorage persistence, consent backend'e yazılır
+  - **Maintenance Mode Middleware** — `MAINTENANCE_MODE = true` ise tüm mutating endpoint'ler 503 döner (super admin ve auth hariç). Public `/platform/maintenance` ile frontend banner gösterir
+  - **Sidebar yeniden organize** — 3 grup: Ana Menü (standart işler) · Sistem (Firma Ayarları/Güvenlik/API Anahtarları/Denetim) · Platform (11 super-admin paneli, mor vurgulu). Toplam **30+ sekme** sadece SUPER_ADMIN'de görünür
 
 ### Faz 6 — Büyüme & SEO
 - [ ] Her rota için SEO-dostu URL (/rotalar/istanbul-ankara)

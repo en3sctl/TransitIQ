@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, LogOut, Monitor, Smartphone, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Session {
   id: string;
@@ -29,7 +30,13 @@ export function SecuritySessionsPanel() {
   useEffect(() => { load(); }, []);
 
   const revoke = async (id: string) => {
-    if (!confirm('Bu cihaz sistemden çıkarılsın mı?')) return;
+    const ok = await confirmDialog({
+      title: 'Cihazı Çıkar',
+      message: 'Bu cihazdaki oturum sonlandırılacak, yeniden giriş yapması gerekecek.',
+      variant: 'warning',
+      confirmLabel: 'Çıkar',
+    });
+    if (!ok) return;
     try {
       await api.delete(`/security/sessions/${id}`);
       toast.success('Cihaz çıkarıldı');
@@ -38,7 +45,13 @@ export function SecuritySessionsPanel() {
   };
 
   const revokeAll = async () => {
-    if (!confirm('TÜM diğer cihazlar çıkarılacak. Bu cihazda oturum açık kalır. Devam?')) return;
+    const ok = await confirmDialog({
+      title: 'Tüm Cihazları Çıkar',
+      message: 'Tüm cihazlardaki oturumlar sonlandırılır. Bu cihazın oturumu da dahil olabilir.',
+      variant: 'danger',
+      confirmLabel: 'Hepsini Çıkar',
+    });
+    if (!ok) return;
     try {
       await api.post('/security/sessions/revoke-all', {});
       toast.success('Tüm oturumlar sonlandırıldı');

@@ -6,6 +6,7 @@ import { Bell, BellOff, Trash2, Plus, TrendingDown, MapPin, ArrowRight, Loader2,
 import { AccountLayout } from "@/components/hesap/account-layout";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface PriceAlert {
   id: string;
@@ -82,7 +83,13 @@ export default function PriceAlertsPage() {
   }
 
   async function remove(id: string) {
-    if (!confirm('Bu alarmı silmek istediğinden emin misin?')) return;
+    const ok = await confirmDialog({
+      title: 'Fiyat Alarmı Sil',
+      message: 'Bu alarm kalıcı olarak silinecek. Emin misin?',
+      variant: 'danger',
+      confirmLabel: 'Sil',
+    });
+    if (!ok) return;
     try {
       await api.delete(`/price-alerts/${id}`);
       toast.success('Alarm silindi');

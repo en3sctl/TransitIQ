@@ -11,6 +11,7 @@ import { HeroCarousel } from "@/components/landing/hero-carousel";
 import { DiscoverTurkey } from "@/components/landing/discover-turkey";
 import { HeroBadge } from "@/components/landing/hero-badge";
 import { AnnouncementBanner } from "@/components/announcement-banner";
+import { CookieConsent } from "@/components/cookie-consent";
 
 export default function LandingPage() {
   return (
@@ -51,6 +52,7 @@ export default function LandingPage() {
       <B2BCta />
 
       <SiteFooter />
+      <CookieConsent />
     </div>
   );
 }

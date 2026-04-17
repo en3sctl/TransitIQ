@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Loader2, CheckCircle2, XCircle, FileCheck, FileX, Building2, Mail, Phone, Globe, MapPin, FileText, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog, promptDialog } from "@/components/ui/dialogs";
 
 interface PendingTenant {
   id: string;
@@ -48,7 +49,13 @@ export function PlatformApprovalsPanel() {
   useEffect(() => { load(); }, []);
 
   const approve = async (id: string) => {
-    if (!confirm('Bu firma onaylansın mı? Onay sonrası firma platformda satış yapmaya başlar.')) return;
+    const ok = await confirmDialog({
+      title: 'Firma onayı',
+      message: 'Firma onaylandığında platformda aktifleşir ve satış yapmaya başlar. Devam?',
+      variant: 'success',
+      confirmLabel: 'Onayla',
+    });
+    if (!ok) return;
     setActing(id);
     try {
       await api.post(`/super-admin/tenants/${id}/approve`, {});
@@ -62,7 +69,16 @@ export function PlatformApprovalsPanel() {
   };
 
   const reject = async (id: string) => {
-    const reason = prompt('Red sebebi (firma admin\'e iletilmez ama audit\'e kaydedilir):');
+    const reason = await promptDialog({
+      title: 'Firma Başvurusunu Reddet',
+      message: 'Red sebebi denetim logunda kaydedilir. Gerekirse firmayla iletişime geç.',
+      label: 'Red sebebi',
+      placeholder: 'Örn: Belgeler eksik, doğrulanamayan D1 belgesi...',
+      type: 'textarea',
+      variant: 'danger',
+      confirmLabel: 'Reddet',
+      minLength: 5,
+    });
     if (reason === null) return;
     setActing(id);
     try {

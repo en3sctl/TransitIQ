@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Shield, ShieldCheck, Loader2, AlertTriangle, Copy, CheckCircle2, Key, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { promptDialog } from "@/components/ui/dialogs";
 
 interface Status {
   enabled: boolean;
@@ -56,7 +57,15 @@ export function Security2FAPanel() {
   };
 
   const disable = async () => {
-    const c = prompt('Mevcut 2FA kodunu gir (doğrulama için):');
+    const c = await promptDialog({
+      title: '2FA\'yı Kapat',
+      message: 'Hesabının güvenliği azalır. Kapatmak için mevcut 2FA kodunu gir.',
+      label: '6 haneli kod (veya yedek kod)',
+      placeholder: '123456',
+      variant: 'warning',
+      confirmLabel: 'Kapat',
+      minLength: 6,
+    });
     if (!c) return;
     setBusy(true);
     try {

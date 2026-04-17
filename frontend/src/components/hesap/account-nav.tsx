@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Ticket, User, Wallet, Bell, Award, Gift, LogOut, BellRing } from "lucide-react";
+import { Ticket, User, Wallet, Bell, Award, Gift, LogOut, BellRing, FileLock, Shield } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 
 const ITEMS = [
@@ -13,6 +13,8 @@ const ITEMS = [
   { href: '/hesap/rozetler', label: 'Rozetler', icon: Award },
   { href: '/hesap/davet', label: 'Arkadaş Davet Et', icon: Gift },
   { href: '/hesap/profil', label: 'Profil Ayarları', icon: User },
+  { href: '/hesap/guvenlik', label: 'Güvenlik', icon: Shield },
+  { href: '/hesap/kvkk', label: 'KVKK Hakları', icon: FileLock },
 ];
 
 export function AccountNav() {

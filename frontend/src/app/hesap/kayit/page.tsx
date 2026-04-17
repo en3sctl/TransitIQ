@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand-logo";
-import { Loader2, ChevronRight, Eye, EyeOff, Sparkles, CheckCircle2, Ticket, ShieldCheck, Bus, Gift } from "lucide-react";
+import { Loader2, ChevronRight, Eye, EyeOff, Sparkles, CheckCircle2, Ticket, ShieldCheck, Bus, Gift, Building2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GoogleAuthButton } from "@/components/google-auth-button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -348,6 +348,21 @@ export default function CustomerRegisterPage() {
                   </Link>
                 </p>
               </div>
+
+              {/* Firma kayıt — yolcu kaydından ayrı bir giriş noktası */}
+              <Link
+                href="/firma-kayit"
+                className="mt-4 flex items-center gap-3 p-4 rounded-2xl border-2 border-dashed border-indigo-200 dark:border-indigo-500/30 hover:border-indigo-400 dark:hover:border-indigo-500/60 bg-indigo-50/30 dark:bg-indigo-500/5 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0">
+                  <Building2 className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-black text-indigo-900 dark:text-indigo-200">Otobüs firması mısın?</p>
+                  <p className="text-[11px] text-indigo-700 dark:text-indigo-300/80 font-medium">Firma kaydı yap, platformda satış yapmaya başla →</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-indigo-500 group-hover:translate-x-1 transition-transform" />
+              </Link>
             </motion.div>
           </AnimatePresence>
         </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Search, Ban, UserCheck, KeyRound, ShieldAlert, Copy, Ticket, Mail, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { alertDialog, confirmDialog, promptDialog } from "@/components/ui/dialogs";
 
 interface UserItem {
   id: string;
@@ -68,7 +69,16 @@ export function PlatformUsersPanel() {
   }, [query, role, suspended]);
 
   const suspend = async (u: UserItem) => {
-    const reason = prompt(`"${u.name}" askıya alınsın mı? Sebep:`);
+    const reason = await promptDialog({
+      title: `${u.name} — Askıya Al`,
+      message: 'Kullanıcı platformda işlem yapamaz. Sebep denetim logunda kaydedilir.',
+      label: 'Askıya alma sebebi',
+      placeholder: 'Örn: Çoklu hesap açma, KVKK ihlali, dolandırıcılık şüphesi...',
+      type: 'textarea',
+      variant: 'danger',
+      confirmLabel: 'Askıya Al',
+      minLength: 3,
+    });
     if (reason === null) return;
     try {
       await api.post(`/super-admin/users/${u.id}/suspend`, { reason });
@@ -90,21 +100,24 @@ export function PlatformUsersPanel() {
   };
 
   const resetPassword = async (u: UserItem) => {
-    if (!confirm(`"${u.name}" kullanıcısının parolası sıfırlanacak. Yeni geçici parola sana gösterilecek, kullanıcıya güvenli kanaldan ilet. Devam?`)) return;
+    const ok = await confirmDialog({
+      title: `${u.name} — Parola Sıfırla`,
+      message: 'Rastgele geçici bir parola üretilecek. Sana bir kere gösterilecek, kullanıcıya güvenli kanaldan ilet (WhatsApp değil). Devam?',
+      variant: 'warning',
+      confirmLabel: 'Sıfırla',
+    });
+    if (!ok) return;
     try {
       const res = await api.post(`/super-admin/users/${u.id}/reset-password`, {});
       const tempPwd = res.data?.tempPassword;
       if (tempPwd) {
-        // Show in a modal-like confirm
-        const copied = confirm(`Geçici parola:\n\n${tempPwd}\n\nTamam'a bas → panoya kopyalanır.`);
-        if (copied) {
-          try {
-            await navigator.clipboard.writeText(tempPwd);
-            toast.success('Parola panoya kopyalandı');
-          } catch {
-            toast.info('Parola: ' + tempPwd);
-          }
-        }
+        try { await navigator.clipboard.writeText(tempPwd); } catch { /* ignore */ }
+        await alertDialog({
+          title: 'Geçici Parola',
+          message: `${tempPwd}\n\nPanoya kopyalandı. Kullanıcıya güvenli kanaldan ilet, bir daha gösterilmez.`,
+          variant: 'success',
+          confirmLabel: 'Aldım',
+        });
       }
     } catch {
       toast.error('Sıfırlama başarısız');

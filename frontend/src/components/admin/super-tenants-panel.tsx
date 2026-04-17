@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, BadgeCheck, Pause, Play, ShieldCheck, Percent, ExternalLink, Search, UserCog } from "lucide-react";
+import { Loader2, BadgeCheck, Pause, Play, ShieldCheck, Percent, ExternalLink, Search, UserCog, ChevronDown, ChevronRight, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog, promptDialog } from "@/components/ui/dialogs";
+import { TenantNotesSection } from "./tenant-notes-section";
 
 interface Tenant {
   id: string;
@@ -33,6 +35,7 @@ export function SuperTenantsPanel() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<string>('');
 
   const load = async () => {
@@ -60,7 +63,13 @@ export function SuperTenantsPanel() {
   };
 
   const impersonate = async (id: string, name: string) => {
-    if (!confirm(`"${name}" firmasının admin panelinde oturum açılacak. Tüm aksiyonlar denetim logunda kaydedilir. Devam?`)) return;
+    const ok = await confirmDialog({
+      title: `${name} olarak giriş yap`,
+      message: `Bu firmanın admin panelinde 30 dakika boyunca oturum açacaksın. Tüm aksiyonların denetim logunda kaydediliyor. Devam?`,
+      variant: 'warning',
+      confirmLabel: 'Giriş Yap',
+    });
+    if (!ok) return;
     try {
       const res = await api.post(`/super-admin/tenants/${id}/impersonate`, {});
       const { token, user } = res.data;
@@ -93,13 +102,20 @@ export function SuperTenantsPanel() {
   };
 
   const setCommission = async (id: string) => {
-    const raw = prompt('Yeni komisyon oranı (0-0.5 arası, örn: 0.08 = %8):');
+    const raw = await promptDialog({
+      title: 'Komisyon Oranı',
+      message: 'Platform komisyon oranını gir. 0.08 = %8',
+      label: 'Oran (0.0 - 0.5 arası)',
+      placeholder: '0.08',
+      type: 'number',
+      validate: (v) => {
+        const n = Number(v);
+        if (isNaN(n) || n < 0 || n > 0.5) return 'Geçersiz — 0 ile 0.5 arası olmalı';
+        return null;
+      },
+    });
     if (raw === null) return;
     const rate = Number(raw);
-    if (isNaN(rate) || rate < 0 || rate > 0.5) {
-      toast.error('Geçersiz oran');
-      return;
-    }
     try {
       await api.patch(`/super-admin/tenants/${id}/commission`, { rate });
       toast.success('Komisyon oranı güncellendi');
@@ -259,8 +275,24 @@ export function SuperTenantsPanel() {
                     >
                       <ExternalLink className="w-3 h-3" /> Profil
                     </a>
+                    <button
+                      onClick={() => setExpanded((s) => {
+                        const next = new Set(s);
+                        if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+                        return next;
+                      })}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-100"
+                    >
+                      {expanded.has(t.id) ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                      <StickyNote className="w-3 h-3" /> Notlar & Etiketler
+                    </button>
                   </div>
                 </div>
+                {expanded.has(t.id) && (
+                  <div className="col-span-full mt-3">
+                    <TenantNotesSection tenantId={t.id} tenantName={t.publicName || t.name} />
+                  </div>
+                )}
               </motion.div>
             );
           })}

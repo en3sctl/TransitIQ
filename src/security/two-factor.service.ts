@@ -1,17 +1,33 @@
 import { Injectable, BadRequestException, NotFoundException, UnauthorizedException, Logger } from '@nestjs/common';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { authenticator } = require('otplib');
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma/prisma.service';
+
+// otplib v13+ exposes a functional API (no authenticator singleton).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const otplib = require('otplib');
+const TOTP_OPTS = { strategy: 'totp' as const, digits: 6, period: 30, algorithm: 'sha1' as const };
+
+function makeSecret(): string {
+  return otplib.generateSecret({ length: 20 });
+}
+function makeUri(label: string, issuer: string, secret: string): string {
+  return otplib.generateURI({ ...TOTP_OPTS, issuer, label, secret });
+}
+function checkCode(token: string, secret: string): boolean {
+  try {
+    const res = otplib.verifySync({ ...TOTP_OPTS, token, secret, window: 1 });
+    return !!(res && (res.isValid ?? res.valid ?? res));
+  } catch {
+    return false;
+  }
+}
 
 @Injectable()
 export class TwoFactorService {
   private readonly logger = new Logger(TwoFactorService.name);
 
-  constructor(private prisma: PrismaService) {
-    authenticator.options = { window: 1, digits: 6 };
-  }
+  constructor(private prisma: PrismaService) {}
 
   /**
    * Start 2FA setup. Generates a new secret (unverified) and returns
@@ -30,9 +46,9 @@ export class TwoFactorService {
       throw new BadRequestException('2FA zaten etkin. Önce devre dışı bırak.');
     }
 
-    const secret = authenticator.generateSecret();
+    const secret = makeSecret();
     const issuer = 'TransitIQ';
-    const otpauth = authenticator.keyuri(user.email, issuer, secret);
+    const otpauth = makeUri(user.email, issuer, secret);
 
     await this.prisma.twoFactorSecret.upsert({
       where: { userId },
@@ -53,7 +69,7 @@ export class TwoFactorService {
     if (!record) throw new BadRequestException('Önce kurulum başlat');
     if (record.enabled) throw new BadRequestException('Zaten etkin');
 
-    const ok = authenticator.check(code, record.secret);
+    const ok = checkCode(code, record.secret);
     if (!ok) throw new UnauthorizedException('Doğrulama kodu hatalı');
 
     // Generate 10 backup codes (one-time use, shown once)
@@ -106,7 +122,7 @@ export class TwoFactorService {
 
     // Try TOTP first (6 digits)
     if (/^\d{6}$/.test(cleanCode)) {
-      const ok = authenticator.check(cleanCode, record.secret);
+      const ok = checkCode(cleanCode, record.secret);
       if (ok) {
         await this.prisma.twoFactorSecret.update({
           where: { userId },

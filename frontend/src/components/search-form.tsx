@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, Calendar } from 'lucide-react';
 import { StationCombobox, type Station } from '@/components/station-combobox';
+import { toast } from 'sonner';
 
 export default function SearchForm() {
   const router = useRouter();
@@ -35,11 +36,11 @@ export default function SearchForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!origin || !destination) {
-      alert('Lütfen kalkış ve varış noktalarını seçin.');
+      toast.error('Lütfen kalkış ve varış noktalarını seçin');
       return;
     }
     if (origin === destination) {
-      alert('Kalkış ve varış aynı olamaz.');
+      toast.error('Kalkış ve varış aynı olamaz');
       return;
     }
     // Tarih opsiyonel: boş bırakılırsa bugünün tarihi kullanılır.
