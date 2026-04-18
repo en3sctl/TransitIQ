@@ -5,9 +5,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Loader2, User, Phone, Mail, Calendar, Star, FileText,
   Bus, Wallet, AlertTriangle, Clipboard, Check, AlertCircle,
-  Droplet, HeartPulse, MapPin,
+  Droplet, HeartPulse, MapPin, Eye, Download,
 } from "lucide-react";
 import api from "@/lib/api";
+
+function apiBase() { return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'; }
+function toAbs(u: string | null | undefined) {
+  if (!u) return null;
+  return u.startsWith('http') ? u : apiBase() + u;
+}
 
 interface Props {
   driverId: string | null;
@@ -68,10 +74,10 @@ export function DriverDetailModal({ driverId, onClose }: Props) {
                   <X className="w-5 h-5" />
                 </button>
                 <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-2xl bg-white/15 flex items-center justify-center text-3xl font-black border border-white/20 shrink-0">
-                    {u?.avatarUrl ? (
+                  <div className="w-20 h-20 rounded-2xl bg-white/15 flex items-center justify-center text-3xl font-black border border-white/20 shrink-0 overflow-hidden">
+                    {toAbs(u?.avatarUrl) ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={u.avatarUrl} alt={u.name} className="w-full h-full rounded-2xl object-cover" />
+                      <img src={toAbs(u.avatarUrl)!} alt={u.name} className="w-full h-full object-cover" />
                     ) : (
                       u?.name?.[0]?.toUpperCase() || '?'
                     )}
@@ -194,12 +200,35 @@ export function DriverDetailModal({ driverId, onClose }: Props) {
                                 ) : soon ? (
                                   <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-500 text-white">{daysLeft}g kaldı</span>
                                 ) : null}
+                                {!d.imageUrl && (
+                                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400">Dosya yok</span>
+                                )}
                               </div>
                               <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium mt-0.5">
                                 {d.documentNumber && `No: ${d.documentNumber} · `}
                                 {validUntil && `Bitiş: ${validUntil.toLocaleDateString('tr-TR')}`}
                               </div>
                             </div>
+                            {d.imageUrl && (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <a
+                                  href={toAbs(d.imageUrl)!}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold"
+                                >
+                                  <Eye className="w-3 h-3" /> Görüntüle
+                                </a>
+                                <a
+                                  href={toAbs(d.imageUrl)!}
+                                  download={`${DOC_LABEL[d.type] || d.type}_${d.documentNumber || d.id.slice(0, 6)}`}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 text-xs font-bold"
+                                  title="İndir"
+                                >
+                                  <Download className="w-3 h-3" /> İndir
+                                </a>
+                              </div>
+                            )}
                           </div>
                         );
                       })

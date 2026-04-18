@@ -64,6 +64,7 @@ const PlatformTicketsPanel = lazyPanel(() => import("@/components/admin/platform
 const DriverExpensesPanel = lazyPanel(() => import("@/components/admin/driver-ops-panels"), "DriverExpensesPanel");
 const DriverSosPanel = lazyPanel(() => import("@/components/admin/driver-ops-panels"), "DriverSosPanel");
 const PreTripChecksPanel = lazyPanel(() => import("@/components/admin/driver-ops-panels"), "PreTripChecksPanel");
+const LostItemsPanel = lazyPanel(() => import("@/components/admin/driver-ops-panels"), "LostItemsPanel");
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -290,6 +291,7 @@ function AdminDashboardContent() {
                 <TabsContent value="driver-expenses">{activeTab === 'driver-expenses' && <DriverExpensesPanel />}</TabsContent>
                 <TabsContent value="driver-sos">{activeTab === 'driver-sos' && <DriverSosPanel />}</TabsContent>
                 <TabsContent value="pre-trip-checks">{activeTab === 'pre-trip-checks' && <PreTripChecksPanel />}</TabsContent>
+                <TabsContent value="lost-items">{activeTab === 'lost-items' && <LostItemsPanel />}</TabsContent>
               </Tabs>
             </div>
 

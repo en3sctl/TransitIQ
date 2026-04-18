@@ -73,6 +73,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: "driver-expenses", icon: Wallet, label: 'Masraf Onayları' },
     { id: "driver-sos", icon: AlertOctagon, label: 'SOS Olayları' },
     { id: "pre-trip-checks", icon: Clipboard, label: 'Araç Kontrolleri' },
+    { id: "lost-items", icon: Package, label: 'Kayıp Eşya' },
   ];
 
   const secondaryItems = [

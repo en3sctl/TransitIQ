@@ -472,6 +472,76 @@ model PreTripCheck {
 }
 
 /**
+ * Dijital belge cüzdanı paylaşım tokenı — şoför QR oluşturur,
+ * trafik polisi/denetim tarar, belgeleri tokenla okur.
+ * 1 saat geçerli, tek kullanımlık değil (polis birkaç kere bakabilir).
+ * Revoke edilebilir (yanlışlıkla paylaşıldıysa).
+ */
+model DriverWalletToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique  // random 32-char
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@map("driver_wallet_tokens")
+}
+
+/**
+ * Peer yol durumu — şoförler arası Waze-tarzı uyarı sistemi.
+ * Bir şoför "Bolu'da sis" gibi alert yayınlar, 50 km civarındaki diğer
+ * şoförler son 2 saatin alert'lerini görür. Upvote ile güven skoru artar.
+ * Tenant-agnostic: tüm firmalardan şoförler birbirinin alert'ini görür.
+ */
+model RoadAlert {
+  id          String   @id @default(uuid())
+  reporterId  String   @map("reporter_id")  // User.id (DRIVER)
+  reporterTenantId String @map("reporter_tenant_id")
+  category    String   // TRAFFIC, ACCIDENT, POLICE, WEATHER, ROAD_WORK, HAZARD
+  note        String?
+  lat         Float
+  lng         Float
+  upvoteCount Int      @default(0) @map("upvote_count")
+  downvoteCount Int    @default(0) @map("downvote_count")
+  verifiedCount Int    @default(0) @map("verified_count") // bana da göründü diyen
+  expiresAt   DateTime @map("expires_at")  // 2 saat sonra auto-expire
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt, createdAt])
+  @@index([lat, lng])
+  @@map("road_alerts")
+}
+
+/**
+ * Kayıp eşya yönetimi — yolcu sefer sonrası "otobüsümde X unuttum" bildirir,
+ * şoför aktif seferinde görüp işaretler. Admin de moderate eder.
+ */
+model LostItem {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  tripId          String?   @map("trip_id")
+  bookingId       String?   @map("booking_id")  // eşya bildiren yolcunun PNR'ı
+  reporterUserId  String?   @map("reporter_user_id")  // auth kullanıcıysa
+  reporterName    String    @map("reporter_name")
+  reporterPhone   String?   @map("reporter_phone")
+  itemDescription String    @map("item_description")
+  seatNumber      Int?      @map("seat_number")
+  imageUrl        String?   @map("image_url")
+  status          String    @default("REPORTED")  // REPORTED, FOUND, NOT_FOUND, CLAIMED
+  driverNote      String?   @map("driver_note")
+  resolutionNote  String?   @map("resolution_note")
+  resolvedAt      DateTime? @map("resolved_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId, status, createdAt])
+  @@index([tripId])
+  @@map("lost_items")
+}
+
+/**
  * SOS olayları ve pre-trip eksiklerinin admin çözüm takibi.
  * referenceType: "SOS" (AuditLog.id) veya "PRE_TRIP" (PreTripCheck.id).
  * Unique constraint — aynı olay iki kere resolve edilemez.

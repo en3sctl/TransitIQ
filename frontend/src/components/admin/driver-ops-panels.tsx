@@ -647,6 +647,128 @@ export function PreTripChecksPanel() {
 }
 
 // ═════════════════════════════════════════════════════════════
+// LostItemsPanel — yolcu bildirimi → şoför + admin yönetimi
+// ═════════════════════════════════════════════════════════════
+
+interface LostItem {
+  id: string;
+  tripId: string | null;
+  reporterName: string;
+  reporterPhone: string | null;
+  itemDescription: string;
+  seatNumber: number | null;
+  status: 'REPORTED' | 'FOUND' | 'NOT_FOUND' | 'CLAIMED';
+  driverNote: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+const LOST_STATUS_META: Record<string, { label: string; cls: string }> = {
+  REPORTED: { label: 'Bildirildi', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400' },
+  FOUND: { label: 'Bulundu', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' },
+  NOT_FOUND: { label: 'Bulunamadı', cls: 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400' },
+  CLAIMED: { label: 'Sahibine verildi', cls: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400' },
+};
+
+export function LostItemsPanel() {
+  const [items, setItems] = useState<LostItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/driver-ops/admin/lost-items', { params: statusFilter ? { status: statusFilter } : undefined });
+      setItems(res.data || []);
+    } catch { setItems([]); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [statusFilter]);
+
+  const openCount = items.filter((i) => i.status === 'REPORTED').length;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+          📦 Kayıp Eşya Takibi
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+          Yolcuların bildirdiği unutulmuş eşyalar. Şoför aktif seferde "bulundu/bulunamadı" işaretler.
+        </p>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {[
+          { v: '', label: `Tümü (${items.length})` },
+          { v: 'REPORTED', label: `Açık (${openCount})` },
+          { v: 'FOUND', label: 'Bulundu' },
+          { v: 'CLAIMED', label: 'Teslim Edildi' },
+          { v: 'NOT_FOUND', label: 'Bulunamadı' },
+        ].map((f) => (
+          <button
+            key={f.v}
+            onClick={() => setStatusFilter(f.v)}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors ${
+              statusFilter === f.v ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>
+      ) : items.length === 0 ? (
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-10 text-center">
+          <p className="text-3xl mb-2">📦</p>
+          <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">Kayıp eşya bildirimi yok</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => {
+            const meta = LOST_STATUS_META[item.status];
+            return (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-2xl flex items-center justify-center shrink-0">
+                    📦
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <p className="text-base font-black text-slate-900 dark:text-white">{item.itemDescription}</p>
+                      <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${meta.cls}`}>{meta.label}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-zinc-400 font-medium flex-wrap">
+                      <span className="inline-flex items-center gap-1"><User className="w-3 h-3" /> {item.reporterName}</span>
+                      {item.reporterPhone && (
+                        <a href={`tel:${item.reporterPhone}`} className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline">
+                          <Phone className="w-3 h-3" /> {item.reporterPhone}
+                        </a>
+                      )}
+                      {item.seatNumber != null && <span>Koltuk: <strong>{item.seatNumber}</strong></span>}
+                      <span><Clock className="w-3 h-3 inline mr-1" />{new Date(item.createdAt).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    {item.driverNote && (
+                      <p className="text-xs text-slate-600 dark:text-zinc-300 font-medium italic mt-2">Şoför notu: "{item.driverNote}"</p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════
 // Shared
 // ═════════════════════════════════════════════════════════════
 

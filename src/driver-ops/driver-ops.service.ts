@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as crypto from 'crypto';
+import sharp from 'sharp';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuditService } from '../common/audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -6,11 +10,125 @@ import { CreateExpenseDto, UpdateTripStatusDto, LocationDto } from './dto/driver
 
 @Injectable()
 export class DriverOpsService {
+  private readonly driverUploadsRoot = path.join(process.cwd(), 'uploads', 'drivers');
+
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
     private notifications: NotificationsService,
-  ) {}
+  ) {
+    if (!fs.existsSync(this.driverUploadsRoot)) {
+      fs.mkdirSync(this.driverUploadsRoot, { recursive: true });
+    }
+  }
+
+  /**
+   * Avatar upload — driver kendi fotoğrafını yükler.
+   * 512x512 webp'e resize edilir, eski foto silinir, User.avatarUrl güncellenir.
+   */
+  async uploadAvatar(userId: string, fileBuffer: Buffer) {
+    if (fileBuffer.length > 3 * 1024 * 1024) {
+      throw new BadRequestException('Avatar en fazla 3 MB olabilir');
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { avatarUrl: true },
+    });
+    if (!user) throw new NotFoundException();
+
+    const userDir = path.join(this.driverUploadsRoot, userId);
+    if (!fs.existsSync(userDir)) fs.mkdirSync(userDir, { recursive: true });
+
+    const hash = crypto.randomBytes(6).toString('hex');
+    const fileName = `avatar-${hash}.webp`;
+    const filePath = path.join(userDir, fileName);
+
+    await sharp(fileBuffer)
+      .resize(512, 512, { fit: 'cover' })
+      .webp({ quality: 88 })
+      .toFile(filePath);
+
+    // Eski avatarı sil (bizim uploads tree'si altındaysa)
+    if (user.avatarUrl?.startsWith('/uploads/drivers/')) {
+      const oldPath = path.join(process.cwd(), user.avatarUrl.replace(/^\//, ''));
+      if (fs.existsSync(oldPath)) {
+        try { fs.unlinkSync(oldPath); } catch { /* non-fatal */ }
+      }
+    }
+
+    const publicUrl = `/uploads/drivers/${userId}/${fileName}`;
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl: publicUrl },
+    });
+
+    return { avatarUrl: publicUrl };
+  }
+
+  async removeAvatar(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { avatarUrl: true },
+    });
+    if (user?.avatarUrl?.startsWith('/uploads/drivers/')) {
+      const p = path.join(process.cwd(), user.avatarUrl.replace(/^\//, ''));
+      if (fs.existsSync(p)) {
+        try { fs.unlinkSync(p); } catch { /* ignore */ }
+      }
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl: null },
+    });
+    return { success: true };
+  }
+
+  /**
+   * Belge dosyası (ehliyet foto, SRC PDF) yükle.
+   * Image ise resize + webp, PDF ise original.
+   */
+  async uploadDocumentFile(userId: string, documentId: string, fileBuffer: Buffer, mimetype: string) {
+    if (fileBuffer.length > 8 * 1024 * 1024) {
+      throw new BadRequestException('Dosya en fazla 8 MB olabilir');
+    }
+    const doc = await (this.prisma as any).driverDocument.findFirst({
+      where: { id: documentId, userId },
+    });
+    if (!doc) throw new NotFoundException('Belge bulunamadı');
+
+    const userDir = path.join(this.driverUploadsRoot, userId, 'docs');
+    if (!fs.existsSync(userDir)) fs.mkdirSync(userDir, { recursive: true });
+
+    const hash = crypto.randomBytes(6).toString('hex');
+    const isPdf = mimetype === 'application/pdf';
+    const ext = isPdf ? 'pdf' : 'webp';
+    const fileName = `${doc.type}-${hash}.${ext}`;
+    const filePath = path.join(userDir, fileName);
+
+    if (isPdf) {
+      fs.writeFileSync(filePath, fileBuffer);
+    } else {
+      await sharp(fileBuffer)
+        .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 85 })
+        .toFile(filePath);
+    }
+
+    // Eski dosyayı sil
+    if (doc.imageUrl?.startsWith('/uploads/drivers/')) {
+      const oldPath = path.join(process.cwd(), doc.imageUrl.replace(/^\//, ''));
+      if (fs.existsSync(oldPath)) {
+        try { fs.unlinkSync(oldPath); } catch { /* ignore */ }
+      }
+    }
+
+    const publicUrl = `/uploads/drivers/${userId}/docs/${fileName}`;
+    const updated = await (this.prisma as any).driverDocument.update({
+      where: { id: documentId },
+      data: { imageUrl: publicUrl },
+    });
+    return updated;
+  }
 
   /**
    * Returns trips relevant to the driver right now:
@@ -183,8 +301,8 @@ export class DriverOpsService {
     ]);
 
     // Batch-enrich: driver + trip route
-    const driverIds = Array.from(new Set(items.map((e: any) => e.driverId)));
-    const tripIds = Array.from(new Set(items.map((e: any) => e.tripId)));
+    const driverIds: string[] = Array.from(new Set(items.map((e: any) => e.driverId as string)));
+    const tripIds: string[] = Array.from(new Set(items.map((e: any) => e.tripId as string)));
     const [drivers, trips] = await Promise.all([
       this.prisma.user.findMany({
         where: { id: { in: driverIds } },
@@ -192,11 +310,10 @@ export class DriverOpsService {
       }),
       this.prisma.trip.findMany({
         where: { id: { in: tripIds } },
-        select: {
-          id: true, departureTime: true,
+        include: {
           vehicle: { select: { registrationPlate: true } },
           route: {
-            select: {
+            include: {
               originStation: { select: { city: true } },
               destinationStation: { select: { city: true } },
             },
@@ -205,7 +322,7 @@ export class DriverOpsService {
       }),
     ]);
     const driverMap = new Map(drivers.map((d) => [d.id, d]));
-    const tripMap = new Map(trips.map((t) => [t.id, t]));
+    const tripMap = new Map<string, any>(trips.map((t) => [t.id, t]));
 
     const statsMap = stats.reduce((acc: any, s: any) => {
       acc[s.status] = { count: s._count._all, total: Number(s._sum.amount || 0) };
@@ -344,9 +461,9 @@ export class DriverOpsService {
     ]);
 
     // Batch enrich driver + trip + resolution
-    const driverIds = Array.from(new Set(items.map((c: any) => c.driverId)));
-    const tripIds = Array.from(new Set(items.map((c: any) => c.tripId)));
-    const checkIds = items.map((c: any) => c.id);
+    const driverIds: string[] = Array.from(new Set(items.map((c: any) => c.driverId as string)));
+    const tripIds: string[] = Array.from(new Set(items.map((c: any) => c.tripId as string)));
+    const checkIds: string[] = items.map((c: any) => c.id as string);
     const [drivers, trips, resolutions] = await Promise.all([
       this.prisma.user.findMany({
         where: { id: { in: driverIds } },
@@ -354,11 +471,10 @@ export class DriverOpsService {
       }),
       this.prisma.trip.findMany({
         where: { id: { in: tripIds } },
-        select: {
-          id: true, departureTime: true,
+        include: {
           vehicle: { select: { registrationPlate: true } },
           route: {
-            select: {
+            include: {
               originStation: { select: { city: true } },
               destinationStation: { select: { city: true } },
             },
@@ -372,7 +488,7 @@ export class DriverOpsService {
         : [],
     ]);
     const driverMap = new Map(drivers.map((d) => [d.id, d]));
-    const tripMap = new Map(trips.map((t) => [t.id, t]));
+    const tripMap = new Map<string, any>(trips.map((t) => [t.id, t]));
     const resolverIds = resolutions.map((r: any) => r.resolvedBy);
     const resolvers = resolverIds.length
       ? await this.prisma.user.findMany({
@@ -612,6 +728,378 @@ export class DriverOpsService {
       })),
       recentReviews: reviews,
     };
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // Lost items — yolcu bildirir, şoför yönetir, admin moderate eder
+  // ═════════════════════════════════════════════════════════════
+
+  /** Public / auth: yolcu kayıp eşya bildirir (PNR ile tripId çözülür). */
+  async reportLostItem(args: {
+    pnrCode?: string;
+    reporterUserId?: string;
+    reporterName: string;
+    reporterPhone?: string;
+    itemDescription: string;
+  }) {
+    if (!args.itemDescription || args.itemDescription.length < 5) {
+      throw new BadRequestException('Eşya açıklaması en az 5 karakter');
+    }
+
+    let tenantId: string | null = null;
+    let tripId: string | null = null;
+    let bookingId: string | null = null;
+    let seatNumber: number | null = null;
+
+    if (args.pnrCode) {
+      const booking = await this.prisma.booking.findUnique({
+        where: { pnrCode: args.pnrCode },
+        select: {
+          id: true, tenantId: true, tripId: true,
+          seat: { select: { seatNumber: true } },
+        },
+      });
+      if (booking) {
+        tenantId = booking.tenantId;
+        tripId = booking.tripId;
+        bookingId = booking.id;
+        seatNumber = booking.seat?.seatNumber || null;
+      }
+    }
+    if (!tenantId) throw new BadRequestException('Geçerli PNR lazım — firmayı eşleştiremedik');
+
+    return (this.prisma as any).lostItem.create({
+      data: {
+        tenantId,
+        tripId,
+        bookingId,
+        reporterUserId: args.reporterUserId || null,
+        reporterName: args.reporterName,
+        reporterPhone: args.reporterPhone || null,
+        itemDescription: args.itemDescription,
+        seatNumber,
+        status: 'REPORTED',
+      },
+    });
+  }
+
+  /** Driver: aktif seferindeki kayıp eşya bildirimlerini görür. */
+  async driverListLostItems(tenantId: string, driverId: string, tripId: string) {
+    const trip = await this.prisma.trip.findFirst({
+      where: { id: tripId, tenantId, driverId },
+    });
+    if (!trip) throw new ForbiddenException('Yetkisiz erişim');
+    return (this.prisma as any).lostItem.findMany({
+      where: { tripId, tenantId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /** Driver: bulundu/bulunamadı işaretle. */
+  async driverUpdateLostItem(tenantId: string, driverId: string, itemId: string, args: { status: 'FOUND' | 'NOT_FOUND' | 'CLAIMED'; note?: string }) {
+    const item = await (this.prisma as any).lostItem.findFirst({ where: { id: itemId, tenantId } });
+    if (!item) throw new NotFoundException('Eşya bildirimi bulunamadı');
+    if (item.tripId) {
+      const trip = await this.prisma.trip.findFirst({
+        where: { id: item.tripId, driverId },
+      });
+      if (!trip) throw new ForbiddenException('Bu sefere bağlı eşyayı işaretleme yetkin yok');
+    }
+    if (!['FOUND', 'NOT_FOUND', 'CLAIMED'].includes(args.status)) {
+      throw new BadRequestException('Geçersiz durum');
+    }
+    return (this.prisma as any).lostItem.update({
+      where: { id: itemId },
+      data: {
+        status: args.status,
+        driverNote: args.note || null,
+        // status hep FOUND/NOT_FOUND/CLAIMED geliyor (REPORTED yok) — hep çözüm tarihi
+        resolvedAt: new Date(),
+      },
+    });
+  }
+
+  /** Admin: tüm kayıp eşya listesini firmaya göre getir. */
+  async adminListLostItems(tenantId: string, opts: { status?: string; take?: number; skip?: number } = {}) {
+    const { status, take = 100, skip = 0 } = opts;
+    const where: any = { tenantId };
+    if (status) where.status = status;
+    return (this.prisma as any).lostItem.findMany({
+      where, orderBy: { createdAt: 'desc' }, skip, take,
+    });
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // Dijital belge cüzdanı — trafik polisine QR ile göster
+  // ═════════════════════════════════════════════════════════════
+
+  /**
+   * Şoför kısa ömürlü paylaşım token'ı oluşturur.
+   * 1 saat geçerli — QR olarak gösterilir.
+   * Eski aktif token'lar revoke edilir (tek aktif token politikası).
+   */
+  async createWalletToken(userId: string) {
+    // Eski aktif token'ları revoke et
+    await (this.prisma as any).driverWalletToken.updateMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+      data: { revokedAt: new Date() },
+    });
+
+    const token = crypto.randomBytes(24).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 saat
+    const record = await (this.prisma as any).driverWalletToken.create({
+      data: { userId, token, expiresAt },
+    });
+    return { token: record.token, expiresAt: record.expiresAt };
+  }
+
+  async revokeMyWalletToken(userId: string) {
+    await (this.prisma as any).driverWalletToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return { success: true };
+  }
+
+  /**
+   * Public (auth'suz) — token ile şoför + belgelerini dön.
+   * Hassas bilgiler maskelenir: email/telefon gösterilmez, belge no masked.
+   */
+  async getWalletByToken(token: string) {
+    const record = await (this.prisma as any).driverWalletToken.findUnique({
+      where: { token },
+    });
+    if (!record) throw new NotFoundException('Geçersiz kod');
+    if (record.revokedAt) throw new ForbiddenException('Kod iptal edildi');
+    if (record.expiresAt < new Date()) throw new ForbiddenException('Kod süresi doldu');
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: record.userId },
+      select: {
+        name: true, avatarUrl: true,
+        tenant: { select: { name: true, publicName: true } },
+      },
+    });
+    if (!user) throw new NotFoundException();
+
+    const documents = await (this.prisma as any).driverDocument.findMany({
+      where: { userId: record.userId },
+      orderBy: { validUntil: 'asc' },
+      select: {
+        type: true, licenseClass: true, documentNumber: true,
+        issuedAt: true, validUntil: true, imageUrl: true,
+      },
+    });
+
+    // Belge numaralarını maskele (ilk 3, son 3 açık, orta ***)
+    const maskedDocs = documents.map((d: any) => ({
+      ...d,
+      documentNumber: d.documentNumber
+        ? d.documentNumber.length > 6
+          ? `${d.documentNumber.slice(0, 3)}***${d.documentNumber.slice(-3)}`
+          : d.documentNumber
+        : null,
+    }));
+
+    return {
+      driver: {
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        tenantName: user.tenant.publicName || user.tenant.name,
+      },
+      documents: maskedDocs,
+      generatedAt: new Date().toISOString(),
+      expiresAt: record.expiresAt,
+    };
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // Peer road alerts — şoförler arası Waze-tarzı uyarı
+  // ═════════════════════════════════════════════════════════════
+
+  /** Haversine — iki nokta arası km. */
+  private haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  /** Driver yeni road alert yayınlar — 2 saat geçerli. */
+  async createRoadAlert(
+    tenantId: string,
+    driverId: string,
+    data: { category: string; note?: string; lat: number; lng: number },
+  ) {
+    const validCategories = ['TRAFFIC', 'ACCIDENT', 'POLICE', 'WEATHER', 'ROAD_WORK', 'HAZARD'];
+    if (!validCategories.includes(data.category)) {
+      throw new BadRequestException(`Geçersiz kategori. Geçerli: ${validCategories.join(', ')}`);
+    }
+    if (typeof data.lat !== 'number' || typeof data.lng !== 'number') {
+      throw new BadRequestException('Konum (lat, lng) gerekli');
+    }
+    const expiresAt = new Date(Date.now() + 2 * 3600 * 1000);
+    return (this.prisma as any).roadAlert.create({
+      data: {
+        reporterId: driverId,
+        reporterTenantId: tenantId,
+        category: data.category,
+        note: data.note || null,
+        lat: data.lat,
+        lng: data.lng,
+        expiresAt,
+      },
+    });
+  }
+
+  /**
+   * Driver yakındaki aktif alert'leri alır — 50 km çap + henüz expire olmayan.
+   * Reporter ismi anonim (şoför kimliği paylaşılmaz, sadece "TransitIQ şoförü").
+   */
+  async listNearbyRoadAlerts(lat: number, lng: number, radiusKm: number = 50) {
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      throw new BadRequestException('Konum gerekli');
+    }
+    const now = new Date();
+    // İlk önce expire olmayan son 500 alert — sonra haversine ile filtrele
+    const all = await (this.prisma as any).roadAlert.findMany({
+      where: { expiresAt: { gt: now } },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+    const nearby = all
+      .map((a: any) => ({ ...a, distanceKm: this.haversineKm(lat, lng, a.lat, a.lng) }))
+      .filter((a: any) => a.distanceKm <= radiusKm)
+      .sort((a: any, b: any) => a.distanceKm - b.distanceKm)
+      .slice(0, 50);
+    return nearby;
+  }
+
+  /** Upvote veya downvote — başkasının alert'i için. */
+  async voteRoadAlert(driverId: string, alertId: string, vote: 'up' | 'down' | 'verify') {
+    const alert = await (this.prisma as any).roadAlert.findUnique({ where: { id: alertId } });
+    if (!alert) throw new NotFoundException();
+    if (alert.reporterId === driverId) {
+      throw new ForbiddenException('Kendi alert\'ini oylayamazsın');
+    }
+    const field = vote === 'up' ? 'upvoteCount' : vote === 'down' ? 'downvoteCount' : 'verifiedCount';
+    return (this.prisma as any).roadAlert.update({
+      where: { id: alertId },
+      data: { [field]: { increment: 1 } },
+    });
+  }
+
+  /** Reporter kendi alert'ini sil. */
+  async deleteRoadAlert(driverId: string, alertId: string) {
+    const alert = await (this.prisma as any).roadAlert.findFirst({
+      where: { id: alertId, reporterId: driverId },
+    });
+    if (!alert) throw new NotFoundException();
+    await (this.prisma as any).roadAlert.delete({ where: { id: alertId } });
+    return { success: true };
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // Auto badges — cron ile periyodik değerlendirilir
+  // ═════════════════════════════════════════════════════════════
+
+  /**
+   * Gold Driver rozeti: ortalama puan ≥4.5 + en az 50 tamamlanmış sefer.
+   * Her gün kontrol edilir, şartları sağlayanlara "GOLD_DRIVER" rozeti eklenir.
+   */
+  async evaluateGoldDrivers() {
+    const drivers = await this.prisma.user.findMany({
+      where: { role: 'DRIVER', deletedAt: null },
+      select: { id: true, badges: true, totalTrips: true },
+    });
+    let updated = 0;
+    for (const d of drivers) {
+      const [completedTrips, ratingAgg] = await Promise.all([
+        this.prisma.trip.count({ where: { driverId: d.id, status: 'COMPLETED' } }),
+        this.prisma.review.aggregate({
+          where: { driverId: d.id, hidden: false },
+          _avg: { rating: true }, _count: { _all: true },
+        }),
+      ]);
+      const avg = ratingAgg._avg.rating ? Number(ratingAgg._avg.rating) : 0;
+      const isGold = completedTrips >= 50 && avg >= 4.5 && (ratingAgg._count._all || 0) >= 10;
+      const hasBadge = d.badges.includes('GOLD_DRIVER');
+      if (isGold && !hasBadge) {
+        await this.prisma.user.update({
+          where: { id: d.id },
+          data: { badges: [...d.badges, 'GOLD_DRIVER'] },
+        });
+        updated++;
+      } else if (!isGold && hasBadge) {
+        // Şartı kaybettiyse rozet düşer (puan düştü vb.)
+        await this.prisma.user.update({
+          where: { id: d.id },
+          data: { badges: d.badges.filter((b) => b !== 'GOLD_DRIVER') },
+        });
+      }
+    }
+    return { updated, scanned: drivers.length };
+  }
+
+  /**
+   * TR yasal: profesyonel şoför 1 günde en fazla 9 saat direksiyon başında olabilir.
+   * Son 24 saatteki vardiya sürelerini topla, 8+ saat şoförlere + admin'e uyarı.
+   */
+  async checkShiftLimits() {
+    const now = new Date();
+    const last24h = new Date(now.getTime() - 24 * 3600 * 1000);
+
+    // Aktif seferleri bul (hala direksiyonda olanlar)
+    const activeTrips = await this.prisma.trip.findMany({
+      where: { status: 'ACTIVE', driverStartedAt: { not: null, gte: last24h } },
+      select: {
+        id: true, tenantId: true, driverId: true, driverStartedAt: true,
+        vehicle: { select: { registrationPlate: true } },
+        driver: { select: { name: true, phoneNumber: true } },
+      },
+    });
+
+    const warnings: any[] = [];
+    for (const t of activeTrips) {
+      if (!t.driverStartedAt) continue;
+      const durationHours = (now.getTime() - new Date(t.driverStartedAt).getTime()) / 3600000;
+      if (durationHours >= 8) {
+        warnings.push({
+          tripId: t.id,
+          tenantId: t.tenantId,
+          driverId: t.driverId,
+          driverName: t.driver?.name,
+          plate: t.vehicle.registrationPlate,
+          hours: Math.round(durationHours * 10) / 10,
+          exceeded: durationHours >= 9,
+        });
+      }
+    }
+
+    // Tenant bazlı grupla, admin'e uyarı e-postası
+    if (warnings.length > 0) {
+      const byTenant = new Map<string, any[]>();
+      for (const w of warnings) {
+        if (!byTenant.has(w.tenantId)) byTenant.set(w.tenantId, []);
+        byTenant.get(w.tenantId)!.push(w);
+      }
+      for (const [tenantId, items] of byTenant.entries()) {
+        const tenant = await this.prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { supportEmail: true, publicName: true, name: true },
+        });
+        if (tenant?.supportEmail) {
+          this.notifications.sendShiftLimitAlert?.(tenant.supportEmail, {
+            tenantName: tenant.publicName || tenant.name,
+            drivers: items,
+          }).catch(() => { /* silent */ });
+        }
+      }
+    }
+    return { warningCount: warnings.length };
   }
 
   async sendPostTripSummary(tripId: string) {

@@ -537,6 +537,40 @@ export class NotificationsService {
     }
   }
 
+  /** 9 saat vardiya limiti — 8+ saattir direksiyonda olan şoförler için admin uyarısı. */
+  async sendShiftLimitAlert(to: string, args: {
+    tenantName: string;
+    drivers: { driverName: string; plate: string; hours: number; exceeded: boolean }[];
+  }) {
+    if (!this.enabled || !this.resend || args.drivers.length === 0) return;
+    try {
+      const rows = args.drivers.map((d) => {
+        const color = d.exceeded ? '#dc2626' : '#d97706';
+        return `<li style="color:${color};font-weight:700;margin-bottom:4px">
+          ${escapeHtml(d.driverName)} — ${escapeHtml(d.plate)} — <strong>${d.hours} saat</strong>
+          ${d.exceeded ? ' ⚠ YASAL LİMİT AŞILDI' : ''}
+        </li>`;
+      }).join('');
+
+      const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f1f5f9;padding:40px 20px;margin:0"><div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;padding:40px;border-left:6px solid #dc2626">
+        <div style="display:inline-block;background:#fee2e2;color:#991b1b;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:800;margin-bottom:16px">VARDİYA UYARISI</div>
+        <h1 style="font-size:20px;font-weight:900;margin:0 0 12px;color:#0f172a">${escapeHtml(args.tenantName)} — ${args.drivers.length} şoförde vardiya uyarısı</h1>
+        <p style="color:#475569;line-height:1.6;margin:0 0 20px">TR yasaları profesyonel şoförlerin 1 günde 9 saatten fazla direksiyon başında olmasını yasaklar. Aşağıdaki şoförler 8+ saattir aktif seferde — vardiya devri veya mola yapılmalı.</p>
+        <ul style="margin:12px 0;padding-left:20px;list-style-type:none">${rows}</ul>
+        <p style="color:#94a3b8;font-size:12px;margin:20px 0 0">Otomatik uyarı. 30 dakikada bir kontrol ediliyor.</p>
+      </div></body></html>`;
+
+      await this.resend.emails.send({
+        from: this.fromAddress, to,
+        subject: `⚠ Vardiya limiti — ${args.drivers.length} şoför 8+ saat`,
+        html,
+      });
+      this.logger.log(`[EMAIL] Shift limit alert sent to ${to}`);
+    } catch (err) {
+      this.logger.error(`[EMAIL] sendShiftLimitAlert threw: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
   async sendBookingConfirmation(pnrCodes: string[]) {
     if (!this.enabled || !this.resend || pnrCodes.length === 0) return;
 

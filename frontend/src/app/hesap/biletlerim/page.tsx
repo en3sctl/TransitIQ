@@ -6,7 +6,8 @@ import { BrandLogo } from "@/components/brand-logo";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Ticket, LogOut, ArrowRight, CalendarDays, MapPin, Armchair, Download, Search, CheckCircle2, XCircle, Clock, User, AlertTriangle, X, MessageCircle, Navigation, Star, ShieldAlert } from "lucide-react";
+import { Loader2, Ticket, LogOut, ArrowRight, CalendarDays, MapPin, Armchair, Download, Search, CheckCircle2, XCircle, Clock, User, AlertTriangle, X, MessageCircle, Navigation, Star, ShieldAlert, Package } from "lucide-react";
+import { LostItemFormModal } from "@/components/lost-item-form-modal";
 import { AccountLayout } from "@/components/hesap/account-layout";
 import { ModeToggle } from "@/components/mode-toggle";
 import { toast } from "sonner";
@@ -45,6 +46,7 @@ export default function MyTicketsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
   const [cancelTarget, setCancelTarget] = useState<MyBooking | null>(null);
+  const [lostItemTarget, setLostItemTarget] = useState<MyBooking | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [reviewTarget, setReviewTarget] = useState<MyBooking | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
@@ -319,6 +321,14 @@ export default function MyTicketsPage() {
                       >
                         <ShieldAlert className="w-4 h-4" /> Sorun Bildir
                       </Link>
+                      {(b.status === 'CONFIRMED' || b.status === 'COMPLETED') && (
+                        <button
+                          onClick={() => setLostItemTarget(b)}
+                          className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold px-4 py-2.5 rounded-xl text-xs transition-colors hover:bg-amber-100 dark:hover:bg-amber-500/20 border border-amber-100 dark:border-amber-500/20"
+                        >
+                          <Package className="w-4 h-4" /> Eşya Kaybettim
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -472,6 +482,13 @@ export default function MyTicketsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <LostItemFormModal
+        open={!!lostItemTarget}
+        onClose={() => setLostItemTarget(null)}
+        pnrCode={lostItemTarget?.pnrCode || ''}
+        defaultName={lostItemTarget?.passengerName}
+      />
     </AccountLayout>
   );
 }

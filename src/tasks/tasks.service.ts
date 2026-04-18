@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PaymentService } from '../payment/payment.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { DriverOpsService } from '../driver-ops/driver-ops.service';
 import { SeatStatus, BookingStatus } from '@prisma/client';
 
 @Injectable()
@@ -13,7 +14,47 @@ export class TasksService {
     private readonly prisma: PrismaService,
     private readonly paymentService: PaymentService,
     private readonly notificationsService: NotificationsService,
+    private readonly driverOps: DriverOpsService,
   ) {}
+
+  /** Gold Driver rozet değerlendirmesi — günlük 03:00. */
+  @Cron('0 3 * * *', { timeZone: 'Europe/Istanbul' })
+  async goldDriverEvaluation() {
+    try {
+      const res = await this.driverOps.evaluateGoldDrivers();
+      if (res.updated > 0) this.logger.log(`[GOLD DRIVER] ${res.updated} yeni Gold Driver tanındı`);
+    } catch (err: any) {
+      this.logger.error(`[GOLD DRIVER] ${err.message}`);
+    }
+  }
+
+  /** Eski road alert + wallet token cleanup — her saat. */
+  @Cron(CronExpression.EVERY_HOUR)
+  async cleanupDriverOps() {
+    const now = new Date();
+    const [alerts, tokens] = await Promise.all([
+      (this.prisma as any).roadAlert.deleteMany({
+        where: { expiresAt: { lt: new Date(now.getTime() - 24 * 3600 * 1000) } },
+      }),
+      (this.prisma as any).driverWalletToken.deleteMany({
+        where: { expiresAt: { lt: new Date(now.getTime() - 7 * 86400 * 1000) } },
+      }),
+    ]);
+    if (alerts.count > 0 || tokens.count > 0) {
+      this.logger.log(`[CLEANUP] ${alerts.count} alert, ${tokens.count} token silindi`);
+    }
+  }
+
+  /** Vardiya saat limiti — her 30 dakikada aktif seferleri tara. */
+  @Cron(CronExpression.EVERY_30_MINUTES)
+  async driverShiftLimitCheck() {
+    try {
+      const res = await this.driverOps.checkShiftLimits();
+      if (res.warningCount > 0) this.logger.warn(`[VARDİYA] ${res.warningCount} şoför 8+ saattir direksiyonda`);
+    } catch (err: any) {
+      this.logger.error(`[VARDİYA] ${err.message}`);
+    }
+  }
 
   /**
    * Releases expired seat locks every minute.

@@ -1,7 +1,8 @@
-import { Controller, Delete, ForbiddenException, Get, Post, Patch, Body, Param, Query, Request, UseGuards } from '@nestjs/common';
+import { Controller, Delete, ForbiddenException, Get, Post, Patch, Body, Param, Query, Request, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { DriverOpsService } from './driver-ops.service';
 import { CreateExpenseDto, UpdateTripStatusDto, LocationDto } from './dto/driver-ops.dto';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('Driver Operations')
@@ -207,6 +208,137 @@ export class DriverOpsController {
   @Delete('me/documents/:id')
   deleteMyDocument(@Request() req: any, @Param('id') id: string) {
     return this.driverOpsService.deleteDocument(req.user.id, id);
+  }
+
+  @Post('me/avatar')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('avatar', {
+    limits: { fileSize: 3 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (!/^image\/(png|jpeg|jpg|webp)$/i.test(file.mimetype)) {
+        return cb(new Error('Sadece PNG/JPG/WebP'), false);
+      }
+      cb(null, true);
+    },
+  }))
+  uploadAvatar(@Request() req: any, @UploadedFile() file: any) {
+    if (!file) throw new ForbiddenException('Dosya gerekli');
+    return this.driverOpsService.uploadAvatar(req.user.id, file.buffer);
+  }
+
+  @Delete('me/avatar')
+  removeAvatar(@Request() req: any) {
+    return this.driverOpsService.removeAvatar(req.user.id);
+  }
+
+  // ─── Dijital belge cüzdanı ───
+
+  @Post('me/wallet/token')
+  createWalletToken(@Request() req: any) {
+    return this.driverOpsService.createWalletToken(req.user.id);
+  }
+
+  @Delete('me/wallet/token')
+  revokeWalletToken(@Request() req: any) {
+    return this.driverOpsService.revokeMyWalletToken(req.user.id);
+  }
+
+  // ─── Peer road alerts ───
+
+  @Post('road-alerts')
+  createRoadAlert(
+    @Request() req: any,
+    @Body() body: { category: string; note?: string; lat: number; lng: number },
+  ) {
+    return this.driverOpsService.createRoadAlert(req.user.tenantId, req.user.id, body);
+  }
+
+  @Get('road-alerts/nearby')
+  nearbyRoadAlerts(
+    @Request() req: any,
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+    @Query('radius') radius?: string,
+  ) {
+    return this.driverOpsService.listNearbyRoadAlerts(
+      parseFloat(lat), parseFloat(lng),
+      radius ? parseFloat(radius) : 50,
+    );
+  }
+
+  @Post('road-alerts/:id/vote')
+  voteRoadAlert(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: { vote: 'up' | 'down' | 'verify' },
+  ) {
+    return this.driverOpsService.voteRoadAlert(req.user.id, id, body.vote);
+  }
+
+  @Delete('road-alerts/:id')
+  deleteRoadAlert(@Request() req: any, @Param('id') id: string) {
+    return this.driverOpsService.deleteRoadAlert(req.user.id, id);
+  }
+
+  // ─── Lost items ───
+
+  @Post('lost-items')
+  reportLostItem(@Request() req: any, @Body() body: {
+    pnrCode?: string; reporterName: string; reporterPhone?: string; itemDescription: string;
+  }) {
+    return this.driverOpsService.reportLostItem({
+      ...body,
+      reporterUserId: req.user?.id,
+    });
+  }
+
+  @Get('trips/:tripId/lost-items')
+  driverLostItems(@Request() req: any, @Param('tripId') tripId: string) {
+    return this.driverOpsService.driverListLostItems(req.user.tenantId, req.user.id, tripId);
+  }
+
+  @Patch('lost-items/:id')
+  driverUpdateLostItem(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: { status: 'FOUND' | 'NOT_FOUND' | 'CLAIMED'; note?: string },
+  ) {
+    return this.driverOpsService.driverUpdateLostItem(req.user.tenantId, req.user.id, id, body);
+  }
+
+  @Get('admin/lost-items')
+  adminLostItems(
+    @Request() req: any,
+    @Query('status') status?: string,
+    @Query('take') take?: string,
+    @Query('skip') skip?: string,
+  ) {
+    this.assertCompanyAdmin(req.user);
+    return this.driverOpsService.adminListLostItems(req.user.tenantId, {
+      status,
+      take: take ? parseInt(take, 10) : 100,
+      skip: skip ? parseInt(skip, 10) : 0,
+    });
+  }
+
+  @Post('me/documents/:id/file')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 8 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (!/^(image\/(png|jpeg|jpg|webp)|application\/pdf)$/i.test(file.mimetype)) {
+        return cb(new Error('Sadece PNG/JPG/WebP veya PDF'), false);
+      }
+      cb(null, true);
+    },
+  }))
+  uploadDocumentFile(
+    @Request() req: any,
+    @Param('id') documentId: string,
+    @UploadedFile() file: any,
+  ) {
+    if (!file) throw new ForbiddenException('Dosya gerekli');
+    return this.driverOpsService.uploadDocumentFile(req.user.id, documentId, file.buffer, file.mimetype);
   }
 
   // ─── Admin: başka şoförün 360° detayı ───

@@ -14,6 +14,8 @@ import { ManifestModal } from "@/components/driver/manifest-modal";
 import { SosModal } from "@/components/driver/sos-modal";
 import { PreTripModal } from "@/components/driver/pre-trip-modal";
 import { ExpenseModal } from "@/components/driver/expense-modal";
+import { LostItemsModal } from "@/components/driver/lost-items-modal";
+import { RoadAlerts } from "@/components/driver/road-alerts";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialogs";
@@ -66,6 +68,7 @@ function DriverPage() {
   const [sosTripId, setSosTripId] = useState<string | null>(null);
   const [preTripTripId, setPreTripTripId] = useState<string | null>(null);
   const [expenseTripId, setExpenseTripId] = useState<string | null>(null);
+  const [lostItemsTripId, setLostItemsTripId] = useState<string | null>(null);
 
   useEffect(() => {
     loadTrips();
@@ -286,35 +289,49 @@ function DriverPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 <button
                   onClick={() => setManifestTripId(activeTrip.id)}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 text-white font-bold text-sm hover:bg-white/25 transition-colors"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-4 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 text-white font-bold text-sm hover:bg-white/25 transition-colors"
                 >
                   <Users className="w-4 h-4" /> Yolcular
                 </button>
                 <button
                   onClick={() => setExpenseTripId(activeTrip.id)}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 text-white font-bold text-sm hover:bg-white/25 transition-colors"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-4 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 text-white font-bold text-sm hover:bg-white/25 transition-colors"
                 >
                   <Wallet className="w-4 h-4" /> Masraf
                 </button>
                 <button
+                  onClick={() => setLostItemsTripId(activeTrip.id)}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-4 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 text-white font-bold text-sm hover:bg-white/25 transition-colors"
+                >
+                  <span className="text-lg leading-none">📦</span> Kayıp
+                </button>
+                <button
                   onClick={() => setSosTripId(activeTrip.id)}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-sm shadow-xl shadow-red-500/30 transition-all"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-4 rounded-2xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-sm shadow-xl shadow-red-500/30 transition-all"
                   aria-label="Acil durum"
                 >
                   <AlertCircle className="w-5 h-5" /> SOS
                 </button>
                 <button
                   onClick={() => completeTrip(activeTrip.id)}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-white text-emerald-700 font-black text-sm hover:scale-[1.01] active:scale-100 transition-transform shadow-xl"
+                  className="inline-flex items-center justify-center gap-2 px-3 py-4 rounded-2xl bg-white text-emerald-700 font-black text-sm hover:scale-[1.01] active:scale-100 transition-transform shadow-xl"
                 >
                   <CheckCircle2 className="w-5 h-5" /> Tamamla
                 </button>
               </div>
             </div>
           </motion.div>
+        )}
+
+        {/* Yol durumu — aktif sefer varsa ve GPS alındıysa göster */}
+        {activeTrip && currentCoords && (
+          <RoadAlerts
+            coords={{ lat: currentCoords.lat, lng: currentCoords.lng }}
+            currentUserId={user?.id || null}
+          />
         )}
 
         {/* Today's trips */}
@@ -434,6 +451,10 @@ function DriverPage() {
       <ExpenseModal
         tripId={expenseTripId}
         onClose={() => setExpenseTripId(null)}
+      />
+      <LostItemsModal
+        tripId={lostItemsTripId}
+        onClose={() => setLostItemsTripId(null)}
       />
     </div>
   );
