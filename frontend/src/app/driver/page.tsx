@@ -191,15 +191,19 @@ function DriverPage() {
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <BrandLogo width={180} height={100} className="h-10 w-auto" />
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 text-sm">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-black">
+            <a
+              href="/driver/profil"
+              className="hidden sm:flex items-center gap-2 text-sm hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl px-2 py-1 transition-colors"
+              title="Profilim"
+            >
+              <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-black">
                 {user?.name?.charAt(0).toUpperCase() || 'Ş'}
               </div>
               <div>
                 <p className="text-xs font-bold leading-tight">{user?.name}</p>
-                <p className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 leading-tight">Şoför</p>
+                <p className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 leading-tight">Şoför · Profilim</p>
               </div>
-            </div>
+            </a>
             <ModeToggle />
             <button onClick={logout} className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline">
               <LogOut className="w-3.5 h-3.5" /> Çıkış

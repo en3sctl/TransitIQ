@@ -240,9 +240,13 @@ export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) =>
 
   const grouped = useMemo(() => {
     const buckets: Record<NotifCategory, Notif[]> = {
-      COMPLAINTS: [], VEHICLES: [], PAYMENTS: [], OTHER: [],
+      COMPLAINTS: [], DRIVER_OPS: [], VEHICLES: [], PAYMENTS: [], OTHER: [],
     };
-    for (const n of visible) buckets[n.category].push(n);
+    // Defensive: bilinmeyen kategori gelirse OTHER'a düşür (ekleme zamanında senkron olmayabilir)
+    for (const n of visible) {
+      const bucket = buckets[n.category] || buckets.OTHER;
+      bucket.push(n);
+    }
     return buckets;
   }, [visible]);
 

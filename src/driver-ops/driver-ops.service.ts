@@ -99,6 +99,68 @@ export class DriverOpsService {
   // ═════════════════════════════════════════════════════════════
 
   /**
+   * Bir olayı (SOS veya pre-trip) çözüldü / yanlış alarm olarak işaretle.
+   * IncidentResolution tablosunda tekil kayıt (unique constraint).
+   */
+  async resolveIncident(
+    tenantId: string,
+    reviewerId: string,
+    args: {
+      referenceType: 'SOS' | 'PRE_TRIP';
+      referenceId: string;
+      status?: 'RESOLVED' | 'FALSE_ALARM' | 'ACKNOWLEDGED';
+      note: string;
+    },
+  ) {
+    if (!args.note || args.note.trim().length < 3) {
+      throw new ForbiddenException('Çözüm notu zorunlu (en az 3 karakter) — sorumluluk izi için');
+    }
+    if (!['SOS', 'PRE_TRIP'].includes(args.referenceType)) {
+      throw new ForbiddenException('Geçersiz olay türü');
+    }
+
+    const resolution = await (this.prisma as any).incidentResolution.upsert({
+      where: {
+        referenceType_referenceId: {
+          referenceType: args.referenceType,
+          referenceId: args.referenceId,
+        },
+      },
+      create: {
+        tenantId,
+        referenceType: args.referenceType,
+        referenceId: args.referenceId,
+        status: args.status || 'RESOLVED',
+        resolutionNote: args.note.trim(),
+        resolvedBy: reviewerId,
+      },
+      update: {
+        status: args.status || 'RESOLVED',
+        resolutionNote: args.note.trim(),
+        resolvedBy: reviewerId,
+        resolvedAt: new Date(),
+      },
+    });
+
+    await this.audit.log({
+      tenantId, userId: reviewerId,
+      action: 'UPDATE' as any,
+      entityType: 'TRIP',
+      entityId: args.referenceId,
+      newValues: { referenceType: args.referenceType, status: resolution.status, note: args.note },
+    });
+
+    return resolution;
+  }
+
+  async reopenIncident(tenantId: string, referenceType: 'SOS' | 'PRE_TRIP', referenceId: string) {
+    await (this.prisma as any).incidentResolution.deleteMany({
+      where: { tenantId, referenceType, referenceId },
+    });
+    return { success: true };
+  }
+
+  /**
    * Firma admin için bekleyen + geçmiş masraflar listesi.
    * Trip, şoför ve kategori bilgisiyle birlikte dönülür.
    */
@@ -211,8 +273,8 @@ export class DriverOpsService {
    * Firma admin: son tetiklenen SOS olaylarının listesi (audit log üzerinden).
    * Konum, kategori, not, şoför, sefer bilgisi derlenir.
    */
-  async adminListSosEvents(tenantId: string, opts: { take?: number; skip?: number } = {}) {
-    const { take = 50, skip = 0 } = opts;
+  async adminListSosEvents(tenantId: string, opts: { take?: number; skip?: number; onlyOpen?: boolean } = {}) {
+    const { take = 50, skip = 0, onlyOpen } = opts;
     const events = await this.prisma.auditLog.findMany({
       where: { tenantId, action: 'SOS_TRIGGER' as any },
       orderBy: { timestamp: 'desc' },
@@ -222,19 +284,44 @@ export class DriverOpsService {
         user: { select: { id: true, name: true, phoneNumber: true } },
       },
     });
+
+    // Batch-fetch resolutions
+    const eventIds = events.map((e) => e.id);
+    const resolutions = eventIds.length
+      ? await (this.prisma as any).incidentResolution.findMany({
+          where: { tenantId, referenceType: 'SOS', referenceId: { in: eventIds } },
+        })
+      : [];
+    const resolverIds = resolutions.map((r: any) => r.resolvedBy);
+    const resolvers = resolverIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: resolverIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const resolverMap = new Map(resolvers.map((u) => [u.id, u]));
+    const resMap = new Map(resolutions.map((r: any) => [r.referenceId, {
+      ...r,
+      resolver: resolverMap.get(r.resolvedBy) || null,
+    }]));
+
+    let items = events.map((e) => ({
+      id: e.id,
+      tripId: e.entityId,
+      timestamp: e.timestamp,
+      driver: e.user,
+      details: e.newValues,
+      resolution: resMap.get(e.id) || null,
+    }));
+
+    if (onlyOpen) items = items.filter((i) => !i.resolution);
+
     const total = await this.prisma.auditLog.count({
       where: { tenantId, action: 'SOS_TRIGGER' as any },
     });
-    return {
-      items: events.map((e) => ({
-        id: e.id,
-        tripId: e.entityId,
-        timestamp: e.timestamp,
-        driver: e.user,
-        details: e.newValues,
-      })),
-      total,
-    };
+    const openCount = items.filter((i) => !i.resolution).length;
+
+    return { items, total, openCount };
   }
 
   /**
@@ -256,10 +343,11 @@ export class DriverOpsService {
       (this.prisma as any).preTripCheck.count({ where }),
     ]);
 
-    // Batch enrich driver + trip
+    // Batch enrich driver + trip + resolution
     const driverIds = Array.from(new Set(items.map((c: any) => c.driverId)));
     const tripIds = Array.from(new Set(items.map((c: any) => c.tripId)));
-    const [drivers, trips] = await Promise.all([
+    const checkIds = items.map((c: any) => c.id);
+    const [drivers, trips, resolutions] = await Promise.all([
       this.prisma.user.findMany({
         where: { id: { in: driverIds } },
         select: { id: true, name: true },
@@ -277,9 +365,26 @@ export class DriverOpsService {
           },
         },
       }),
+      checkIds.length
+        ? (this.prisma as any).incidentResolution.findMany({
+            where: { tenantId, referenceType: 'PRE_TRIP', referenceId: { in: checkIds } },
+          })
+        : [],
     ]);
     const driverMap = new Map(drivers.map((d) => [d.id, d]));
     const tripMap = new Map(trips.map((t) => [t.id, t]));
+    const resolverIds = resolutions.map((r: any) => r.resolvedBy);
+    const resolvers = resolverIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: resolverIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const resolverMap = new Map(resolvers.map((u) => [u.id, u]));
+    const resMap = new Map(resolutions.map((r: any) => [r.referenceId, {
+      ...r,
+      resolver: resolverMap.get(r.resolvedBy) || null,
+    }]));
 
     return {
       items: items.map((c: any) => ({
@@ -291,8 +396,221 @@ export class DriverOpsService {
           plate: tripMap.get(c.tripId)!.vehicle.registrationPlate,
           route: `${tripMap.get(c.tripId)!.route.originStation.city} → ${tripMap.get(c.tripId)!.route.destinationStation.city}`,
         } : null,
+        resolution: resMap.get(c.id) || null,
       })),
       total,
+    };
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // Driver Profile & Documents (şoförün kendi profili)
+  // ═════════════════════════════════════════════════════════════
+
+  /** Şoförün kendi profilini getir — yoksa varsayılanlarla oluştur. */
+  async getMyProfile(tenantId: string, userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true, name: true, email: true, phoneNumber: true, avatarUrl: true,
+        role: true, createdAt: true, totalTrips: true, badges: true,
+      },
+    });
+    if (!user) throw new NotFoundException();
+
+    let profile = await (this.prisma as any).driverProfile.findUnique({ where: { userId } });
+    if (!profile) {
+      profile = await (this.prisma as any).driverProfile.create({
+        data: { userId, tenantId },
+      });
+    }
+
+    const [documents, completedTrips, avgRating] = await Promise.all([
+      (this.prisma as any).driverDocument.findMany({
+        where: { userId },
+        orderBy: { validUntil: 'asc' },
+      }),
+      this.prisma.trip.count({ where: { driverId: userId, status: 'COMPLETED' } }),
+      this.prisma.review.aggregate({
+        where: { driverId: userId, hidden: false },
+        _avg: { rating: true },
+        _count: { _all: true },
+      }),
+    ]);
+
+    return {
+      user,
+      profile,
+      documents,
+      stats: {
+        completedTrips,
+        averageRating: avgRating._avg.rating ? Number(avgRating._avg.rating) : null,
+        reviewCount: avgRating._count._all,
+      },
+    };
+  }
+
+  async updateMyProfile(
+    tenantId: string,
+    userId: string,
+    data: {
+      dateOfBirth?: string | null;
+      bloodType?: string | null;
+      emergencyContactName?: string | null;
+      emergencyContactPhone?: string | null;
+      emergencyContactRelation?: string | null;
+      address?: string | null;
+      city?: string | null;
+      shirtSize?: string | null;
+      language?: string;
+      notifyEmail?: boolean;
+      notifySms?: boolean;
+      notifyPush?: boolean;
+    },
+  ) {
+    const update: any = {};
+    const fields: (keyof typeof data)[] = [
+      'dateOfBirth', 'bloodType', 'emergencyContactName', 'emergencyContactPhone',
+      'emergencyContactRelation', 'address', 'city', 'shirtSize', 'language',
+      'notifyEmail', 'notifySms', 'notifyPush',
+    ];
+    for (const k of fields) {
+      if (data[k] !== undefined) {
+        update[k] = k === 'dateOfBirth' && data[k] ? new Date(data[k] as string) : data[k];
+      }
+    }
+
+    return (this.prisma as any).driverProfile.upsert({
+      where: { userId },
+      create: { userId, tenantId, ...update },
+      update,
+    });
+  }
+
+  async upsertDocument(
+    tenantId: string,
+    userId: string,
+    data: {
+      type: string;
+      documentNumber?: string;
+      licenseClass?: string;
+      issuedAt?: string;
+      validUntil?: string;
+      note?: string;
+    },
+  ) {
+    const validTypes = ['LICENSE', 'SRC1', 'SRC2', 'SRC3', 'SRC4', 'PSYCHOTECH', 'HEALTH_REPORT', 'CRIMINAL_RECORD'];
+    if (!validTypes.includes(data.type)) {
+      throw new ForbiddenException(`Geçersiz belge tipi. Geçerli: ${validTypes.join(', ')}`);
+    }
+    return (this.prisma as any).driverDocument.upsert({
+      where: { userId_type: { userId, type: data.type } },
+      create: {
+        userId, tenantId, type: data.type,
+        documentNumber: data.documentNumber || null,
+        licenseClass: data.licenseClass || null,
+        issuedAt: data.issuedAt ? new Date(data.issuedAt) : null,
+        validUntil: data.validUntil ? new Date(data.validUntil) : null,
+        note: data.note || null,
+      },
+      update: {
+        documentNumber: data.documentNumber || null,
+        licenseClass: data.licenseClass || null,
+        issuedAt: data.issuedAt ? new Date(data.issuedAt) : null,
+        validUntil: data.validUntil ? new Date(data.validUntil) : null,
+        note: data.note || null,
+      },
+    });
+  }
+
+  async deleteDocument(userId: string, documentId: string) {
+    const doc = await (this.prisma as any).driverDocument.findFirst({
+      where: { id: documentId, userId },
+    });
+    if (!doc) throw new NotFoundException();
+    await (this.prisma as any).driverDocument.delete({ where: { id: documentId } });
+    return { success: true };
+  }
+
+  /**
+   * Admin: şoförün tam 360° profili — admin panelinde "Detay" butonundan açılır.
+   * Diğer DRIVER kullanıcıların profilini admin-only olarak okur.
+   */
+  async adminGetDriverProfile(tenantId: string, driverId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: driverId, tenantId, role: 'DRIVER' },
+      select: {
+        id: true, name: true, email: true, phoneNumber: true, avatarUrl: true,
+        role: true, createdAt: true, totalTrips: true, badges: true,
+        suspendedAt: true, suspendedReason: true,
+      },
+    });
+    if (!user) throw new NotFoundException('Şoför bulunamadı');
+
+    const [profile, documents, completedTrips, ratingAgg, recentTrips, sosCount, expenseAgg, preTripCount, preTripIssueCount, reviews] = await Promise.all([
+      (this.prisma as any).driverProfile.findUnique({ where: { userId: driverId } }),
+      (this.prisma as any).driverDocument.findMany({
+        where: { userId: driverId }, orderBy: { validUntil: 'asc' },
+      }),
+      this.prisma.trip.count({ where: { driverId, status: 'COMPLETED' } }),
+      this.prisma.review.aggregate({
+        where: { driverId, hidden: false },
+        _avg: { rating: true }, _count: { _all: true },
+      }),
+      this.prisma.trip.findMany({
+        where: { driverId, tenantId },
+        orderBy: { departureTime: 'desc' },
+        take: 10,
+        include: {
+          vehicle: { select: { registrationPlate: true } },
+          route: {
+            select: {
+              originStation: { select: { city: true } },
+              destinationStation: { select: { city: true } },
+            },
+          },
+          _count: { select: { bookings: { where: { status: 'CONFIRMED' } } } },
+        },
+      }),
+      this.prisma.auditLog.count({
+        where: { tenantId, userId: driverId, action: 'SOS_TRIGGER' as any },
+      }),
+      (this.prisma as any).driverExpense.aggregate({
+        where: { tenantId, driverId },
+        _sum: { amount: true }, _count: { _all: true },
+      }),
+      (this.prisma as any).preTripCheck.count({ where: { driverId } }),
+      (this.prisma as any).preTripCheck.count({ where: { driverId, hasIssue: true } }),
+      this.prisma.review.findMany({
+        where: { driverId, hidden: false },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+    ]);
+
+    return {
+      user,
+      profile: profile || null,
+      documents,
+      stats: {
+        completedTrips,
+        averageRating: ratingAgg._avg.rating ? Number(ratingAgg._avg.rating) : null,
+        reviewCount: ratingAgg._count._all,
+        sosCount,
+        totalExpenseCount: expenseAgg._count._all,
+        totalExpenseAmount: Number(expenseAgg._sum.amount || 0),
+        preTripCount,
+        preTripIssueCount,
+        preTripComplianceRate: preTripCount > 0 ? Math.round(((preTripCount - preTripIssueCount) / preTripCount) * 100) : null,
+      },
+      recentTrips: recentTrips.map((t) => ({
+        id: t.id,
+        departureTime: t.departureTime,
+        status: t.status,
+        plate: t.vehicle.registrationPlate,
+        route: `${t.route.originStation.city} → ${t.route.destinationStation.city}`,
+        passengers: t._count.bookings,
+      })),
+      recentReviews: reviews,
     };
   }
 

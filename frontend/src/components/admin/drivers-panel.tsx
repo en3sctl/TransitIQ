@@ -3,13 +3,14 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  User, Plus, Mail, Phone, Loader2, Trash2, Pencil, X, Eye, EyeOff, Bus,
+  User, Plus, Mail, Phone, Loader2, Trash2, Pencil, X, Eye, EyeOff, Bus, UserCircle,
   Search, ChevronLeft, ChevronRight, ChevronsUpDown, ArrowUp, ArrowDown, Download, CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { CSVImport } from "./csv-import";
 import { confirmDialog } from "@/components/ui/dialogs";
+import { DriverDetailModal } from "./driver-detail-modal";
 
 interface Driver {
   id: string;
@@ -40,6 +41,7 @@ export function AdminDriversPanel() {
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [detailDriverId, setDetailDriverId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -246,11 +248,16 @@ export function AdminDriversPanel() {
                       </td>
                       <td className="px-4 py-3 text-zinc-400 text-xs font-semibold tabular-nums">{new Date(d.createdAt).toLocaleDateString('tr-TR')}</td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openEdit(d)} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                          <button onClick={() => remove(d)} disabled={deleting === d.id} className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 text-zinc-400 hover:text-rose-600 transition-colors">
-                            {deleting === d.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setDetailDriverId(d.id)} title="Detay" className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors">
+                            <UserCircle className="w-3.5 h-3.5" />
                           </button>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => openEdit(d)} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => remove(d)} disabled={deleting === d.id} className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 text-zinc-400 hover:text-rose-600 transition-colors">
+                              {deleting === d.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -323,6 +330,8 @@ export function AdminDriversPanel() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <DriverDetailModal driverId={detailDriverId} onClose={() => setDetailDriverId(null)} />
     </>
   );
 }

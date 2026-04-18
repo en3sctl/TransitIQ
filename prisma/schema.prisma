@@ -194,9 +194,72 @@ model User {
   walletTransactions WalletTransaction[]
   twoFactor          TwoFactorSecret?
   sessions           UserSession[]
+  driverProfile      DriverProfile?
+  driverDocuments    DriverDocument[]
 
   @@unique([tenantId, email])
   @@map("users")
+}
+
+/**
+ * Şoföre özel genişletilmiş profil bilgileri. Sadece DRIVER rolündeki
+ * user'lar için doldurulur; diğer roller için null kalır (opsiyonel ilişki).
+ */
+model DriverProfile {
+  userId          String    @id @map("user_id")
+  tenantId        String    @map("tenant_id")
+  dateOfBirth     DateTime? @map("date_of_birth")
+  bloodType       String?   @map("blood_type")
+  emergencyContactName  String? @map("emergency_contact_name")
+  emergencyContactPhone String? @map("emergency_contact_phone")
+  emergencyContactRelation String? @map("emergency_contact_relation")
+  address         String?
+  city            String?
+  shirtSize       String?   @map("shirt_size")
+  notes           String?   // admin notları (HR vb.)
+  // Tercihler
+  language        String    @default("tr")
+  notifyEmail     Boolean   @default(true) @map("notify_email")
+  notifySms       Boolean   @default(false) @map("notify_sms")
+  notifyPush      Boolean   @default(true) @map("notify_push")
+  // İstatistik cache (periyodik güncellenir, read-heavy)
+  totalTripsCompleted Int   @default(0) @map("total_trips_completed")
+  totalDistanceKm     Int   @default(0) @map("total_distance_km")
+  averageRating       Decimal? @db.Decimal(3, 2) @map("average_rating")
+  reviewCount         Int   @default(0) @map("review_count")
+  lastActiveAt        DateTime? @map("last_active_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("driver_profiles")
+}
+
+/**
+ * Şoför belgeleri — ehliyet, SRC1-2-3-4, psikoteknik, sağlık raporu, adli sicil.
+ * Her belge için numara + veriliş + bitiş. Cron yaklaşan süreleri admin'e bildirir.
+ */
+model DriverDocument {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  tenantId      String    @map("tenant_id")
+  type          String    // LICENSE, SRC1, SRC2, SRC3, SRC4, PSYCHOTECH, HEALTH_REPORT, CRIMINAL_RECORD
+  documentNumber String?  @map("document_number")
+  licenseClass  String?   @map("license_class") // B, C, D, D1, E (ehliyet için)
+  issuedAt      DateTime? @map("issued_at")
+  validUntil    DateTime? @map("valid_until")
+  imageUrl      String?   @map("image_url")
+  note          String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([tenantId, type, validUntil])
+  @@map("driver_documents")
 }
 
 model Station {
@@ -406,6 +469,26 @@ model PreTripCheck {
 
   @@index([driverId, createdAt])
   @@map("pre_trip_checks")
+}
+
+/**
+ * SOS olayları ve pre-trip eksiklerinin admin çözüm takibi.
+ * referenceType: "SOS" (AuditLog.id) veya "PRE_TRIP" (PreTripCheck.id).
+ * Unique constraint — aynı olay iki kere resolve edilemez.
+ */
+model IncidentResolution {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  referenceType  String   @map("reference_type")  // SOS, PRE_TRIP
+  referenceId    String   @map("reference_id")
+  status         String   @default("ACKNOWLEDGED") // ACKNOWLEDGED, RESOLVED, FALSE_ALARM
+  resolvedBy     String   @map("resolved_by")
+  resolutionNote String   @map("resolution_note")
+  resolvedAt     DateTime @default(now()) @map("resolved_at")
+
+  @@unique([referenceType, referenceId])
+  @@index([tenantId, resolvedAt])
+  @@map("incident_resolutions")
 }
 
 /**

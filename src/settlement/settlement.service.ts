@@ -132,11 +132,55 @@ export class SettlementService {
       select: { commissionRate: true, iyzicoMode: true },
     });
 
+    // Şoför masrafları — aynı tarih penceresi. Onaylanan = gerçek gider.
+    // Bekleyen = potansiyel gider, admin gösterge için ayrıca dönülür.
+    const expenseWhere: any = { tenantId };
+    if (opts.from || opts.to) {
+      expenseWhere.createdAt = {};
+      if (opts.from) expenseWhere.createdAt.gte = new Date(opts.from);
+      if (opts.to) {
+        const end = new Date(opts.to);
+        end.setHours(23, 59, 59, 999);
+        expenseWhere.createdAt.lte = end;
+      }
+    }
+    const [approvedExpenses, pendingExpenses, expenseByCategory] = await Promise.all([
+      (this.prisma as any).driverExpense.aggregate({
+        where: { ...expenseWhere, status: 'APPROVED' },
+        _sum: { amount: true }, _count: { _all: true },
+      }),
+      (this.prisma as any).driverExpense.aggregate({
+        where: { ...expenseWhere, status: 'PENDING' },
+        _sum: { amount: true }, _count: { _all: true },
+      }),
+      (this.prisma as any).driverExpense.groupBy({
+        by: ['category'],
+        where: { ...expenseWhere, status: 'APPROVED' },
+        _sum: { amount: true }, _count: { _all: true },
+      }),
+    ]);
+
+    const approvedTotal = Number(approvedExpenses._sum.amount || 0);
+    const pendingTotal = Number(pendingExpenses._sum.amount || 0);
+    const netAfterExpenses = Number(all._sum.netAmount || 0) - approvedTotal;
+
     return {
       totalCount: all._count._all,
       totalGross: Number(all._sum.grossAmount || 0),
       totalCommission: Number(all._sum.commissionAmount || 0),
       totalNet: Number(all._sum.netAmount || 0),
+      // Yeni: masraf detayı ve net alacak (brüt - komisyon - masraf)
+      expenses: {
+        approvedCount: approvedExpenses._count._all,
+        approvedTotal,
+        pendingCount: pendingExpenses._count._all,
+        pendingTotal,
+        byCategory: expenseByCategory.reduce((acc: any, row: any) => {
+          acc[row.category] = { count: row._count._all, total: Number(row._sum.amount || 0) };
+          return acc;
+        }, {}),
+      },
+      netAfterExpenses,
       pending: {
         count: pending._count._all,
         net: Number(pending._sum.netAmount || 0),

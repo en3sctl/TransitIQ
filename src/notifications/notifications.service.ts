@@ -486,6 +486,57 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Cron her gün sabah 08:30'da çağırır: 30 gün içinde veya geçmiş
+   * şoför belgelerini firma admin'ine özetleyen e-posta.
+   */
+  async sendDriverDocExpiryAlert(to: string, args: {
+    tenantName: string;
+    docs: { driverName: string; type: string; licenseClass?: string | null; validUntil: Date; daysLeft: number }[];
+  }) {
+    if (!this.enabled || !this.resend || args.docs.length === 0) return;
+    try {
+      const rows = args.docs.map((d) => {
+        const color = d.daysLeft < 0 ? '#dc2626' : d.daysLeft <= 7 ? '#ea580c' : '#d97706';
+        const status = d.daysLeft < 0 ? `${Math.abs(d.daysLeft)} gün geçti` : `${d.daysLeft} gün kaldı`;
+        return `<tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#0f172a">${escapeHtml(d.driverName)}</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#475569">${escapeHtml(d.type)}${d.licenseClass ? ` · ${escapeHtml(d.licenseClass)}` : ''}</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:12px">${new Date(d.validUntil).toLocaleDateString('tr-TR')}</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0"><span style="color:${color};font-weight:800;font-size:12px">${status}</span></td>
+        </tr>`;
+      }).join('');
+
+      const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f1f5f9;padding:40px 20px;margin:0"><div style="max-width:640px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.05);border-left:6px solid #d97706">
+        <div style="display:inline-block;background:#fff7ed;color:#9a3412;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:0.04em;margin-bottom:16px">ŞOFÖR BELGE UYARISI</div>
+        <h1 style="font-size:20px;font-weight:900;margin:0 0 12px;color:#0f172a">${escapeHtml(args.tenantName)} — ${args.docs.length} belge süresinde dikkat</h1>
+        <p style="color:#475569;line-height:1.6;margin:0 0 20px">Aşağıdaki şoför belgelerinin süresi dolmuş veya 30 gün içinde dolacak. Yenileme yapılmadıysa şoförün sefere çıkması yasal/sigorta açısından riskli.</p>
+        <table style="width:100%;border-collapse:collapse;margin:12px 0">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+              <th style="padding:10px;text-align:left;font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.08em;text-transform:uppercase">Şoför</th>
+              <th style="padding:10px;text-align:left;font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.08em;text-transform:uppercase">Belge</th>
+              <th style="padding:10px;text-align:left;font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.08em;text-transform:uppercase">Bitiş</th>
+              <th style="padding:10px;text-align:left;font-size:11px;font-weight:800;color:#64748b;letter-spacing:0.08em;text-transform:uppercase">Durum</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <p style="color:#94a3b8;font-size:12px;line-height:1.5;margin:24px 0 0">Bu uyarı TransitIQ platformu tarafından her gün otomatik kontrolle gönderilir. Süreleri admin panelinde "Şoför Ops → Detay" üzerinden güncelleyebilirsin.</p>
+      </div></body></html>`;
+
+      await this.resend.emails.send({
+        from: this.fromAddress,
+        to,
+        subject: `⚠ ${args.docs.length} şoför belge uyarısı — ${args.tenantName}`,
+        html,
+      });
+      this.logger.log(`[EMAIL] Driver doc expiry sent to ${to} (${args.docs.length} docs)`);
+    } catch (err) {
+      this.logger.error(`[EMAIL] sendDriverDocExpiryAlert threw: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
   async sendBookingConfirmation(pnrCodes: string[]) {
     if (!this.enabled || !this.resend || pnrCodes.length === 0) return;
 

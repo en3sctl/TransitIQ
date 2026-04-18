@@ -210,6 +210,13 @@ export function DriverExpensesPanel() {
 // DriverSosPanel — SOS tetiklenmiş olaylar
 // ═════════════════════════════════════════════════════════════
 
+interface Resolution {
+  status: 'ACKNOWLEDGED' | 'RESOLVED' | 'FALSE_ALARM';
+  resolutionNote: string;
+  resolvedAt: string;
+  resolver: { id: string; name: string } | null;
+}
+
 interface SosEvent {
   id: string;
   tripId: string | null;
@@ -224,6 +231,7 @@ interface SosEvent {
     route?: string;
     driver?: string;
   } | null;
+  resolution: Resolution | null;
 }
 
 const SOS_CATEGORY_META: Record<string, { label: string; color: string }> = {
@@ -237,6 +245,8 @@ const SOS_CATEGORY_META: Record<string, { label: string; color: string }> = {
 export function DriverSosPanel() {
   const [events, setEvents] = useState<SosEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'ALL' | 'OPEN'>('OPEN');
+  const [acting, setActing] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -248,44 +258,126 @@ export function DriverSosPanel() {
   };
   useEffect(() => { load(); }, []);
 
+  const resolve = async (event: SosEvent, status: 'RESOLVED' | 'FALSE_ALARM') => {
+    const note = await promptDialog({
+      title: status === 'FALSE_ALARM' ? 'Yanlış alarm olarak işaretle' : 'SOS olayını çöz',
+      message: status === 'FALSE_ALARM'
+        ? 'Bu SOS gerçek bir acil durum değilmiş gibi görünüyor. Açıklama ekle.'
+        : 'Olayla nasıl ilgilendiğinin kısa özeti. Denetim izinde saklanır.',
+      label: 'Çözüm notu',
+      placeholder: 'Örn: Yol kenarında durduk, lastik değiştirildi, sefer devam etti.',
+      type: 'textarea',
+      variant: status === 'FALSE_ALARM' ? 'warning' : 'success',
+      confirmLabel: status === 'FALSE_ALARM' ? 'Yanlış Alarm' : 'Çözüldü İşaretle',
+      minLength: 3,
+    });
+    if (note === null) return;
+    setActing(event.id);
+    try {
+      await api.post('/driver-ops/admin/incidents/resolve', {
+        referenceType: 'SOS', referenceId: event.id, status, note,
+      });
+      toast.success(status === 'RESOLVED' ? 'Çözüldü işaretlendi' : 'Yanlış alarm olarak kapatıldı');
+      load();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'İşlem başarısız');
+    } finally { setActing(null); }
+  };
+
+  const reopen = async (event: SosEvent) => {
+    const ok = await confirmDialog({
+      title: 'Olayı yeniden aç',
+      message: 'Çözüldü işareti kaldırılacak, olay tekrar "açık" listesine düşecek.',
+      variant: 'warning',
+      confirmLabel: 'Yeniden Aç',
+    });
+    if (!ok) return;
+    try {
+      await api.post('/driver-ops/admin/incidents/reopen', {
+        referenceType: 'SOS', referenceId: event.id,
+      });
+      toast.success('Olay yeniden açıldı');
+      load();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'İşlem başarısız');
+    }
+  };
+
+  const filtered = filter === 'OPEN' ? events.filter((e) => !e.resolution) : events;
+  const openCount = events.filter((e) => !e.resolution).length;
+
   return (
     <div className="space-y-4">
       <div>
         <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
           <AlertOctagon className="w-5 h-5 text-rose-500" /> SOS Olayları
         </h3>
-        <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Şoförlerin tetiklediği acil durumlar — konum ve detay.</p>
+        <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Şoförlerin tetiklediği acil durumlar — konum, detay, çözüm takibi.</p>
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => setFilter('OPEN')}
+          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-colors ${
+            filter === 'OPEN' ? 'bg-rose-600 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
+          }`}
+        >
+          Açık {openCount > 0 && `(${openCount})`}
+        </button>
+        <button
+          onClick={() => setFilter('ALL')}
+          className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-colors ${
+            filter === 'ALL' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
+          }`}
+        >
+          Tümü ({events.length})
+        </button>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>
-      ) : events.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl p-10 text-center">
           <Check className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
-          <p className="text-sm font-black text-emerald-900 dark:text-emerald-200">SOS olayı yok</p>
-          <p className="text-xs text-emerald-800 dark:text-emerald-300 font-medium mt-1">Güvenli sürüş! Şoförler acil durum tetiklemedi.</p>
+          <p className="text-sm font-black text-emerald-900 dark:text-emerald-200">
+            {filter === 'OPEN' ? 'Açık SOS olayı yok' : 'SOS olayı yok'}
+          </p>
+          <p className="text-xs text-emerald-800 dark:text-emerald-300 font-medium mt-1">
+            {filter === 'OPEN' && events.length > 0 ? 'Tüm olaylar çözüldü.' : 'Güvenli sürüş!'}
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {events.map((e) => {
+          {filtered.map((e) => {
             const cat = e.details?.category || 'OTHER';
             const meta = SOS_CATEGORY_META[cat] || SOS_CATEGORY_META.OTHER;
             const hasCoords = e.details?.lat != null && e.details?.lng != null;
             const mapsUrl = hasCoords ? `https://www.google.com/maps?q=${e.details!.lat},${e.details!.lng}` : null;
+            const isResolved = !!e.resolution;
+            const resMeta = e.resolution?.status === 'FALSE_ALARM'
+              ? { label: 'Yanlış alarm', tone: 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300' }
+              : { label: 'Çözüldü', tone: 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' };
             return (
               <motion.div
                 key={e.id}
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white dark:bg-zinc-900 border border-rose-200 dark:border-rose-500/30 rounded-2xl p-4 border-l-4 border-l-rose-600"
+                className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 border-l-4 ${
+                  isResolved ? 'border-slate-200 dark:border-zinc-800 border-l-slate-400 opacity-80' : 'border-rose-200 dark:border-rose-500/30 border-l-rose-600'
+                }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`w-12 h-12 rounded-xl ${meta.color} text-white flex items-center justify-center shrink-0`}>
+                  <div className={`w-12 h-12 rounded-xl ${isResolved ? 'bg-slate-400 dark:bg-zinc-700' : meta.color} text-white flex items-center justify-center shrink-0`}>
                     <AlertTriangle className="w-6 h-6" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <p className="text-base font-black text-slate-900 dark:text-white">{meta.label}</p>
+                      {isResolved && (
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${resMeta.tone}`}>
+                          {resMeta.label}
+                        </span>
+                      )}
                       <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                         {new Date(e.timestamp).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </span>
@@ -298,6 +390,14 @@ export function DriverSosPanel() {
                     {e.details?.note && (
                       <div className="mt-2 p-2.5 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
                         <p className="text-xs text-slate-700 dark:text-zinc-300 font-medium italic">"{e.details.note}"</p>
+                      </div>
+                    )}
+                    {isResolved && e.resolution && (
+                      <div className="mt-2 p-2.5 rounded-lg bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 mb-1">
+                          Çözüm — {e.resolution.resolver?.name || 'admin'} · {new Date(e.resolution.resolvedAt).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                        <p className="text-xs text-emerald-900 dark:text-emerald-200 font-medium leading-snug">{e.resolution.resolutionNote}</p>
                       </div>
                     )}
                     <div className="flex items-center gap-2 mt-3 flex-wrap">
@@ -323,6 +423,33 @@ export function DriverSosPanel() {
                       {hasCoords && (
                         <span className="text-[10px] text-slate-400 font-mono tabular-nums">{e.details!.lat!.toFixed(5)}, {e.details!.lng!.toFixed(5)}</span>
                       )}
+                      <div className="ml-auto flex items-center gap-2">
+                        {!isResolved ? (
+                          <>
+                            <button
+                              onClick={() => resolve(e, 'RESOLVED')}
+                              disabled={acting === e.id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50"
+                            >
+                              <Check className="w-3 h-3" /> Çözüldü
+                            </button>
+                            <button
+                              onClick={() => resolve(e, 'FALSE_ALARM')}
+                              disabled={acting === e.id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs font-bold hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50"
+                            >
+                              Yanlış alarm
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => reopen(e)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-500/20"
+                          >
+                            Yeniden aç
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -350,6 +477,7 @@ interface PreTripRow {
   createdAt: string;
   driver: { id: string; name: string } | null;
   trip: { id: string; departureTime: string; plate: string; route: string } | null;
+  resolution: Resolution | null;
 }
 
 const CHECK_LABELS: Record<string, string> = {
@@ -363,6 +491,7 @@ export function PreTripChecksPanel() {
   const [items, setItems] = useState<PreTripRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [onlyIssues, setOnlyIssues] = useState(false);
+  const [acting, setActing] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -375,6 +504,30 @@ export function PreTripChecksPanel() {
     finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [onlyIssues]);
+
+  const markFixed = async (row: PreTripRow) => {
+    const note = await promptDialog({
+      title: 'Sorunu çözüldü işaretle',
+      message: 'Hangi aksiyon alındı? Bakım yapıldı, parça değişti, vs.',
+      label: 'Çözüm notu',
+      placeholder: 'Örn: Lastik yenilendi, yağ değişimi yapıldı.',
+      type: 'textarea',
+      variant: 'success',
+      confirmLabel: 'Çözüldü İşaretle',
+      minLength: 3,
+    });
+    if (note === null) return;
+    setActing(row.id);
+    try {
+      await api.post('/driver-ops/admin/incidents/resolve', {
+        referenceType: 'PRE_TRIP', referenceId: row.id, status: 'RESOLVED', note,
+      });
+      toast.success('Kayıt çözüldü olarak işaretlendi');
+      load();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'İşlem başarısız');
+    } finally { setActing(null); }
+  };
 
   const failedChecks = (r: PreTripRow): string[] => {
     return Object.keys(CHECK_LABELS).filter((k) => (r as any)[k] === false).map((k) => CHECK_LABELS[k]);
@@ -460,6 +613,24 @@ export function PreTripChecksPanel() {
                         {r.issueNote && (
                           <div className="mt-2 p-2.5 rounded-lg bg-rose-50 dark:bg-rose-500/5 border border-rose-200 dark:border-rose-500/20">
                             <p className="text-xs text-rose-800 dark:text-rose-300 font-semibold italic">Şoför notu: "{r.issueNote}"</p>
+                          </div>
+                        )}
+                        {r.resolution ? (
+                          <div className="mt-2 p-2.5 rounded-lg bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 mb-1">
+                              ✓ Çözüldü — {r.resolution.resolver?.name || 'admin'} · {new Date(r.resolution.resolvedAt).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            <p className="text-xs text-emerald-900 dark:text-emerald-200 font-medium leading-snug">{r.resolution.resolutionNote}</p>
+                          </div>
+                        ) : (
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              onClick={() => markFixed(r)}
+                              disabled={acting === r.id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold disabled:opacity-50"
+                            >
+                              <Check className="w-3 h-3" /> Çözüldü İşaretle
+                            </button>
                           </div>
                         )}
                       </>

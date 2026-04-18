@@ -200,6 +200,77 @@ export class TasksService {
   }
 
   /**
+   * Şoför belgelerinin (ehliyet, SRC, psikoteknik, sağlık raporu)
+   * bitiş tarihlerini kontrol et. 30 gün içinde veya geçmiş ise firma admin'e
+   * e-posta uyarısı gönder. Günde bir kere — 08:30 İstanbul.
+   */
+  @Cron('30 8 * * *', { timeZone: 'Europe/Istanbul' })
+  async checkDriverDocumentExpiry() {
+    const now = new Date();
+    const in30days = new Date(now.getTime() + 30 * 86400000);
+
+    const docs = await (this.prisma as any).driverDocument.findMany({
+      where: {
+        validUntil: { lte: in30days, not: null },
+      },
+      select: {
+        id: true, type: true, validUntil: true, licenseClass: true,
+        user: { select: { id: true, name: true, tenantId: true } },
+      },
+    });
+    if (docs.length === 0) return;
+
+    // Tenant bazlı grupla — her firmaya tek e-posta
+    const byTenant = new Map<string, any[]>();
+    for (const d of docs) {
+      const tid = d.user.tenantId;
+      if (!byTenant.has(tid)) byTenant.set(tid, []);
+      byTenant.get(tid)!.push(d);
+    }
+
+    const DOC_LABEL: Record<string, string> = {
+      LICENSE: 'Ehliyet', SRC1: 'SRC1', SRC2: 'SRC2', SRC3: 'SRC3', SRC4: 'SRC4',
+      PSYCHOTECH: 'Psikoteknik', HEALTH_REPORT: 'Sağlık Raporu', CRIMINAL_RECORD: 'Adli Sicil',
+    };
+
+    for (const [tenantId, tenantDocs] of byTenant.entries()) {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { supportEmail: true, name: true, publicName: true },
+      });
+      if (!tenant?.supportEmail) continue;
+
+      for (const d of tenantDocs) {
+        const daysLeft = Math.ceil((new Date(d.validUntil).getTime() - now.getTime()) / 86400000);
+        const label = DOC_LABEL[d.type] || d.type;
+        if (daysLeft < 0) {
+          this.logger.warn(`[ŞOFÖR BELGE] ${d.user.name} — ${label} SÜRESİ GEÇMİŞ (${Math.abs(daysLeft)} gün önce)`);
+        } else {
+          this.logger.warn(`[ŞOFÖR BELGE] ${d.user.name} — ${label} ${daysLeft} gün içinde bitiyor`);
+        }
+      }
+
+      // Tek özet e-posta
+      try {
+        await (this.notificationsService as any).sendDriverDocExpiryAlert?.(tenant.supportEmail, {
+          tenantName: tenant.publicName || tenant.name,
+          docs: tenantDocs.map((d: any) => ({
+            driverName: d.user.name,
+            type: DOC_LABEL[d.type] || d.type,
+            licenseClass: d.licenseClass,
+            validUntil: d.validUntil,
+            daysLeft: Math.ceil((new Date(d.validUntil).getTime() - now.getTime()) / 86400000),
+          })),
+        });
+      } catch (err: any) {
+        this.logger.warn(`[ŞOFÖR BELGE] e-posta başarısız: ${err?.message}`);
+      }
+    }
+
+    this.logger.log(`[ŞOFÖR BELGE] ${docs.length} belgede uyarı — ${byTenant.size} firmaya bildirim gönderildi`);
+  }
+
+  /**
    * Retry failed Iyzico refunds every 6 hours.
    * Bookings cancelled but refund failed get another attempt.
    */

@@ -164,6 +164,65 @@ export class DriverOpsController {
     });
   }
 
+  @Post('admin/incidents/resolve')
+  resolveIncident(
+    @Request() req: any,
+    @Body() body: {
+      referenceType: 'SOS' | 'PRE_TRIP';
+      referenceId: string;
+      status?: 'RESOLVED' | 'FALSE_ALARM' | 'ACKNOWLEDGED';
+      note: string;
+    },
+  ) {
+    this.assertCompanyAdmin(req.user);
+    return this.driverOpsService.resolveIncident(req.user.tenantId, req.user.id, body);
+  }
+
+  @Post('admin/incidents/reopen')
+  reopenIncident(
+    @Request() req: any,
+    @Body() body: { referenceType: 'SOS' | 'PRE_TRIP'; referenceId: string },
+  ) {
+    this.assertCompanyAdmin(req.user);
+    return this.driverOpsService.reopenIncident(req.user.tenantId, body.referenceType, body.referenceId);
+  }
+
+  // ─── Driver kendi profili ───
+
+  @Get('me/profile')
+  getMyProfile(@Request() req: any) {
+    return this.driverOpsService.getMyProfile(req.user.tenantId, req.user.id);
+  }
+
+  @Patch('me/profile')
+  updateMyProfile(@Request() req: any, @Body() body: any) {
+    return this.driverOpsService.updateMyProfile(req.user.tenantId, req.user.id, body);
+  }
+
+  @Post('me/documents')
+  upsertMyDocument(@Request() req: any, @Body() body: any) {
+    return this.driverOpsService.upsertDocument(req.user.tenantId, req.user.id, body);
+  }
+
+  @Delete('me/documents/:id')
+  deleteMyDocument(@Request() req: any, @Param('id') id: string) {
+    return this.driverOpsService.deleteDocument(req.user.id, id);
+  }
+
+  // ─── Admin: başka şoförün 360° detayı ───
+
+  @Get('admin/drivers/:id/profile')
+  adminDriverProfile(@Request() req: any, @Param('id') id: string) {
+    this.assertCompanyAdmin(req.user);
+    return this.driverOpsService.adminGetDriverProfile(req.user.tenantId, id);
+  }
+
+  @Post('admin/drivers/:id/documents')
+  adminUpsertDocument(@Request() req: any, @Param('id') driverId: string, @Body() body: any) {
+    this.assertCompanyAdmin(req.user);
+    return this.driverOpsService.upsertDocument(req.user.tenantId, driverId, body);
+  }
+
   @Post('trips/:tripId/pre-check')
   submitPreTripCheck(
     @Request() req: any,
