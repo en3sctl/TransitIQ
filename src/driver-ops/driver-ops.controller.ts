@@ -1,5 +1,6 @@
 import { Controller, Delete, ForbiddenException, Get, Post, Patch, Body, Param, Query, Request, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { DriverOpsService } from './driver-ops.service';
 import { CreateExpenseDto, UpdateTripStatusDto, LocationDto } from './dto/driver-ops.dto';
 import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
@@ -91,6 +92,7 @@ export class DriverOpsController {
   }
 
   @Post('trips/:tripId/sos')
+  @Throttle({ default: { limit: 3, ttl: 300000 } })
   triggerSos(
     @Request() req: any,
     @Param('tripId') tripId: string,
@@ -207,7 +209,7 @@ export class DriverOpsController {
 
   @Delete('me/documents/:id')
   deleteMyDocument(@Request() req: any, @Param('id') id: string) {
-    return this.driverOpsService.deleteDocument(req.user.id, id);
+    return this.driverOpsService.deleteDocument(req.user.id, req.user.tenantId, id);
   }
 
   @Post('me/avatar')
@@ -283,12 +285,14 @@ export class DriverOpsController {
   // ─── Lost items ───
 
   @Post('lost-items')
+  @Throttle({ default: { limit: 5, ttl: 3600000 } })
   reportLostItem(@Request() req: any, @Body() body: {
     pnrCode?: string; reporterName: string; reporterPhone?: string; itemDescription: string;
   }) {
+    if (!req.user?.id) throw new ForbiddenException('Giriş yapman gerekiyor');
     return this.driverOpsService.reportLostItem({
       ...body,
-      reporterUserId: req.user?.id,
+      reporterUserId: req.user.id,
     });
   }
 

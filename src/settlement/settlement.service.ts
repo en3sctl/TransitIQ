@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { AuditService } from '../common/audit/audit.service';
 
 export interface ListOpts {
   status?: string;
@@ -11,7 +12,10 @@ export interface ListOpts {
 
 @Injectable()
 export class SettlementService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private audit: AuditService,
+  ) {}
 
   /** Tenant-scoped: list settlements for the company admin. */
   async listForTenant(tenantId: string, opts: ListOpts = {}) {
@@ -257,22 +261,55 @@ export class SettlementService {
     };
   }
 
-  async markSettled(id: string, notes?: string) {
+  async markSettled(id: string, notes?: string, actorUserId?: string) {
     const s = await this.prisma.settlement.findUnique({ where: { id } });
     if (!s) throw new NotFoundException();
     if (s.status === 'SETTLED') throw new BadRequestException('Zaten ödendi');
-    return this.prisma.settlement.update({
+    const updated = await this.prisma.settlement.update({
       where: { id },
       data: { status: 'SETTLED', settledAt: new Date(), notes: notes || s.notes },
     });
+    await this.audit.log({
+      tenantId: s.tenantId,
+      userId: actorUserId,
+      action: 'SETTLEMENT_SETTLE',
+      entityType: 'SETTLEMENT',
+      entityId: id,
+      oldValues: { status: s.status, netAmount: Number(s.netAmount) },
+      newValues: { status: 'SETTLED', notes: notes || s.notes },
+    });
+    return updated;
   }
 
-  async bulkMarkSettled(ids: string[]) {
+  async bulkMarkSettled(ids: string[], actorUserId?: string) {
     if (!Array.isArray(ids) || ids.length === 0) throw new BadRequestException();
-    return this.prisma.settlement.updateMany({
+    const targets = await this.prisma.settlement.findMany({
+      where: { id: { in: ids }, status: 'PENDING' },
+      select: { id: true, tenantId: true, netAmount: true },
+    });
+    const result = await this.prisma.settlement.updateMany({
       where: { id: { in: ids }, status: 'PENDING' },
       data: { status: 'SETTLED', settledAt: new Date() },
     });
+    const byTenant = targets.reduce((acc: Record<string, { count: number; total: number; ids: string[] }>, t) => {
+      const key = t.tenantId;
+      if (!acc[key]) acc[key] = { count: 0, total: 0, ids: [] };
+      acc[key].count++;
+      acc[key].total += Number(t.netAmount);
+      acc[key].ids.push(t.id);
+      return acc;
+    }, {});
+    for (const [tenantId, info] of Object.entries(byTenant)) {
+      await this.audit.log({
+        tenantId,
+        userId: actorUserId,
+        action: 'SETTLEMENT_BULK_SETTLE',
+        entityType: 'SETTLEMENT',
+        entityId: `bulk:${info.ids.length}`,
+        newValues: { status: 'SETTLED', bulkCount: info.count, totalNet: info.total, settlementIds: info.ids },
+      });
+    }
+    return result;
   }
 
   /**

@@ -638,9 +638,9 @@ export class DriverOpsService {
     });
   }
 
-  async deleteDocument(userId: string, documentId: string) {
+  async deleteDocument(userId: string, tenantId: string, documentId: string) {
     const doc = await (this.prisma as any).driverDocument.findFirst({
-      where: { id: documentId, userId },
+      where: { id: documentId, userId, tenantId },
     });
     if (!doc) throw new NotFoundException();
     await (this.prisma as any).driverDocument.delete({ where: { id: documentId } });

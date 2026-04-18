@@ -274,6 +274,7 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 - ✅ Her sorguda `tenantId` filtresi
 - ✅ Frontend `ProtectedRoute allowedRoles={[...]}`
 - ✅ Cross-tenant resource validation (trip create: route/vehicle/driver aynı tenant'tan mı)
+- ✅ **Driver-ops audit fix paketi (2026-04-18):** `deleteDocument` tenantId scope (defense-in-depth), `reportLostItem` auth zorunlu + rate limit (5/saat), `driverDocument` ownership tenantId+userId double-check
 - ⏳ IDOR testleri (BookingId ile başka tenant'ın bileti okunmamalı — scope var ama penetrasyon testi yapılmadı)
 - ⏳ Şoför sadece kendi seferlerine lokasyon push edebilir — teyit edildi ✓
 
@@ -295,8 +296,9 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 - ✅ 10 dakikalık seat lock (race condition engeli)
 - ✅ 6 saat iptal kuralı
 - ✅ Audit log (denetim izi)
-- ⏳ Rate limit tüm endpoint'lerde değil (bazıları default)
-- ⏳ Brute force login koruması — max 5 başarısız/dk/IP
+- ✅ Brute force login koruması — max 5 başarısız/15dk/IP (in-memory tracker)
+- ✅ **Spam-sensitive endpoint throttle (2026-04-18):** SOS `3/5dk`, lost-item `5/saat`, driver-wallet `30/dk`, payment/initialize `3/10sn`
+- ⏳ Rate limit genel polish — tüm endpoint'lerde değil (default seviyede)
 
 ### A05 — Security Misconfiguration
 - ✅ `.env` gitignore'da
@@ -323,6 +325,7 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 
 ### A09 — Logging & Monitoring
 - ✅ Audit log (kritik mutasyonlar)
+- ✅ **Finansal audit genişletmesi (2026-04-18):** `SETTLEMENT_SETTLE`, `SETTLEMENT_BULK_SETTLE` (super admin finansal aksiyonlar tenant-bazlı kaydediliyor), `PAYMENT_SETTLEMENT_FAILED` + `PAYMENT_BOOKING_FAILED` + `PAYMENT_CALLBACK_ORPHAN` (Iyzico callback hataları reconciliation için)
 - ⏳ Sentry error tracking
 - ⏳ Access log (kimin ne zaman giriş yaptığı)
 - ⏳ Suspicious activity detection

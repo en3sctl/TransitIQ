@@ -6,6 +6,7 @@ import { InitializePaymentDto } from './dto/initialize-payment.dto';
 import { BookingService } from '../booking/booking.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { PromoService } from '../promo/promo.service';
+import { AuditService } from '../common/audit/audit.service';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { Throttle } from '@nestjs/throttler';
 
@@ -20,6 +21,7 @@ export class PaymentController {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly promoService: PromoService,
+    private readonly audit: AuditService,
   ) {
     this.frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3001');
   }
@@ -167,10 +169,21 @@ export class PaymentController {
               try {
                 await this.paymentService.recordSettlement(b.id);
               } catch (err: any) {
-                // Booking yapıldı, ödeme alındı — sadece settlement düşmedi.
-                // Bunu loglayıp admin'in backfill ile toparlayabilmesi için
-                // AuditLog'a da yansıtmalıyız (yakın gelecek için TODO).
                 console.error(`[Payment Callback] recordSettlement failed for booking ${b.id}:`, err.message || err);
+                if (tenantId) {
+                  await this.audit.log({
+                    tenantId,
+                    userId: pendingData.userId || null,
+                    action: 'PAYMENT_SETTLEMENT_FAILED',
+                    entityType: 'BOOKING',
+                    entityId: b.id,
+                    newValues: {
+                      paymentId: result.paymentId,
+                      error: err?.message || String(err),
+                      hint: 'Super-admin: run /super-admin/settlements/backfill',
+                    },
+                  });
+                }
               }
             }
 
@@ -180,14 +193,40 @@ export class PaymentController {
             console.log('[Payment Callback] Booking created! PNRs:', pnrs.join(', '));
             const pnrParam = pnrs.map(p => encodeURIComponent(p)).join(',');
             return res.redirect(302, `${this.frontendUrl}/success?pnr=${pnrParam}&total=${bookingResult.totalPaid}`);
-          } catch (bookingError) {
+          } catch (bookingError: any) {
             console.error('[Payment Callback] Booking creation failed:', bookingError);
+            if (tenantId) {
+              await this.audit.log({
+                tenantId,
+                userId: pendingData.userId || null,
+                action: 'PAYMENT_BOOKING_FAILED',
+                entityType: 'PAYMENT',
+                entityId: result.paymentId || body.token,
+                newValues: {
+                  tripId: pendingData.tripId,
+                  price: pendingData.price,
+                  error: bookingError?.message || String(bookingError),
+                },
+              });
+            }
             return res.redirect(302, `${this.frontendUrl}/success?error=booking`);
           }
         }
 
-        // No pending data - legacy fallback
+        // No pending data - başarılı ödeme ama context yok. Bir yerde pending kayıp olmuş.
         console.log('[Payment Callback] No pending data found for token');
+        if (tenantId) {
+          await this.audit.log({
+            tenantId,
+            action: 'PAYMENT_CALLBACK_ORPHAN',
+            entityType: 'PAYMENT',
+            entityId: body.token,
+            newValues: {
+              paymentId: result.paymentId,
+              hint: 'Success callback received without matching pending booking — audit for reconciliation',
+            },
+          });
+        }
         const pnr = 'TX-' + Math.floor(10000 + Math.random() * 90000);
         return res.redirect(302, `${this.frontendUrl}/success?pnr=${encodeURIComponent(pnr)}`);
       }

@@ -68,7 +68,7 @@ export class SettlementController {
   @ApiBearerAuth()
   settle(@Request() req: any, @Param('id') id: string, @Body() body: { notes?: string }) {
     this.assertSuper(req.user);
-    return this.service.markSettled(id, body?.notes);
+    return this.service.markSettled(id, body?.notes, req.user.id);
   }
 
   @Post('super-admin/settlements/bulk-settle')
@@ -76,7 +76,7 @@ export class SettlementController {
   @ApiBearerAuth()
   bulkSettle(@Request() req: any, @Body() body: { ids: string[] }) {
     this.assertSuper(req.user);
-    return this.service.bulkMarkSettled(body.ids);
+    return this.service.bulkMarkSettled(body.ids, req.user.id);
   }
 
   @Post('super-admin/settlements/backfill')

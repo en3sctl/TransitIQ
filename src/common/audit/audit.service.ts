@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 export type AuditEntity =
   | 'BOOKING' | 'TRIP' | 'VEHICLE' | 'STATION' | 'ROUTE' | 'DRIVER' | 'USER' | 'PAYMENT'
-  | 'TENANT' | 'ANNOUNCEMENT';
+  | 'SETTLEMENT' | 'TENANT' | 'ANNOUNCEMENT';
 
 export type AuditAction =
   | 'CREATE' | 'UPDATE' | 'DELETE'
@@ -12,6 +12,9 @@ export type AuditAction =
   | 'DRIVER_CREATE' | 'DRIVER_UPDATE' | 'DRIVER_DELETE'
   | 'PASSENGER_CHECK_IN' | 'PASSENGER_NO_SHOW'
   | 'SOS_TRIGGER' | 'PRE_TRIP_CHECK' | 'EXPENSE_CREATE' | 'EXPENSE_DELETE'
+  // Finansal / callback
+  | 'SETTLEMENT_SETTLE' | 'SETTLEMENT_BULK_SETTLE'
+  | 'PAYMENT_SETTLEMENT_FAILED' | 'PAYMENT_BOOKING_FAILED' | 'PAYMENT_CALLBACK_ORPHAN'
   // Super-admin / platform-level
   | 'TENANT_APPROVE' | 'TENANT_REJECT' | 'TENANT_SUSPEND' | 'TENANT_REACTIVATE'
   | 'IMPERSONATE_START' | 'IMPERSONATE_END'
