@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, TrendingUp, TrendingDown, Wallet, Clock, CheckCircle2, XCircle, Percent, Download, Calendar, Filter, Building2, CreditCard } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Wallet, Clock, CheckCircle2, XCircle, Percent, Download, Calendar, Filter, Building2, CreditCard, Receipt, Fuel, Coffee, ParkingCircle, Route, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 
@@ -38,7 +38,23 @@ interface Summary {
   reversed: { count: number; gross: number };
   commissionRate: number;
   paymentMode: string;
+  expenses?: {
+    approvedCount: number;
+    approvedTotal: number;
+    pendingCount: number;
+    pendingTotal: number;
+    byCategory: Record<string, { count: number; total: number }>;
+  };
+  netAfterExpenses?: number;
 }
+
+const EXPENSE_CATEGORY_META: Record<string, { label: string; icon: any }> = {
+  FUEL: { label: 'Yakıt', icon: Fuel },
+  TOLL: { label: 'Otoyol', icon: Route },
+  FOOD: { label: 'Yemek', icon: Coffee },
+  PARKING: { label: 'Otopark', icon: ParkingCircle },
+  OTHER: { label: 'Diğer', icon: MoreHorizontal },
+};
 
 function fmtTry(v: number) {
   return v.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
@@ -58,7 +74,7 @@ const TONE_CLASS: Record<string, string> = {
   rose: 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400',
 };
 
-export function SettlementPanel() {
+export function SettlementPanel({ onNavigate }: { onNavigate?: (tab: string) => void } = {}) {
   const [items, setItems] = useState<SettlementItem[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -156,7 +172,13 @@ export function SettlementPanel() {
                 <Wallet className="w-3 h-3" /> Net Alacak
               </p>
               <p className="text-3xl font-black tracking-tight text-emerald-300">{fmtTry(summary.totalNet)}</p>
-              <p className="text-[11px] opacity-70 font-semibold mt-1">Komisyon sonrası</p>
+              {summary.expenses && summary.expenses.approvedTotal > 0 && summary.netAfterExpenses != null ? (
+                <p className="text-[11px] opacity-80 font-semibold mt-1">
+                  − {fmtTry(summary.expenses.approvedTotal)} masraf = <span className="text-emerald-300 font-black">{fmtTry(summary.netAfterExpenses)}</span>
+                </p>
+              ) : (
+                <p className="text-[11px] opacity-70 font-semibold mt-1">Komisyon sonrası</p>
+              )}
             </div>
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1 flex items-center gap-1.5">
@@ -199,6 +221,95 @@ export function SettlementPanel() {
             count={summary.reversed.count}
             subtitle={`${fmtTry(summary.reversed.gross)} brut`}
           />
+        </div>
+      )}
+
+      {/* Şoför Masrafları — yakıt, otoyol, yemek, vs. */}
+      {summary?.expenses && (summary.expenses.approvedCount > 0 || summary.expenses.pendingCount > 0) && (
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                <Receipt className="w-4.5 h-4.5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black tracking-tight text-slate-900 dark:text-white">Şoför Masrafları</h3>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-semibold">Onaylanan masraflar net alacaktan düşülür</p>
+              </div>
+            </div>
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate('driver-expenses')}
+                className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                Masraf Onayları →
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div className="p-4 rounded-xl bg-rose-50/60 dark:bg-rose-500/5 border border-rose-200 dark:border-rose-500/20">
+              <p className="text-[10px] font-black uppercase tracking-widest text-rose-700 dark:text-rose-400 flex items-center gap-1.5 mb-1">
+                <TrendingDown className="w-3 h-3" /> Onaylanan (gider)
+              </p>
+              <p className="text-2xl font-black tracking-tight text-slate-900 dark:text-white tabular-nums">
+                {fmtTry(summary.expenses.approvedTotal)}
+              </p>
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 mt-0.5">
+                {summary.expenses.approvedCount} kayıt
+              </p>
+            </div>
+            <div className="p-4 rounded-xl bg-amber-50/60 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20">
+              <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-1.5 mb-1">
+                <Clock className="w-3 h-3" /> Bekleyen
+              </p>
+              <p className="text-2xl font-black tracking-tight text-slate-900 dark:text-white tabular-nums">
+                {fmtTry(summary.expenses.pendingTotal)}
+              </p>
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 mt-0.5">
+                {summary.expenses.pendingCount} kayıt onay bekliyor
+              </p>
+            </div>
+            <div className="p-4 rounded-xl bg-emerald-50/60 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20">
+              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 mb-1">
+                <Wallet className="w-3 h-3" /> Masraf Sonrası Net
+              </p>
+              <p className="text-2xl font-black tracking-tight text-emerald-700 dark:text-emerald-400 tabular-nums">
+                {fmtTry(summary.netAfterExpenses ?? summary.totalNet)}
+              </p>
+              <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 mt-0.5">
+                Brüt − komisyon − onaylı masraf
+              </p>
+            </div>
+          </div>
+
+          {Object.keys(summary.expenses.byCategory).length > 0 && (
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-2">Kategori Kırılımı</p>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                {Object.entries(summary.expenses.byCategory)
+                  .sort((a, b) => b[1].total - a[1].total)
+                  .map(([key, val]) => {
+                    const meta = EXPENSE_CATEGORY_META[key] || { label: key, icon: MoreHorizontal };
+                    const Icon = meta.icon;
+                    const pct = summary.expenses!.approvedTotal > 0
+                      ? Math.round((val.total / summary.expenses!.approvedTotal) * 100)
+                      : 0;
+                    return (
+                      <div key={key} className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <Icon className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">{meta.label}</span>
+                        </div>
+                        <p className="text-sm font-black text-slate-900 dark:text-white tabular-nums">{fmtTry(val.total)}</p>
+                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">{val.count} kayıt · %{pct}</p>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

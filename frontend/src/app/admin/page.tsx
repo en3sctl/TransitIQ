@@ -267,7 +267,7 @@ function AdminDashboardContent() {
                 <TabsContent value="feedback">{activeTab === 'feedback' && <FeedbackPanel />}</TabsContent>
                 <TabsContent value="waiting-list">{activeTab === 'waiting-list' && <WaitingListPanel />}</TabsContent>
                 <TabsContent value="tenant">{activeTab === 'tenant' && <TenantSettingsPanel />}</TabsContent>
-                <TabsContent value="settlements">{activeTab === 'settlements' && <SettlementPanel />}</TabsContent>
+                <TabsContent value="settlements">{activeTab === 'settlements' && <SettlementPanel onNavigate={setActiveTab} />}</TabsContent>
                 <TabsContent value="super-tenants">{activeTab === 'super-tenants' && <SuperTenantsPanel />}</TabsContent>
                 <TabsContent value="super-settlements">{activeTab === 'super-settlements' && <SuperSettlementsPanel />}</TabsContent>
                 <TabsContent value="platform-overview">{activeTab === 'platform-overview' && <PlatformOverviewPanel onNavigate={setActiveTab} />}</TabsContent>
