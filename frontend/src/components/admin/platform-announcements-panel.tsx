@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Megaphone, Plus, Trash2, Eye, EyeOff, Loader2, Calendar, Users as UsersIcon, AlertTriangle, Info, AlertOctagon, X, Save } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Announcement {
   id: string;
@@ -93,7 +94,13 @@ export function PlatformAnnouncementsPanel() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm('Duyuru silinsin mi?')) return;
+    const ok = await confirmDialog({
+      title: 'Duyuruyu sil',
+      message: 'Bu duyuru tamamen silinecek. Onaylıyor musun?',
+      variant: 'danger',
+      confirmLabel: 'Sil',
+    });
+    if (!ok) return;
     try {
       await api.delete(`/super-admin/announcements/${id}`);
       toast.success('Silindi');

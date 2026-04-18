@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { VehicleDetailModal } from "./vehicle-detail-modal";
+import { confirmDialog } from "@/components/ui/dialogs";
 import { RuhsatUploader } from "./ruhsat-uploader";
 import { CSVImport } from "./csv-import";
 
@@ -187,13 +188,19 @@ export function VehiclesPanel() {
   };
 
   const bulkDelete = async () => {
-    if (!confirm(`${selected.size} araç silinecek. Devam?`)) return;
+    const ok = await confirmDialog({
+      title: 'Toplu araç silme',
+      message: `${selected.size} araç silinecek. Aktif seferdeki araçlar atlanır.`,
+      variant: 'danger',
+      confirmLabel: `${selected.size} aracı sil`,
+    });
+    if (!ok) return;
     const ids = Array.from(selected);
-    let ok = 0;
+    let count = 0;
     for (const id of ids) {
-      try { await api.delete(`/vehicles/${id}`); ok++; } catch {}
+      try { await api.delete(`/vehicles/${id}`); count++; } catch {}
     }
-    toast.success(`${ok} araç silindi`);
+    toast.success(`${count} araç silindi`);
     setSelected(new Set());
     load();
   };

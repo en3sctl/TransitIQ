@@ -8,6 +8,7 @@ import {
 import { toast } from "sonner";
 import { QRScanner } from "./qr-scanner";
 import api from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Passenger {
   bookingId: string;
@@ -91,7 +92,13 @@ export function ManifestModal({ tripId, onClose }: Props) {
   }
 
   async function markNoShow(pnr: string) {
-    if (!confirm('Yolcu gelmedi olarak işaretlensin mi?')) return;
+    const ok = await confirmDialog({
+      title: 'Yolcu gelmedi',
+      message: 'Bu yolcu "No-show" olarak işaretlenecek. Koltuk kilitli kalır, sefer bitince otomatik raporlanır.',
+      variant: 'warning',
+      confirmLabel: 'Gelmedi İşaretle',
+    });
+    if (!ok) return;
     try {
       await api.post(`/driver-ops/no-show/${pnr}`);
       toast.success('Gelmedi olarak işaretlendi');

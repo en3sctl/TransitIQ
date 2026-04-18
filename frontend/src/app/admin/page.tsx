@@ -1,43 +1,66 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/context/auth-context";
 import ProtectedRoute from "@/components/protected-route";
 import Sidebar from "@/components/sidebar";
-import { AdminBookingsPanel } from "@/components/admin/bookings-panel";
-import { AdminDriversPanel } from "@/components/admin/drivers-panel";
-import { AdminAuditLogsPanel } from "@/components/admin/audit-logs-panel";
-import { VehiclesPanel } from "@/components/admin/vehicles-panel";
-import { TripsPanel } from "@/components/admin/trips-panel";
-import { RoutesPanel } from "@/components/admin/routes-panel";
-import { StationsPanel } from "@/components/admin/stations-panel";
-import { PromoPanel } from "@/components/admin/promo-panel";
-import { OverviewDashboard } from "@/components/admin/overview-dashboard";
-import { SystemOverview } from "@/components/admin/system-overview";
 import { NotificationBell } from "@/components/admin/notification-bell";
-import { FeedbackPanel } from "@/components/admin/feedback-panel";
-import { WaitingListPanel } from "@/components/admin/waiting-list-panel";
-import { TenantSettingsPanel } from "@/components/admin/tenant-settings-panel";
-import { SuperTenantsPanel } from "@/components/admin/super-tenants-panel";
-import { SettlementPanel } from "@/components/admin/settlement-panel";
-import { SuperSettlementsPanel } from "@/components/admin/super-settlements-panel";
 import { GlobalSearch } from "@/components/admin/global-search";
-import { PlatformOverviewPanel } from "@/components/admin/platform-overview-panel";
-import { PlatformApprovalsPanel } from "@/components/admin/platform-approvals-panel";
-import { PlatformLookupPanel } from "@/components/admin/platform-lookup-panel";
-import { PlatformAuditPanel } from "@/components/admin/platform-audit-panel";
-import { PlatformAnnouncementsPanel } from "@/components/admin/platform-announcements-panel";
-import { PlatformUsersPanel } from "@/components/admin/platform-users-panel";
+import { SystemOverview } from "@/components/admin/system-overview";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { AnnouncementBanner } from "@/components/announcement-banner";
-import { PlatformSettingsPanel } from "@/components/admin/platform-settings-panel";
-import { PlatformKvkkPanel } from "@/components/admin/platform-kvkk-panel";
-import { PlatformHealthPanel } from "@/components/admin/platform-health-panel";
-import { Security2FAPanel } from "@/components/admin/security-2fa-panel";
-import { SecuritySessionsPanel } from "@/components/admin/security-sessions-panel";
-import { PlatformPlansPanel } from "@/components/admin/platform-plans-panel";
-import { PlatformInvoicesPanel } from "@/components/admin/platform-invoices-panel";
-import { TenantApiKeysPanel, PlatformRiskPanel, PlatformFlagsPanel, PlatformEmailTemplatesPanel, PlatformIncidentsPanel, PlatformTicketsPanel } from "@/components/admin/platform-devops-panels";
+import { Loader2 } from "lucide-react";
+
+// Panel skeleton — tab'a tıklanınca yüklenene kadar gösterilir
+const PanelSkeleton = () => (
+  <div className="flex items-center justify-center py-32">
+    <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
+  </div>
+);
+
+// Lazy-loaded paneller — sadece ilgili tab seçilince yüklenir.
+// named export'ları wrapping için `.then(m => ({ default: m.X }))` kullanıyoruz.
+const lazyPanel = <T,>(loader: () => Promise<Record<string, T>>, key: string) =>
+  dynamic(
+    () => loader().then((m) => ({ default: (m as any)[key] })) as any,
+    { ssr: false, loading: PanelSkeleton },
+  );
+
+const OverviewDashboard = lazyPanel(() => import("@/components/admin/overview-dashboard"), "OverviewDashboard");
+const AdminBookingsPanel = lazyPanel(() => import("@/components/admin/bookings-panel"), "AdminBookingsPanel");
+const AdminDriversPanel = lazyPanel(() => import("@/components/admin/drivers-panel"), "AdminDriversPanel");
+const AdminAuditLogsPanel = lazyPanel(() => import("@/components/admin/audit-logs-panel"), "AdminAuditLogsPanel");
+const VehiclesPanel = lazyPanel(() => import("@/components/admin/vehicles-panel"), "VehiclesPanel");
+const TripsPanel = lazyPanel(() => import("@/components/admin/trips-panel"), "TripsPanel");
+const RoutesPanel = lazyPanel(() => import("@/components/admin/routes-panel"), "RoutesPanel");
+const StationsPanel = lazyPanel(() => import("@/components/admin/stations-panel"), "StationsPanel");
+const PromoPanel = lazyPanel(() => import("@/components/admin/promo-panel"), "PromoPanel");
+const FeedbackPanel = lazyPanel(() => import("@/components/admin/feedback-panel"), "FeedbackPanel");
+const WaitingListPanel = lazyPanel(() => import("@/components/admin/waiting-list-panel"), "WaitingListPanel");
+const TenantSettingsPanel = lazyPanel(() => import("@/components/admin/tenant-settings-panel"), "TenantSettingsPanel");
+const SuperTenantsPanel = lazyPanel(() => import("@/components/admin/super-tenants-panel"), "SuperTenantsPanel");
+const SettlementPanel = lazyPanel(() => import("@/components/admin/settlement-panel"), "SettlementPanel");
+const SuperSettlementsPanel = lazyPanel(() => import("@/components/admin/super-settlements-panel"), "SuperSettlementsPanel");
+const PlatformOverviewPanel = lazyPanel(() => import("@/components/admin/platform-overview-panel"), "PlatformOverviewPanel");
+const PlatformApprovalsPanel = lazyPanel(() => import("@/components/admin/platform-approvals-panel"), "PlatformApprovalsPanel");
+const PlatformLookupPanel = lazyPanel(() => import("@/components/admin/platform-lookup-panel"), "PlatformLookupPanel");
+const PlatformAuditPanel = lazyPanel(() => import("@/components/admin/platform-audit-panel"), "PlatformAuditPanel");
+const PlatformAnnouncementsPanel = lazyPanel(() => import("@/components/admin/platform-announcements-panel"), "PlatformAnnouncementsPanel");
+const PlatformUsersPanel = lazyPanel(() => import("@/components/admin/platform-users-panel"), "PlatformUsersPanel");
+const PlatformSettingsPanel = lazyPanel(() => import("@/components/admin/platform-settings-panel"), "PlatformSettingsPanel");
+const PlatformKvkkPanel = lazyPanel(() => import("@/components/admin/platform-kvkk-panel"), "PlatformKvkkPanel");
+const PlatformHealthPanel = lazyPanel(() => import("@/components/admin/platform-health-panel"), "PlatformHealthPanel");
+const Security2FAPanel = lazyPanel(() => import("@/components/admin/security-2fa-panel"), "Security2FAPanel");
+const SecuritySessionsPanel = lazyPanel(() => import("@/components/admin/security-sessions-panel"), "SecuritySessionsPanel");
+const PlatformPlansPanel = lazyPanel(() => import("@/components/admin/platform-plans-panel"), "PlatformPlansPanel");
+const PlatformInvoicesPanel = lazyPanel(() => import("@/components/admin/platform-invoices-panel"), "PlatformInvoicesPanel");
+const TenantApiKeysPanel = lazyPanel(() => import("@/components/admin/platform-devops-panels"), "TenantApiKeysPanel");
+const PlatformRiskPanel = lazyPanel(() => import("@/components/admin/platform-devops-panels"), "PlatformRiskPanel");
+const PlatformFlagsPanel = lazyPanel(() => import("@/components/admin/platform-devops-panels"), "PlatformFlagsPanel");
+const PlatformEmailTemplatesPanel = lazyPanel(() => import("@/components/admin/platform-devops-panels"), "PlatformEmailTemplatesPanel");
+const PlatformIncidentsPanel = lazyPanel(() => import("@/components/admin/platform-devops-panels"), "PlatformIncidentsPanel");
+const PlatformTicketsPanel = lazyPanel(() => import("@/components/admin/platform-devops-panels"), "PlatformTicketsPanel");
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -222,46 +245,45 @@ function AdminDashboardContent() {
             <div className="space-y-8">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 
+                {/* Gating: sadece aktif tab mount edilir — dynamic import'un etkisi maksimum */}
                 <TabsContent value="overview">
-                  <SystemOverview onNavigate={setActiveTab} refreshKey={refreshKey} />
+                  {activeTab === 'overview' && <SystemOverview onNavigate={setActiveTab} refreshKey={refreshKey} />}
                 </TabsContent>
-
                 <TabsContent value="revenue">
-                  <OverviewDashboard onNavigate={setActiveTab} />
+                  {activeTab === 'revenue' && <OverviewDashboard onNavigate={setActiveTab} />}
                 </TabsContent>
-
-                <TabsContent value="vehicles"><VehiclesPanel /></TabsContent>
-                <TabsContent value="stations"><StationsPanel /></TabsContent>
-                <TabsContent value="routes"><RoutesPanel /></TabsContent>
-                <TabsContent value="trips"><TripsPanel /></TabsContent>
-                <TabsContent value="bookings" className="mt-6"><AdminBookingsPanel /></TabsContent>
-                <TabsContent value="drivers" className="mt-6"><AdminDriversPanel /></TabsContent>
-                <TabsContent value="audit" className="mt-6"><AdminAuditLogsPanel /></TabsContent>
-                <TabsContent value="promo"><PromoPanel /></TabsContent>
-                <TabsContent value="feedback"><FeedbackPanel /></TabsContent>
-                <TabsContent value="waiting-list"><WaitingListPanel /></TabsContent>
-                <TabsContent value="tenant"><TenantSettingsPanel /></TabsContent>
-                <TabsContent value="settlements"><SettlementPanel /></TabsContent>
-                <TabsContent value="super-tenants"><SuperTenantsPanel /></TabsContent>
-                <TabsContent value="super-settlements"><SuperSettlementsPanel /></TabsContent>
-                <TabsContent value="platform-overview"><PlatformOverviewPanel onNavigate={setActiveTab} /></TabsContent>
-                <TabsContent value="platform-approvals"><PlatformApprovalsPanel /></TabsContent>
-                <TabsContent value="platform-lookup"><PlatformLookupPanel /></TabsContent>
-                <TabsContent value="platform-audit"><PlatformAuditPanel /></TabsContent>
-                <TabsContent value="platform-announcements"><PlatformAnnouncementsPanel /></TabsContent>
-                <TabsContent value="platform-users"><PlatformUsersPanel /></TabsContent>
-                <TabsContent value="platform-settings"><PlatformSettingsPanel /></TabsContent>
-                <TabsContent value="platform-kvkk"><PlatformKvkkPanel /></TabsContent>
-                <TabsContent value="platform-health"><PlatformHealthPanel /></TabsContent>
-                <TabsContent value="security"><div className="space-y-6"><Security2FAPanel /><SecuritySessionsPanel /></div></TabsContent>
-                <TabsContent value="api-keys"><TenantApiKeysPanel /></TabsContent>
-                <TabsContent value="platform-plans"><PlatformPlansPanel /></TabsContent>
-                <TabsContent value="platform-invoices"><PlatformInvoicesPanel /></TabsContent>
-                <TabsContent value="platform-risk"><PlatformRiskPanel /></TabsContent>
-                <TabsContent value="platform-flags"><PlatformFlagsPanel /></TabsContent>
-                <TabsContent value="platform-email-templates"><PlatformEmailTemplatesPanel /></TabsContent>
-                <TabsContent value="platform-incidents"><PlatformIncidentsPanel /></TabsContent>
-                <TabsContent value="platform-tickets"><PlatformTicketsPanel /></TabsContent>
+                <TabsContent value="vehicles">{activeTab === 'vehicles' && <VehiclesPanel />}</TabsContent>
+                <TabsContent value="stations">{activeTab === 'stations' && <StationsPanel />}</TabsContent>
+                <TabsContent value="routes">{activeTab === 'routes' && <RoutesPanel />}</TabsContent>
+                <TabsContent value="trips">{activeTab === 'trips' && <TripsPanel />}</TabsContent>
+                <TabsContent value="bookings" className="mt-6">{activeTab === 'bookings' && <AdminBookingsPanel />}</TabsContent>
+                <TabsContent value="drivers" className="mt-6">{activeTab === 'drivers' && <AdminDriversPanel />}</TabsContent>
+                <TabsContent value="audit" className="mt-6">{activeTab === 'audit' && <AdminAuditLogsPanel />}</TabsContent>
+                <TabsContent value="promo">{activeTab === 'promo' && <PromoPanel />}</TabsContent>
+                <TabsContent value="feedback">{activeTab === 'feedback' && <FeedbackPanel />}</TabsContent>
+                <TabsContent value="waiting-list">{activeTab === 'waiting-list' && <WaitingListPanel />}</TabsContent>
+                <TabsContent value="tenant">{activeTab === 'tenant' && <TenantSettingsPanel />}</TabsContent>
+                <TabsContent value="settlements">{activeTab === 'settlements' && <SettlementPanel />}</TabsContent>
+                <TabsContent value="super-tenants">{activeTab === 'super-tenants' && <SuperTenantsPanel />}</TabsContent>
+                <TabsContent value="super-settlements">{activeTab === 'super-settlements' && <SuperSettlementsPanel />}</TabsContent>
+                <TabsContent value="platform-overview">{activeTab === 'platform-overview' && <PlatformOverviewPanel onNavigate={setActiveTab} />}</TabsContent>
+                <TabsContent value="platform-approvals">{activeTab === 'platform-approvals' && <PlatformApprovalsPanel />}</TabsContent>
+                <TabsContent value="platform-lookup">{activeTab === 'platform-lookup' && <PlatformLookupPanel />}</TabsContent>
+                <TabsContent value="platform-audit">{activeTab === 'platform-audit' && <PlatformAuditPanel />}</TabsContent>
+                <TabsContent value="platform-announcements">{activeTab === 'platform-announcements' && <PlatformAnnouncementsPanel />}</TabsContent>
+                <TabsContent value="platform-users">{activeTab === 'platform-users' && <PlatformUsersPanel />}</TabsContent>
+                <TabsContent value="platform-settings">{activeTab === 'platform-settings' && <PlatformSettingsPanel />}</TabsContent>
+                <TabsContent value="platform-kvkk">{activeTab === 'platform-kvkk' && <PlatformKvkkPanel />}</TabsContent>
+                <TabsContent value="platform-health">{activeTab === 'platform-health' && <PlatformHealthPanel />}</TabsContent>
+                <TabsContent value="security">{activeTab === 'security' && <div className="space-y-6"><Security2FAPanel /><SecuritySessionsPanel /></div>}</TabsContent>
+                <TabsContent value="api-keys">{activeTab === 'api-keys' && <TenantApiKeysPanel />}</TabsContent>
+                <TabsContent value="platform-plans">{activeTab === 'platform-plans' && <PlatformPlansPanel />}</TabsContent>
+                <TabsContent value="platform-invoices">{activeTab === 'platform-invoices' && <PlatformInvoicesPanel />}</TabsContent>
+                <TabsContent value="platform-risk">{activeTab === 'platform-risk' && <PlatformRiskPanel />}</TabsContent>
+                <TabsContent value="platform-flags">{activeTab === 'platform-flags' && <PlatformFlagsPanel />}</TabsContent>
+                <TabsContent value="platform-email-templates">{activeTab === 'platform-email-templates' && <PlatformEmailTemplatesPanel />}</TabsContent>
+                <TabsContent value="platform-incidents">{activeTab === 'platform-incidents' && <PlatformIncidentsPanel />}</TabsContent>
+                <TabsContent value="platform-tickets">{activeTab === 'platform-tickets' && <PlatformTicketsPanel />}</TabsContent>
               </Tabs>
             </div>
 

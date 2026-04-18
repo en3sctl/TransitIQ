@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import { OtogarPicker } from "./otogar-picker";
 import { CSVImport } from "./csv-import";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Station {
   id: string;
@@ -81,7 +82,13 @@ export function StationsPanel() {
   const toggleOne = (id: string) => { const n = new Set(selected); n.has(id) ? n.delete(id) : n.add(id); setSelected(n); };
 
   const deleteStation = async (id: string) => {
-    if (!confirm('İstasyon silinsin mi?')) return;
+    const ok = await confirmDialog({
+      title: 'İstasyonu sil',
+      message: 'Bu istasyon silinecek. Bağlı rotalar varsa işlem başarısız olur.',
+      variant: 'danger',
+      confirmLabel: 'Sil',
+    });
+    if (!ok) return;
     setDeleting(id);
     try { await api.delete(`/stations/${id}`); toast.success('İstasyon silindi'); load(); }
     catch (e: any) { toast.error(e.response?.data?.message || 'Silinemedi'); }
@@ -89,10 +96,16 @@ export function StationsPanel() {
   };
 
   const bulkDelete = async () => {
-    if (!confirm(`${selected.size} istasyon silinecek. Devam?`)) return;
-    let ok = 0;
-    for (const id of selected) { try { await api.delete(`/stations/${id}`); ok++; } catch {} }
-    toast.success(`${ok} istasyon silindi`); setSelected(new Set()); load();
+    const ok = await confirmDialog({
+      title: 'Toplu istasyon silme',
+      message: `${selected.size} istasyon silinecek. Bağlı rotalar olanlar atlanır.`,
+      variant: 'danger',
+      confirmLabel: `${selected.size} istasyonu sil`,
+    });
+    if (!ok) return;
+    let count = 0;
+    for (const id of selected) { try { await api.delete(`/stations/${id}`); count++; } catch {} }
+    toast.success(`${count} istasyon silindi`); setSelected(new Set()); load();
   };
 
   const startEdit = (s: Station) => {

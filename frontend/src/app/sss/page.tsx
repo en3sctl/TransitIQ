@@ -169,7 +169,7 @@ export default function FaqPage() {
       )}
 
       {/* CTA */}
-      <div className="mt-12 p-8 bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-3xl text-center">
+      <div className="mt-12 p-8 bg-indigo-600 text-white rounded-3xl text-center">
         <h3 className="text-2xl font-black tracking-tighter mb-2">Sorunuzun cevabı yok mu?</h3>
         <p className="text-indigo-100 font-medium text-sm mb-5">Destek ekibimiz her mesajı okur ve 1 iş günü içinde yanıtlar.</p>
         <Link href="/iletisim" className="inline-flex items-center gap-2 bg-white text-indigo-700 font-bold px-5 py-2.5 rounded-xl text-sm hover:scale-[1.02] transition-transform">

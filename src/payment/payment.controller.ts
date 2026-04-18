@@ -161,9 +161,17 @@ export class PaymentController {
               });
             }
 
-            // Record platform commission split for each booking (fire-and-forget)
+            // Platform komisyon kaydı — hata sessizce yutulmamalı
+            // çünkü bu olmadan fatura boş çıkar. Booking başarılı olmuşsa settlement de düşmeli.
             for (const b of (bookingResult as any).bookings || []) {
-              this.paymentService.recordSettlement(b.id).catch(() => {});
+              try {
+                await this.paymentService.recordSettlement(b.id);
+              } catch (err: any) {
+                // Booking yapıldı, ödeme alındı — sadece settlement düşmedi.
+                // Bunu loglayıp admin'in backfill ile toparlayabilmesi için
+                // AuditLog'a da yansıtmalıyız (yakın gelecek için TODO).
+                console.error(`[Payment Callback] recordSettlement failed for booking ${b.id}:`, err.message || err);
+              }
             }
 
             await this.paymentService.removePendingBookingByToken(body.token);

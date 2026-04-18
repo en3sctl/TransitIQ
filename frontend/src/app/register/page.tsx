@@ -94,9 +94,7 @@ export default function RegisterPage() {
             </div>
             <h2 className="text-6xl font-black text-white tracking-tighter leading-[1.05] mb-6">
               Geleceği <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-indigo-400 to-purple-400 animate-gradient-x bg-[length:200%_auto]">
-                Seninle kuralım.
-              </span>
+              <span className="text-indigo-400">Seninle kuralım.</span>
             </h2>
             <p className="text-xl text-zinc-400 font-medium max-w-md leading-relaxed">
               Profesyonel ağınızı dakikalar içinde kurun ve operasyonlarınıza başlayın.
@@ -104,9 +102,9 @@ export default function RegisterPage() {
             
             <div className="mt-12 space-y-4">
                {[
-                 "Gerçek Zamanlı Filo Takibi",
-                 "AI Destekli Akıllı Rota Optimizasyonu",
-                 "Veriye Dayalı Finansal Öngörüler"
+                 "Gerçek zamanlı filo takibi",
+                 "Komisyon bazlı, aylık ücretsiz plan",
+                 "Otomatik U-ETDS + e-Bilet entegrasyonu (yakında)",
                ].map((item, i) => (
                  <div key={i} className="flex items-center gap-4 text-zinc-300 group/item cursor-default">
                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 border border-emerald-500/20">

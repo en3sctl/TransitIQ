@@ -9,6 +9,7 @@ import {
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { CSVImport } from "./csv-import";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Driver {
   id: string;
@@ -117,7 +118,13 @@ export function AdminDriversPanel() {
   }
 
   async function remove(d: Driver) {
-    if (!confirm(`${d.name} silinecek. Emin misin?`)) return;
+    const ok = await confirmDialog({
+      title: 'Şoförü sil',
+      message: `${d.name} silinecek. Bu işlem geri alınamaz.`,
+      variant: 'danger',
+      confirmLabel: 'Sil',
+    });
+    if (!ok) return;
     setDeleting(d.id);
     try { await api.delete(`/users/drivers/${d.id}`); toast.success('Şoför silindi'); load(); }
     catch (e: any) { toast.error(e.response?.data?.message || 'Silinemedi'); }
@@ -125,10 +132,16 @@ export function AdminDriversPanel() {
   }
 
   async function bulkDelete() {
-    if (!confirm(`${selected.size} şoför silinecek. Devam?`)) return;
-    let ok = 0;
-    for (const id of selected) { try { await api.delete(`/users/drivers/${id}`); ok++; } catch {} }
-    toast.success(`${ok} şoför silindi`); setSelected(new Set()); load();
+    const ok = await confirmDialog({
+      title: 'Toplu şoför silme',
+      message: `${selected.size} şoför silinecek. Bu işlem geri alınamaz.`,
+      variant: 'danger',
+      confirmLabel: `${selected.size} şoförü sil`,
+    });
+    if (!ok) return;
+    let count = 0;
+    for (const id of selected) { try { await api.delete(`/users/drivers/${id}`); count++; } catch {} }
+    toast.success(`${count} şoför silindi`); setSelected(new Set()); load();
   }
 
   const exportCSV = () => {

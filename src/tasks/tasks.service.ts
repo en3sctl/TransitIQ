@@ -58,20 +58,29 @@ export class TasksService {
   }
 
   /**
-   * Marks past trips as COMPLETED every hour.
-   * Trips whose estimated arrival has passed by 1+ hours are marked completed.
+   * Geçmiş seferleri otomatik COMPLETED'e çeker — her 15 dakikada bir.
+   *
+   * Kural:
+   *   - estimatedArrival tanımlı ve geçmişse → COMPLETED
+   *   - estimatedArrival yok ama departureTime + 12 saat geçmişse → COMPLETED
+   *     (12 saat: en uzun TR otobüs rotasından biraz daha fazla, güvenli tampon)
+   *
+   * Eskiden 1 saat bekliyordu; şu an grace period sıfır.
+   * Admin/driver panellerinde eski sefer hala "aktif" görünmesin diye.
    */
-  @Cron(CronExpression.EVERY_HOUR)
+  @Cron(CronExpression.EVERY_10_MINUTES)
   async markCompletedTrips() {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const now = new Date();
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+
     const result = await this.prisma.trip.updateMany({
       where: {
         status: { in: ['PLANNED', 'ACTIVE'] },
         OR: [
-          { estimatedArrival: { lt: oneHourAgo } },
+          { estimatedArrival: { lt: now } },
           {
             estimatedArrival: null,
-            departureTime: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+            departureTime: { lt: twelveHoursAgo },
           },
         ],
       },
@@ -79,8 +88,69 @@ export class TasksService {
     });
 
     if (result.count > 0) {
-      this.logger.log(`Marked ${result.count} trip(s) as COMPLETED`);
+      this.logger.log(`[AUTO-COMPLETE] ${result.count} sefer otomatik COMPLETED olarak işaretlendi`);
+      // Bu seferlerdeki no-show yolculara bildirim at (fire-and-forget)
+      this.notifyNoShowPassengers().catch((err) => {
+        this.logger.warn(`[AUTO-COMPLETE] no-show notif başarısız: ${err.message}`);
+      });
     }
+  }
+
+  /**
+   * Son 24 saat içinde COMPLETED olmuş ama boardingStatus=PENDING kalan
+   * yolculara "seni seferde göremedik" e-postası gönder.
+   *
+   * Idempotent: reminderSentAt alanı doldurulup tekrar gönderilmez.
+   */
+  async notifyNoShowPassengers() {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const completedTrips = await this.prisma.trip.findMany({
+      where: {
+        status: 'COMPLETED',
+        updatedAt: { gte: since },
+      },
+      select: {
+        id: true,
+        departureTime: true,
+        route: {
+          select: {
+            originStation: { select: { city: true } },
+            destinationStation: { select: { city: true } },
+          },
+        },
+        bookings: {
+          where: {
+            boardingStatus: 'PENDING',
+            status: 'CONFIRMED',
+            reminderSentAt: null,
+          },
+          select: { id: true, contactEmail: true, passengerName: true, pnrCode: true },
+        },
+      },
+    });
+
+    let sent = 0;
+    for (const trip of completedTrips) {
+      const origin = trip.route.originStation.city;
+      const destination = trip.route.destinationStation.city;
+      for (const b of trip.bookings) {
+        try {
+          await this.notificationsService.sendNoShowEmail(b.contactEmail, b.passengerName, {
+            pnr: b.pnrCode,
+            route: `${origin} → ${destination}`,
+            departureTime: trip.departureTime,
+          });
+          await this.prisma.booking.update({
+            where: { id: b.id },
+            data: { reminderSentAt: new Date() },
+          });
+          sent++;
+        } catch (err: any) {
+          this.logger.warn(`[No-Show] ${b.pnrCode}: ${err.message}`);
+        }
+      }
+    }
+    if (sent > 0) this.logger.log(`[No-Show] ${sent} yolcuya bildirim gönderildi`);
   }
 
   /**

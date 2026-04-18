@@ -70,6 +70,50 @@ export class TenantService {
     };
   }
 
+  /**
+   * Plan kullanımı: tenant'ın mevcut plan limiti + şu anki kullanımı.
+   * Firma admin panelinde "Plan Kullanımı" kartında gösterilir.
+   */
+  async getPlanUsage(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { plan: true },
+    });
+    if (!tenant) throw new NotFoundException();
+
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const [vehicleCount, routeCount, monthlyBookings] = await Promise.all([
+      this.prisma.vehicle.count({ where: { tenantId, deletedAt: null } }),
+      this.prisma.route.count({ where: { tenantId } }),
+      this.prisma.booking.count({
+        where: { tenantId, bookingTime: { gte: monthStart }, status: 'CONFIRMED' },
+      }),
+    ]);
+
+    const plan = tenant.plan ? {
+      id: tenant.plan.id,
+      name: tenant.plan.name,
+      slug: tenant.plan.slug,
+      monthlyFee: Number(tenant.plan.monthlyFee),
+      commissionRate: Number(tenant.plan.commissionRate),
+      maxVehicles: tenant.plan.maxVehicles,
+      maxRoutes: tenant.plan.maxRoutes,
+      maxMonthlyBookings: tenant.plan.maxMonthlyBookings,
+    } : null;
+
+    return {
+      plan,
+      usage: {
+        vehicles: { current: vehicleCount, limit: plan?.maxVehicles ?? null },
+        routes: { current: routeCount, limit: plan?.maxRoutes ?? null },
+        monthlyBookings: { current: monthlyBookings, limit: plan?.maxMonthlyBookings ?? null },
+      },
+    };
+  }
+
   async updateSettings(tenantId: string, dto: UpdateTenantSettingsDto) {
     if (dto.brandColor && !/^#[0-9a-fA-F]{6}$/.test(dto.brandColor)) {
       throw new BadRequestException('Renk kodu #RRGGBB formatında olmalı');

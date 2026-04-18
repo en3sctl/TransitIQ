@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, AlertTriangle, RotateCcw, Bus, Clock, CheckCircle2, ShieldAlert, MessageSquareWarning, ChevronDown, ChevronRight, CheckCheck } from "lucide-react";
 import api from "@/lib/api";
+import { useVisibleInterval } from "@/lib/use-visible-interval";
 
 type NotifType = 'CRITICAL' | 'WARNING' | 'INFO';
 type NotifCategory = 'COMPLAINTS' | 'VEHICLES' | 'PAYMENTS' | 'OTHER';
@@ -164,9 +165,8 @@ export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) =>
   useEffect(() => {
     setDismissed(loadDismissed());
     load();
-    const interval = setInterval(load, 60000);
-    return () => clearInterval(interval);
   }, [load]);
+  useVisibleInterval(load, 60000);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

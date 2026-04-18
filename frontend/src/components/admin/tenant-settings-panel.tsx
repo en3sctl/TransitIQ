@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Loader2, Upload, Trash2, Save, BadgeCheck, Building2, CreditCard, KeyRound, AlertTriangle, ExternalLink, Palette, Phone, Mail, Globe, MapPin, FileText } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface TenantData {
   id: string;
@@ -37,8 +38,18 @@ function toAbsolute(url: string | null) {
   return url.startsWith('http') ? url : apiBase() + url;
 }
 
+interface PlanUsage {
+  plan: { name: string; slug: string; monthlyFee: number; commissionRate: number; maxVehicles: number | null; maxRoutes: number | null; maxMonthlyBookings: number | null; } | null;
+  usage: {
+    vehicles: { current: number; limit: number | null };
+    routes: { current: number; limit: number | null };
+    monthlyBookings: { current: number; limit: number | null };
+  };
+}
+
 export function TenantSettingsPanel() {
   const [data, setData] = useState<TenantData | null>(null);
+  const [usage, setUsage] = useState<PlanUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -50,7 +61,12 @@ export function TenantSettingsPanel() {
   const load = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/admin/tenant/me');
+      const [tenantRes, usageRes] = await Promise.all([
+        api.get('/admin/tenant/me'),
+        api.get('/admin/tenant/me/usage').catch(() => ({ data: null })),
+      ]);
+      const res = tenantRes;
+      setUsage(usageRes.data);
       setData(res.data);
       setForm({
         publicName: res.data.publicName || '',
@@ -131,7 +147,13 @@ export function TenantSettingsPanel() {
   };
 
   const removeLogo = async () => {
-    if (!confirm('Logo silinsin mi?')) return;
+    const ok = await confirmDialog({
+      title: 'Logoyu kaldır',
+      message: 'Firma logonuz silinecek. Yolcu/admin paneli yerine harf placeholder gösterilecek.',
+      variant: 'warning',
+      confirmLabel: 'Logoyu Sil',
+    });
+    if (!ok) return;
     try {
       await api.delete('/admin/tenant/me/logo');
       setData((d) => d ? { ...d, logoUrl: null } : d);
@@ -227,6 +249,27 @@ export function TenantSettingsPanel() {
           </a>
         </div>
       </motion.div>
+
+      {/* Plan kullanımı */}
+      {usage && usage.plan && (
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-indigo-600" />
+              <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">Plan Kullanımı</h4>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Aktif plan</p>
+              <p className="text-sm font-black text-indigo-600 dark:text-indigo-400">{usage.plan.name} · %{(usage.plan.commissionRate * 100).toFixed(1)} komisyon{usage.plan.monthlyFee > 0 ? ` + ₺${usage.plan.monthlyFee}/ay` : ''}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <UsageBar label="Araç" current={usage.usage.vehicles.current} limit={usage.usage.vehicles.limit} />
+            <UsageBar label="Rota" current={usage.usage.routes.current} limit={usage.usage.routes.limit} />
+            <UsageBar label="Bu ay bilet" current={usage.usage.monthlyBookings.current} limit={usage.usage.monthlyBookings.limit} />
+          </div>
+        </div>
+      )}
 
       {/* Branding */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6">
@@ -446,6 +489,39 @@ export function TenantSettingsPanel() {
             Ödeme Ayarlarını Kaydet
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function UsageBar({ label, current, limit }: { label: string; current: number; limit: number | null }) {
+  const unlimited = limit === null;
+  const pct = unlimited ? 0 : Math.min(100, Math.round((current / Math.max(1, limit!)) * 100));
+  const tone = unlimited
+    ? 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
+    : pct >= 100 ? 'bg-rose-500'
+    : pct >= 80 ? 'bg-amber-500'
+    : 'bg-emerald-500';
+
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950 p-4">
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">{label}</p>
+        {!unlimited && pct >= 80 && (
+          <span className={`text-[9px] font-black uppercase tracking-widest ${pct >= 100 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
+            {pct >= 100 ? 'Limit doldu' : 'Dolmak üzere'}
+          </span>
+        )}
+      </div>
+      <p className="text-2xl font-black tracking-tight text-slate-900 dark:text-white tabular-nums">
+        {current.toLocaleString('tr-TR')}
+        <span className="text-sm text-slate-400 font-bold ml-1">/ {unlimited ? '∞' : limit!.toLocaleString('tr-TR')}</span>
+      </p>
+      <div className="mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 overflow-hidden">
+        <div
+          className={`h-full transition-all ${unlimited ? 'bg-indigo-500' : tone}`}
+          style={{ width: unlimited ? '100%' : `${pct}%` }}
+        />
       </div>
     </div>
   );

@@ -77,9 +77,7 @@ export default function LoginPage() {
             </div>
             <h2 className="text-6xl font-black text-white tracking-tighter leading-[1.05] mb-6">
               Lojistikte <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 animate-gradient-x bg-[length:200%_auto]">
-                Zekâ ve Hız.
-              </span>
+              <span className="text-indigo-400">Zekâ ve Hız.</span>
             </h2>
             <p className="text-xl text-zinc-400 font-medium max-w-md leading-relaxed">
               TransitIQ ile tüm filo operasyonlarını tek bir noktadan, analiz gücüyle yönetin.

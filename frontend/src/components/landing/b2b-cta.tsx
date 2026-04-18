@@ -13,13 +13,7 @@ const BENEFITS = [
 
 export function B2BCta() {
   return (
-    <section className="py-20 px-6 bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 relative overflow-hidden">
-      {/* Decorative blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-white/5 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-purple-300/10 blur-3xl" />
-      </div>
-
+    <section className="py-20 px-6 bg-indigo-700 relative overflow-hidden">
       <div className="max-w-6xl mx-auto relative">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <motion.div

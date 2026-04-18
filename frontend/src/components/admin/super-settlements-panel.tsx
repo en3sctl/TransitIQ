@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Loader2, Calendar, CheckCheck, Check, RefreshCw, Download, Wallet, Clock, XCircle, CheckCircle2, TrendingUp, Percent } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog, promptDialog } from "@/components/ui/dialogs";
 
 interface SettlementItem {
   id: string;
@@ -84,7 +85,15 @@ export function SuperSettlementsPanel() {
   };
 
   const settleOne = async (id: string) => {
-    const notes = prompt('Ödeme notu (opsiyonel, referans numarası vb.):');
+    const notes = await promptDialog({
+      title: 'Ödendi işaretle',
+      message: 'İsteğe bağlı ödeme notu ekleyebilirsin (EFT/havale referans no vb.).',
+      label: 'Ödeme notu',
+      placeholder: 'Örn: BT20260417-0042',
+      confirmLabel: 'Ödendi İşaretle',
+      variant: 'success',
+    });
+    if (notes === null) return;
     try {
       await api.patch(`/super-admin/settlements/${id}/settle`, { notes: notes || undefined });
       toast.success('Ödendi işaretlendi');
@@ -96,7 +105,13 @@ export function SuperSettlementsPanel() {
 
   const bulkSettle = async () => {
     if (selected.size === 0) return;
-    if (!confirm(`${selected.size} kayıt "Ödendi" olarak işaretlensin mi?`)) return;
+    const ok = await confirmDialog({
+      title: 'Toplu ödendi işaretleme',
+      message: `${selected.size} settlement kaydı "Ödendi" olarak işaretlenecek. Bu işlem geri alınamaz.`,
+      variant: 'success',
+      confirmLabel: `${selected.size} kaydı ödendi işaretle`,
+    });
+    if (!ok) return;
     try {
       const res = await api.post('/super-admin/settlements/bulk-settle', { ids: Array.from(selected) });
       toast.success(`${res.data?.count || selected.size} kayıt ödendi`);
@@ -107,7 +122,13 @@ export function SuperSettlementsPanel() {
   };
 
   const backfill = async () => {
-    if (!confirm('Geçmiş CONFIRMED biletler için Settlement kayıtları oluşturulsun mu?')) return;
+    const ok = await confirmDialog({
+      title: 'Settlement Backfill',
+      message: 'Geçmiş CONFIRMED biletler için eksik Settlement kayıtları oluşturulacak. İşlem tekrar çalıştırılabilir (idempotent).',
+      variant: 'default',
+      confirmLabel: 'Backfill Çalıştır',
+    });
+    if (!ok) return;
     try {
       const res = await api.post('/super-admin/settlements/backfill', {});
       toast.success(`${res.data.created} kayıt oluşturuldu (${res.data.scanned} taranan)`);

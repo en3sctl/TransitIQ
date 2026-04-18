@@ -56,10 +56,11 @@ export function AnnouncementBanner({ audience = 'PASSENGERS' }: { audience?: 'PA
   if (visible.length === 0) return null;
   const a = visible[0]; // show top 1 only; stack can come later
 
+  // Flat tone — gradient'ler "AI web design" hissi veriyordu, Linear tarzı tek renk
   const toneMap: Record<string, { bg: string; icon: any }> = {
-    INFO: { bg: 'from-indigo-600 to-indigo-700', icon: Info },
-    WARNING: { bg: 'from-amber-500 to-orange-600', icon: AlertTriangle },
-    CRITICAL: { bg: 'from-rose-600 to-red-700', icon: AlertOctagon },
+    INFO: { bg: 'bg-indigo-600', icon: Info },
+    WARNING: { bg: 'bg-amber-500', icon: AlertTriangle },
+    CRITICAL: { bg: 'bg-rose-600', icon: AlertOctagon },
   };
   const meta = toneMap[a.severity] || toneMap.INFO;
   const Icon = meta.icon;
@@ -71,7 +72,7 @@ export function AnnouncementBanner({ audience = 'PASSENGERS' }: { audience?: 'PA
   };
 
   return (
-    <div className={`bg-gradient-to-r ${meta.bg} text-white relative`}>
+    <div className={`${meta.bg} text-white relative`}>
       <div className="max-w-7xl mx-auto px-6 py-2.5 flex items-center gap-3">
         <Icon className="w-4 h-4 shrink-0" />
         <div className="flex-1 min-w-0 text-sm">

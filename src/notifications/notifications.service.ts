@@ -265,6 +265,59 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Sefere gelmeyen yolcuya "seni göremedik" bildirimi.
+   * Sefer COMPLETED olduğunda çağrılır, boardingStatus=PENDING yolcular için.
+   */
+  async sendNoShowEmail(to: string, passengerName: string, args: {
+    pnr: string;
+    route: string;
+    departureTime: Date;
+  }) {
+    if (!this.enabled || !this.resend) {
+      this.logger.warn(`[EMAIL] No-show skipped — RESEND_API_KEY missing. Would have notified: ${to}`);
+      return;
+    }
+    try {
+      const baseUrl = this.config.get<string>('FRONTEND_URL', 'https://transitiq.com');
+      const dep = new Date(args.departureTime);
+      const dateStr = `${dep.getDate()} ${MONTHS_TR[dep.getMonth()]} ${dep.getFullYear()}`;
+      const timeStr = dep.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      const supportUrl = `${baseUrl}/iletisim?tab=complaint&pnr=${encodeURIComponent(args.pnr)}`;
+
+      const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f1f5f9;padding:40px 20px;margin:0"><div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.05)">
+        <div style="display:inline-block;background:#fff7ed;color:#c2410c;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:0.04em;margin-bottom:16px">SEFERDE GÖREMEDIK</div>
+        <h1 style="font-size:22px;font-weight:900;margin:0 0 12px;color:#0f172a">Merhaba ${escapeHtml(passengerName)}</h1>
+        <p style="color:#475569;line-height:1.6;margin:0 0 20px">${dateStr} tarihli <strong>${escapeHtml(args.route)}</strong> seferinde seni aracımızda göremedik. PNR: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">${escapeHtml(args.pnr)}</code></p>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin:20px 0">
+          <p style="margin:0 0 6px;color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase">Sefer</p>
+          <p style="margin:0 0 4px;color:#0f172a;font-size:16px;font-weight:800">${dateStr} · ${timeStr}</p>
+          <p style="margin:0;color:#64748b;font-size:13px">${escapeHtml(args.route)}</p>
+        </div>
+        <p style="color:#475569;line-height:1.6;margin:0 0 20px"><strong>Bir sorun mu yaşadın?</strong> Eğer son dakikada plan değişikliği, sağlık sorunu veya bizim kaynaklı bir aksaklık olduysa bize ulaş — iade/yeniden planlama konusunda yardımcı olalım.</p>
+        <a href="${supportUrl}" style="display:inline-block;background:#4f46e5;color:white;text-decoration:none;padding:14px 28px;border-radius:12px;font-weight:700;font-size:14px">Sorun Bildir / İade Talep Et</a>
+        <p style="color:#94a3b8;font-size:12px;line-height:1.5;margin:32px 0 8px">Bu bildirim otomatik gönderildi. Hiçbir sorun yoksa e-postayı yok sayabilirsin.</p>
+        <hr style="border:0;border-top:1px solid #e2e8f0;margin:24px 0" />
+        <p style="color:#94a3b8;font-size:11px;margin:0">Destek: destek@transitiq.com</p>
+      </div></body></html>`;
+
+      const result: any = await this.resend.emails.send({
+        from: this.fromAddress,
+        to,
+        subject: `Seferde görüşemedik — ${args.route} (${dateStr})`,
+        html,
+      });
+
+      if (result?.error) {
+        this.logger.error(`[EMAIL] No-show Resend error for ${to}: ${JSON.stringify(result.error)}`);
+      } else {
+        this.logger.log(`[EMAIL] No-show sent to ${to} (pnr=${args.pnr})`);
+      }
+    } catch (err) {
+      this.logger.error(`[EMAIL] sendNoShowEmail threw: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
   async sendBookingConfirmation(pnrCodes: string[]) {
     if (!this.enabled || !this.resend || pnrCodes.length === 0) return;
 

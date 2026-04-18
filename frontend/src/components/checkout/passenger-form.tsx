@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useBookingStore } from '@/store/useBookingStore';
 import type { Passenger } from '@/types/booking';
+import { formatTcKimlik, formatPhoneTR } from '@/lib/formatters';
 
 // ---------- Single Passenger Card ----------
 interface PassengerCardProps {
@@ -88,9 +89,7 @@ const PassengerCard = memo(function PassengerCard({
               maxLength={11}
               placeholder="12345678901"
               value={passenger.tcKimlik}
-              onChange={(e) =>
-                handleChange('tcKimlik', e.target.value.replace(/\D/g, '').slice(0, 11))
-              }
+              onChange={(e) => handleChange('tcKimlik', formatTcKimlik(e.target.value))}
               className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             />
           </div>
@@ -203,9 +202,10 @@ const ContactSection = memo(function ContactSection() {
               <Input
                 id="contact-phone"
                 type="tel"
-                placeholder="05XX XXX XX XX"
+                inputMode="tel"
+                placeholder="0532 123 45 67"
                 value={contactPhone}
-                onChange={(e) => setContactPhone(e.target.value)}
+                onChange={(e) => setContactPhone(formatPhoneTR(e.target.value))}
                 className="pl-10 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700 text-slate-900 dark:text-white font-semibold placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
               />
             </div>

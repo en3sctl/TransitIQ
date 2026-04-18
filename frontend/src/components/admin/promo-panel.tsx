@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Promo {
   id: string;
@@ -92,7 +93,13 @@ export function PromoPanel() {
   };
 
   const deletePromo = async (id: string) => {
-    if (!confirm('Promo kodu silinsin mi?')) return;
+    const ok = await confirmDialog({
+      title: 'Promo kodu sil',
+      message: 'Bu promosyon kodu silinecek. Kullanımdaysa mevcut rezervasyonları etkilemez.',
+      variant: 'danger',
+      confirmLabel: 'Sil',
+    });
+    if (!ok) return;
     try { await api.delete(`/promo-codes/${id}`); toast.success('Silindi'); load(); }
     catch (e: any) { toast.error(e.response?.data?.message || 'Silinemedi'); }
   };

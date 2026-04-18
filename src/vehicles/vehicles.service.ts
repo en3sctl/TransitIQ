@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuditService } from '../common/audit/audit.service';
 import { CreateVehicleDto, UpdateVehicleDto } from './dto/vehicle.dto';
@@ -11,7 +11,31 @@ export class VehiclesService {
     private audit: AuditService,
   ) {}
 
+  /**
+   * Firmanın abonelik planındaki maxVehicles limitini kontrol eder.
+   * Limit null ise (Kurumsal gibi sınırsız) → izin ver.
+   * Limit aşılmışsa 403 atar, mesajda kalan kontenjan ve plan adı net.
+   */
+  private async assertVehicleQuota(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { plan: true },
+    });
+    const maxVehicles = tenant?.plan?.maxVehicles ?? null;
+    if (maxVehicles === null) return; // sınırsız
+
+    const currentCount = await this.prisma.vehicle.count({
+      where: { tenantId, deletedAt: null },
+    });
+    if (currentCount >= maxVehicles) {
+      throw new ForbiddenException(
+        `${tenant?.plan?.name || 'Mevcut'} planınız en fazla ${maxVehicles} araca izin veriyor. Şu an ${currentCount} aracınız var. Daha fazla araç eklemek için planınızı yükseltin.`,
+      );
+    }
+  }
+
   async create(tenantId: string, createVehicleDto: CreateVehicleDto, actorId?: string) {
+    await this.assertVehicleQuota(tenantId);
     const { capacity, layoutType, ...rest } = createVehicleDto;
 
     // Create vehicle + auto-generate seats in a transaction

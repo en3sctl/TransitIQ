@@ -23,6 +23,13 @@ export class TenantController {
     return this.service.getMine(req.user.tenantId);
   }
 
+  @Get('admin/tenant/me/usage')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  getUsage(@Request() req: any) {
+    return this.service.getPlanUsage(req.user.tenantId);
+  }
+
   @Patch('admin/tenant/me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

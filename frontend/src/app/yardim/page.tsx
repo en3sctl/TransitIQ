@@ -114,7 +114,7 @@ export default function HelpCenterPage() {
       </div>
 
       {/* CTA */}
-      <div className="mt-12 p-8 bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-3xl text-center">
+      <div className="mt-12 p-8 bg-indigo-600 text-white rounded-3xl text-center">
         <MessageCircle className="w-10 h-10 mx-auto mb-4 opacity-90" />
         <h3 className="text-2xl font-black tracking-tighter mb-2">Hala yardıma mı ihtiyacın var?</h3>
         <p className="text-indigo-100 font-medium text-sm mb-5 max-w-md mx-auto">Email veya WhatsApp üzerinden seninle iletişime geçelim.</p>

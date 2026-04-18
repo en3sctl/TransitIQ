@@ -90,7 +90,9 @@ export class FeedbackController {
     @Query('skip') skip?: string,
     @Query('take') take?: string,
   ) {
-    return this.feedbackService.getAdminComplaints(req.user.tenantId, {
+    // Super admin tüm firmaların şikayetlerini görür (cross-tenant)
+    const scope = req.user.role === 'SUPER_ADMIN' ? null : req.user.tenantId;
+    return this.feedbackService.getAdminComplaints(scope, {
       status,
       skip: skip ? parseInt(skip, 10) : 0,
       take: take ? parseInt(take, 10) : 25,
@@ -105,6 +107,8 @@ export class FeedbackController {
     @Param('id') id: string,
     @Body() dto: UpdateComplaintDto,
   ) {
-    return this.feedbackService.updateComplaint(req.user.tenantId, id, dto);
+    // Super admin cross-tenant update yapabilir (tenantId bypass)
+    const scope = req.user.role === 'SUPER_ADMIN' ? null : req.user.tenantId;
+    return this.feedbackService.updateComplaint(scope, id, dto);
   }
 }

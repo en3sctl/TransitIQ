@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, RefreshCw, Activity, Database, Mail, CreditCard, HardDrive, Cpu, CheckCircle2, AlertTriangle, XCircle, Server, Clock, Users } from "lucide-react";
 import api from "@/lib/api";
+import { useVisibleInterval } from "@/lib/use-visible-interval";
 
 interface Check {
   name: string;
@@ -44,9 +45,9 @@ const CHECK_ICONS: Record<string, any> = {
 };
 
 const OVERALL_TONE: Record<string, { bg: string; label: string; icon: any }> = {
-  HEALTHY: { bg: 'from-emerald-500 to-emerald-600', label: 'Sağlıklı', icon: CheckCircle2 },
-  WARNING: { bg: 'from-amber-500 to-orange-600', label: 'Uyarı', icon: AlertTriangle },
-  DEGRADED: { bg: 'from-rose-500 to-red-700', label: 'Sorunlu', icon: XCircle },
+  HEALTHY: { bg: 'bg-emerald-600', label: 'Sağlıklı', icon: CheckCircle2 },
+  WARNING: { bg: 'bg-amber-500', label: 'Uyarı', icon: AlertTriangle },
+  DEGRADED: { bg: 'bg-rose-600', label: 'Sorunlu', icon: XCircle },
 };
 
 export function PlatformHealthPanel() {
@@ -62,11 +63,8 @@ export function PlatformHealthPanel() {
     } catch { setData(null); }
     finally { setLoading(false); setRefreshing(false); }
   };
-  useEffect(() => {
-    load();
-    const i = setInterval(() => load(true), 30000);
-    return () => clearInterval(i);
-  }, []);
+  useEffect(() => { load(); }, []);
+  useVisibleInterval(() => load(true), 30000);
 
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>;
   if (!data) return <div className="text-center text-rose-500 font-bold py-10">Sistem durumu alınamadı</div>;
@@ -77,7 +75,7 @@ export function PlatformHealthPanel() {
   return (
     <div className="space-y-5">
       {/* Overall card */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`bg-gradient-to-r ${tone.bg} text-white rounded-3xl p-6 flex items-center gap-5 relative overflow-hidden`}>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`${tone.bg} text-white rounded-3xl p-6 flex items-center gap-5 relative overflow-hidden`}>
         <div className="w-16 h-16 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
           <OverallIcon className="w-8 h-8" />
         </div>

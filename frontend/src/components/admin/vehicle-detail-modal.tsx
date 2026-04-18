@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Props {
   vehicleId: string | null;
@@ -130,13 +131,25 @@ export function VehicleDetailModal({ vehicleId, onClose }: Props) {
   }
 
   async function deleteMaintenance(id: string) {
-    if (!confirm('Bakım kaydı silinsin mi?')) return;
+    const ok = await confirmDialog({
+      title: 'Bakım kaydını sil',
+      message: 'Bu bakım kaydı silinecek. Geçmiş için kanıt olarak saklamak istiyorsan önce CSV export al.',
+      variant: 'danger',
+      confirmLabel: 'Sil',
+    });
+    if (!ok) return;
     await api.delete(`/vehicles/${vehicleId}/maintenance/${id}`);
     load();
   }
 
   async function deleteFuel(id: string) {
-    if (!confirm('Yakıt kaydı silinsin mi?')) return;
+    const ok = await confirmDialog({
+      title: 'Yakıt kaydını sil',
+      message: 'Bu yakıt kaydı silinecek.',
+      variant: 'danger',
+      confirmLabel: 'Sil',
+    });
+    if (!ok) return;
     await api.delete(`/vehicles/${vehicleId}/fuel/${id}`);
     load();
   }

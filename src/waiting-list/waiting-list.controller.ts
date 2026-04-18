@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
@@ -43,6 +43,10 @@ export class WaitingListController {
     @Query('take') take?: string,
     @Query('skip') skip?: string,
   ) {
+    // Sadece firma admin veya super admin — PASSENGER/DRIVER erişemez
+    if (!req.user || !['COMPANY_ADMIN', 'SUPER_ADMIN', 'OPERATOR'].includes(req.user.role)) {
+      throw new ForbiddenException('Bu işlem için firma admin yetkisi gerekli');
+    }
     return this.service.adminList(req.user.tenantId, {
       status, tripId,
       take: take ? parseInt(take, 10) : 50,

@@ -203,10 +203,15 @@ export class FeedbackService {
     });
   }
 
-  async getAdminComplaints(tenantId: string, opts: { status?: string; skip?: number; take?: number } = {}) {
+  async getAdminComplaints(tenantId: string | null, opts: { status?: string; skip?: number; take?: number } = {}) {
     const { status, skip = 0, take = 25 } = opts;
-    const where: any = { tenantId };
+    // tenantId null → super admin cross-tenant listeleme (tüm firmaların şikayetleri)
+    const where: any = {};
+    if (tenantId) where.tenantId = tenantId;
     if (status && VALID_STATUS.includes(status)) where.status = status;
+
+    const statsWhere: any = {};
+    if (tenantId) statsWhere.tenantId = tenantId;
 
     const [complaints, total, stats] = await Promise.all([
       this.prisma.complaint.findMany({
@@ -215,7 +220,7 @@ export class FeedbackService {
       this.prisma.complaint.count({ where }),
       this.prisma.complaint.groupBy({
         by: ['status'],
-        where: { tenantId },
+        where: statsWhere,
         _count: { _all: true },
       }),
     ]);
@@ -233,8 +238,12 @@ export class FeedbackService {
     };
   }
 
-  async updateComplaint(tenantId: string, complaintId: string, dto: UpdateComplaintDto) {
-    const c = await this.prisma.complaint.findFirst({ where: { id: complaintId, tenantId } });
+  async updateComplaint(tenantId: string | null, complaintId: string, dto: UpdateComplaintDto) {
+    // tenantId null → super admin cross-tenant update edebilir.
+    // Tenant admin ise sadece kendi tenant'ının şikayetini güncelleyebilir.
+    const where: any = { id: complaintId };
+    if (tenantId) where.tenantId = tenantId;
+    const c = await this.prisma.complaint.findFirst({ where });
     if (!c) throw new NotFoundException('Şikayet bulunamadı');
 
     const data: any = {};

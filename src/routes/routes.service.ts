@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuditService } from '../common/audit/audit.service';
 import { CreateRouteDto, UpdateRouteDto } from './dto/route.dto';
@@ -14,7 +14,25 @@ export class RoutesService {
     private audit: AuditService,
   ) {}
 
+  /** Plan'daki maxRoutes limitini kontrol et. */
+  private async assertRouteQuota(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { plan: true },
+    });
+    const maxRoutes = tenant?.plan?.maxRoutes ?? null;
+    if (maxRoutes === null) return;
+
+    const currentCount = await this.prisma.route.count({ where: { tenantId } });
+    if (currentCount >= maxRoutes) {
+      throw new ForbiddenException(
+        `${tenant?.plan?.name || 'Mevcut'} planınız en fazla ${maxRoutes} rotaya izin veriyor. Şu an ${currentCount} rotanız var. Planınızı yükseltin.`,
+      );
+    }
+  }
+
   async create(tenantId: string, createRouteDto: CreateRouteDto, actorId?: string) {
+    await this.assertRouteQuota(tenantId);
     const { originStationId, destinationStationId, basePrice, taxRate = 0.18, title, totalDistanceKm: providedDistance } = createRouteDto;
 
     // Fetch stations to get names for distance mock calculation

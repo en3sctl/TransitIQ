@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Trip {
   id: string;
@@ -86,6 +87,16 @@ export function TripsPanel() {
     }
     if (statusFilter !== 'ALL') list = list.filter(t => t.status === statusFilter);
 
+    // Geçmişte kalmış ama hala PLANNED/ACTIVE görünen seferleri gizle.
+    // (Cron her 10 dk COMPLETED'e çekiyor; bu arada UI'da temiz göster.)
+    const now = Date.now();
+    if (statusFilter === 'ALL' || statusFilter === 'PLANNED' || statusFilter === 'ACTIVE') {
+      list = list.filter((t) => {
+        if (t.status === 'COMPLETED' || t.status === 'CANCELLED') return true;
+        return new Date(t.departureTime).getTime() >= now - 12 * 60 * 60 * 1000;
+      });
+    }
+
     list.sort((a, b) => {
       let va: any, vb: any;
       if (sortField === 'departureTime') { va = a.departureTime; vb = b.departureTime; }
@@ -116,15 +127,27 @@ export function TripsPanel() {
   const toggleOne = (id: string) => { const n = new Set(selected); n.has(id) ? n.delete(id) : n.add(id); setSelected(n); };
 
   const cancelTrip = async (id: string) => {
-    if (!confirm('Sefer iptal edilsin mi?')) return;
+    const ok = await confirmDialog({
+      title: 'Seferi iptal et',
+      message: 'Bu sefer iptal edilecek. Satılmış biletler varsa yolculara bildirim atılmalı.',
+      variant: 'danger',
+      confirmLabel: 'İptal Et',
+    });
+    if (!ok) return;
     try { await api.delete(`/trips/${id}`); toast.success('Sefer iptal edildi'); load(); } catch (e: any) { toast.error(e.response?.data?.message || 'İptal edilemedi'); }
   };
 
   const bulkCancel = async () => {
-    if (!confirm(`${selected.size} sefer iptal edilecek. Devam?`)) return;
-    let ok = 0;
-    for (const id of selected) { try { await api.delete(`/trips/${id}`); ok++; } catch {} }
-    toast.success(`${ok} sefer iptal edildi`);
+    const ok = await confirmDialog({
+      title: 'Toplu sefer iptali',
+      message: `${selected.size} sefer iptal edilecek. Satılmış biletler etkilenebilir.`,
+      variant: 'danger',
+      confirmLabel: `${selected.size} seferi iptal et`,
+    });
+    if (!ok) return;
+    let count = 0;
+    for (const id of selected) { try { await api.delete(`/trips/${id}`); count++; } catch {} }
+    toast.success(`${count} sefer iptal edildi`);
     setSelected(new Set());
     load();
   };

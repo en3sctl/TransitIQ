@@ -237,7 +237,7 @@ export default function PricingPage() {
       </section>
 
       {/* CTA */}
-      <section className="border-t border-slate-200 dark:border-zinc-800 bg-gradient-to-br from-indigo-600 to-purple-700 dark:from-indigo-800 dark:to-purple-900">
+      <section className="border-t border-slate-200 dark:border-zinc-800 bg-indigo-600 dark:bg-indigo-800">
         <div className="max-w-4xl mx-auto px-6 py-16 text-center">
           <Headphones className="w-10 h-10 text-white mx-auto mb-5 opacity-80" />
           <h2 className="text-3xl md:text-4xl font-black tracking-tighter text-white mb-3">Demo görüşmesi ayarlayalım</h2>

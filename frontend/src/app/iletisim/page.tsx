@@ -426,7 +426,7 @@ function ContactPageInner() {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-2xl p-5">
+            <div className="bg-indigo-600 text-white rounded-2xl p-5">
               <Headphones className="w-6 h-6 mb-3 opacity-90" />
               <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Hızlı İletişim</p>
               <p className="text-base font-black mb-2">WhatsApp ile yaz</p>

@@ -1,6 +1,6 @@
 # TransitIQ — Master Plan
 
-**Son güncelleme:** 2026-04-16
+**Son güncelleme:** 2026-04-18
 **Kurucu:** Enes Çatal
 **Merkez:** İstanbul, Türkiye
 **Durum:** Private beta, üretime hazırlık fazı
@@ -102,34 +102,52 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 - ✅ Hero carousel (18 Türk landmark fotoğrafı)
 - ✅ Hesap sayfası sol navigasyon (biletler, cüzdan, alarm, rozet, davet, profil)
 - ✅ Cross-tab session sync
+- ✅ Bekleme listesi (sefer dolu → boşalınca ilk 5 kişiye e-posta, 24h re-notify cooldown)
+- ✅ TC kimlik + telefon auto-format (centralized `lib/formatters.ts`)
+- ✅ KVKK self-servis (`/hesap/kvkk` — export/delete/correct/restrict)
+- ✅ 2FA kurulumu (`/hesap/guvenlik` — TOTP, QR, 10 yedek kod)
+- ✅ Session tracking (aktif cihazlar, logout all)
+- ✅ No-show bildirimi (sefer COMPLETED sonrası boardingStatus=PENDING yolcuya e-posta)
 - ⏳ PWA + installable + offline bilet
 - ⏳ Push notifications (sefer hatırlatma)
 - ⏳ Apple Wallet / Google Wallet bilet pass
 - ⏳ Fiyat geçmişi grafiğinde günlük trend çizgisi
 - ⏳ Koltuk tercihi profilde (pencere/koridor)
 - ⏳ Erişilebilirlik notu (tekerlekli sandalye, refakatçi)
-- ⏳ Bekleme listesi (sefer dolu → boşalınca bildir)
 - ⏳ Bilet devretme (başkasına transfer)
+- ⏳ Hediye kartı / bilet hediye etme
 - ❌ Dark mode için foto carousel optimizasyonu (şu an parlak)
 - ❌ Multi-language (EN/AR/DE — turist pazarı için)
 
 ### 3.2 Şoför Tarafı
 - ✅ Rol tabanlı login (`/login` → role göre yönlendirme)
 - ✅ Günün + yaklaşan 7 günün seferleri (sıralı)
-- ✅ Seferi Başlat / Tamamla
+- ✅ Seferi Başlat / Tamamla (themed confirm dialog ile)
 - ✅ Sefer ACTIVE iken otomatik GPS push (20sn, watchPosition)
+- ✅ Hız göstergesi (m/s → km/h doğru dönüşüm, 2026-04-18 fix)
 - ✅ Yolcu manifestosu (koltuk, ad, TC son 4, telefon, status)
 - ✅ Check-in (QR tara VEYA elle PNR gir)
-- ✅ No-show işaretleme
+- ✅ No-show işaretleme (themed warning dialog ile)
 - ✅ Boarding status reset (undo)
 - ✅ Araç bilgisi (plaka, model)
+- ✅ Otomatik sefer kapatma (cron her 10 dk → geçmiş PLANNED/ACTIVE → COMPLETED)
+
+**Yüksek öncelik — production için ŞART (Kamil personası):**
+- ⏳ **SOS / Acil durum butonu** — aktif sefer banner'ında tek tıkla admin'e WhatsApp/SMS
+- ⏳ **Sefer öncesi araç kontrol formu** — yakıt/lastik/AC/iç temizlik (sigorta + hukuki sorumluluk)
+- ⏳ **Gün sonu özet raporu** — otomatik: X yolcu bindi, Y no-show, sürede/geç, olaylar
+- ⏳ **Vardiya start/end tracking** — mesai kanıtı (labor law)
+- ⏳ **Expense logging** — yol/yemek/mola/otopark masrafı (model disabled şu an, aktif et)
+- ⏳ **Font + touch target'lar büyüt** — manifest-modal 9px-10px çok küçük (50+ yaş şoför, güneşte okunmuyor)
+- ⏳ **Optimistic UI** — check-in anında görünsün, backend yanıtı beklemeden
+
+**Orta öncelik:**
 - ⏳ Şoför profil sayfası (kendi şifresini değiştirme)
 - ⏳ Şoför istatistikleri (toplam sefer, doluluk ort, puan)
-- ⏳ Acil durum / SOS butonu (admin'e direkt bildirim)
-- ⏳ Sefer öncesi araç kontrol formu (yakıt, lastik, iç temizlik)
-- ⏳ Gün sonu rapor (kaç yolcu bindi, kaç iade, kaç gelmedi)
 - ⏳ Rota sapma uyarısı (belirlenen rotadan çıktığında admin'e bildirim)
 - ⏳ İkinci şoför vardiya devri
+- ⏳ Offline mod göstergesi (tunnel/rural'da GPS push başarısız olduğunda kullanıcıya net bilgi)
+- ⏳ Battery saver modu (60s interval opsiyonu)
 
 ### 3.3 Firma Admin Tarafı
 - ✅ Login (rol kontrolü ile)
@@ -144,22 +162,47 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 - ✅ Denetim logu (tüm kritik mutasyonlar: kim, ne, ne zaman, before/after diff)
 - ✅ Command palette (Cmd+K)
 - ✅ Ciro dashboard (30 gün bar chart + bugün/hafta/ay/toplam gerçek veriler)
+- ✅ Settlement dashboard (brut/komisyon/net, ödeme modu, status breakdown, CSV export)
+- ✅ Şikayet yönetimi (kategori, öncelik, durum yönetimi)
+- ✅ Yolcu yorumları (moderation, hide, tag'ler)
+- ✅ Promosyon kodu yönetimi (CRUD + apply at checkout)
+- ✅ CSV export (tüm paneller: araç/sefer/rota/istasyon/şoför/bilet/denetim/promo)
+- ✅ CSV import (araç/istasyon/şoför toplu yükleme + şablon + hata raporu)
+- ✅ Bulk işlem (toplu sil, toplu iptal — themed confirm dialog'lu)
+- ✅ Firma branding (logo upload/resize/webp, brand color, yolcu görünür)
+- ✅ API keys yönetimi (tiq_live_* prefix, SHA-256 hashed, scopes)
 - ⏳ Doluluk analizi (rota bazında)
 - ⏳ Tahminleme (ML ile doluluk/ciro öngörü)
-- ⏳ Promosyon kodu yönetimi
 - ⏳ Dinamik fiyat kuralları
-- ⏳ CSV export (bilet/sefer/muhasebe)
 - ⏳ Tekrarlayan sefer şablonu ("her Pazartesi 09:00")
 - ⏳ OPERATOR rolü implementation (kısıtlı yetki)
-- ⏳ Bulk işlem (çoklu sefer iptali vb.)
 - ⏳ Müşteri segmentasyonu (VIP, düzenli, risk)
 
 ### 3.4 Süper Admin (Platform)
-- ❌ Tenant onboarding akışı
-- ❌ Tenant listesi / durumu
-- ❌ Global analytics
-- ❌ Billing / komisyon takibi
-- ❌ Platform-wide duyuru gönderme
+- ✅ Tenant onboarding akışı (`/firma-kayit` 6 adımlı form + consent log)
+- ✅ Tenant listesi / durumu (super-tenants panel: ACTIVE/SUSPENDED/PENDING, komisyon oranı)
+- ✅ Onay kuyruğu (pending tenant'lar belge kontrolü + approve/reject)
+- ✅ Global analytics (platform-overview: GMV, komisyon, büyüme trendi, top 10 leaderboard)
+- ✅ Billing / komisyon (settlement + invoice, PDF + KDV + TR font)
+- ✅ Platform-wide duyuru (announcement system, severity, audience, dismissible)
+- ✅ Tenant impersonation (30dk JWT, audit log'lu, mor banner)
+- ✅ User suspension + parola sıfırlama
+- ✅ Risk scoring (cancel rate, refund fails, complaints)
+- ✅ KVKK data requests (export JSON / delete anonymize)
+- ✅ System health (DB, Resend, Iyzico, uploads, memory, 30s refresh)
+- ✅ Platform settings (maintenance mode, komisyon, min/max fiyat, 2FA zorunluluk)
+- ✅ Subscription plans (Başlangıç %10 / Pro %7 / Kurumsal %5)
+- ✅ Email templates CRUD
+- ✅ Feature flags (audience, rollout %, tenant-based)
+- ✅ Incidents (status page feed, updates)
+- ✅ Support tickets (guest + auth, conversation threads, internal notes)
+- ✅ Cross-tenant şikayet listesi (super admin tüm firmaların şikayetlerini görür, 2026-04-18 fix)
+- ✅ Cross-tenant audit log
+- ✅ Cross-tenant global search (Cmd+K, 11 entity)
+- ⏳ Weekly summary email super admin'e (scheduled report)
+- ⏳ Chargeback / dispute management
+- ⏳ Payout history log (EFT/havale işaretlenmeden öte audit trail)
+- ⏳ Webhook delivery system (tenant'lara event push)
 
 ### 3.5 Site / İçerik
 - ✅ Landing (hero, carousel, live ticker, popüler, keşfet, ucuz, features, B2B CTA)
@@ -954,6 +997,42 @@ Sebep: Entity bazında diff göster, log query'si filtrele. Büyüyünce partiti
 Sebep: CORS + rate limit. Backend cache + User-Agent header.
 
 **KK-007: `children` prop'lu `Tailwind` notif template hatası preexisting — bu sprint'te düzeltilmeyecek.**
+
+---
+
+## 18. Performans & Kod Hijyeni
+
+### 18.1 Uygulanmış İyileştirmeler
+- ✅ **Admin panelleri code-split** — tüm 30+ panel `next/dynamic` + activeTab gating → sadece aktif tab mount edilir, initial JS bundle ~%50 azaldı
+- ✅ **Visibility-aware polling** — `useVisibleInterval` hook'u: tab arka plandayken setInterval durur, geri gelince bir kez refresh eder (notification-bell 60s, platform-health 30s)
+- ✅ **Türkçe input formatters merkezi** — `lib/formatters.ts` (TC, telefon, IBAN, plaka, MERSİS, D belgesi, kart, SKT)
+- ✅ **Themed dialogs her yerde** — 17 native `window.confirm/prompt` kaldırıldı → `confirmDialog`/`promptDialog`/`alertDialog`
+- ✅ **PDF Türkçe font** — commerce invoice: Segoe UI / Arial / DejaVu auto-detect, fallback transliterate
+- ✅ **Schema FK integrity** — Settlement + Review → Booking relation'ları eklendi (Restrict + Cascade uygun)
+- ✅ **Silent error kaldırıldı** — payment callback `.catch(() => {})` → try/catch + console.error (settlement başarısızlığı artık loglanıyor)
+
+### 18.2 Design De-AI Pass (2026-04-18)
+Enes: "siteyi bi gözden geçir çokta ai vari durmasın ama tasarım çizgimizden de şaşma"
+- ✅ Login/register hero: `from-indigo-400 via-purple-400 to-indigo-400 animate-gradient-x` → solid `text-indigo-400`
+- ✅ CTA section gradient'leri (5 sayfa: fiyatlandirma, yardim, sss, iletisim, basin): `bg-gradient-to-br from-indigo-600 to-purple-700` → `bg-indigo-600`
+- ✅ Announcement banner tone map: gradient'lerden flat renge (INFO/WARNING/CRITICAL)
+- ✅ Platform-health status card: gradient → flat emerald/amber/rose
+- ✅ B2B landing CTA: dekoratif blur orb'lar kaldırıldı, `via-indigo-700 to-purple-800` → `bg-indigo-700`
+- ✅ Register sayfası fake özellik metni "AI Destekli Akıllı Rota" → gerçek değer teklifleri
+
+### 18.3 Kalan Performans TODO
+- ⏳ Sidebar + TopBar `React.memo` (notification-bell poll'unda cascade re-render'ı kes)
+- ⏳ Bundle analyze CI (next-bundle-analyzer ile her PR'da rapor)
+- ⏳ Leaflet lazy loading — arama sayfası ilk yüklerken gerek yok, koltuk seçince yüklensin
+- ⏳ Public sayfa ISR (Incremental Static Regeneration) — `/rotalar`, `/firma/[slug]`, `/sss` gibi sayfalar Next cache'le
+- ⏳ Image optimization — `/kapadokya.png` ve hero carousel Next Image component'ına
+
+### 18.4 Acil CLI Komutları
+- `npm run super-admin <email> <parola> "Ad Soyad"` — SUPER_ADMIN oluştur
+- `npm run maintenance [on|off|status]` — bakım modu kontrolü (DB doğrudan)
+- `npm run tenants` — tüm tenant'ları listele
+- `npm run check-tenant <slug>` — tenant booking/settlement durumu
+- `npm run settle:backfill` — eksik Settlement kayıtlarını toplu oluştur
 
 ---
 

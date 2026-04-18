@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Route {
   id: string;
@@ -91,7 +92,13 @@ export function RoutesPanel() {
   const toggleOne = (id: string) => { const n = new Set(selected); n.has(id) ? n.delete(id) : n.add(id); setSelected(n); };
 
   const deleteRoute = async (id: string) => {
-    if (!confirm('Rota silinsin mi?')) return;
+    const ok = await confirmDialog({
+      title: 'Rotayı sil',
+      message: 'Bu rota silinecek. Aktif seferleri varsa işlem başarısız olur.',
+      variant: 'danger',
+      confirmLabel: 'Sil',
+    });
+    if (!ok) return;
     setDeleting(id);
     try { await api.delete(`/routes/${id}`); toast.success('Rota silindi'); load(); }
     catch (e: any) { toast.error(e.response?.data?.message || 'Silinemedi'); }
@@ -99,10 +106,16 @@ export function RoutesPanel() {
   };
 
   const bulkDelete = async () => {
-    if (!confirm(`${selected.size} rota silinecek. Devam?`)) return;
-    let ok = 0;
-    for (const id of selected) { try { await api.delete(`/routes/${id}`); ok++; } catch {} }
-    toast.success(`${ok} rota silindi`); setSelected(new Set()); load();
+    const ok = await confirmDialog({
+      title: 'Toplu rota silme',
+      message: `${selected.size} rota silinecek. Aktif seferleri olanlar atlanır.`,
+      variant: 'danger',
+      confirmLabel: `${selected.size} rotayı sil`,
+    });
+    if (!ok) return;
+    let count = 0;
+    for (const id of selected) { try { await api.delete(`/routes/${id}`); count++; } catch {} }
+    toast.success(`${count} rota silindi`); setSelected(new Set()); load();
   };
 
   const startEdit = (r: Route) => {

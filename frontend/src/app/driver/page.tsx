@@ -13,6 +13,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { ManifestModal } from "@/components/driver/manifest-modal";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface DriverTrip {
   id: string;
@@ -90,7 +91,13 @@ function DriverPage() {
   }
 
   async function completeTrip(tripId: string) {
-    if (!confirm('Seferi tamamlandı olarak işaretlemek istediğinden emin misin?')) return;
+    const ok = await confirmDialog({
+      title: 'Seferi tamamla',
+      message: 'Bu sefer tamamlandı olarak işaretlenecek. GPS takibi duracak, yolcu manifesto kilitlenecek.',
+      variant: 'success',
+      confirmLabel: 'Tamamla',
+    });
+    if (!ok) return;
     try {
       await api.patch(`/driver-ops/trips/${tripId}/status`, { status: 'COMPLETED' });
       toast.success('Sefer tamamlandı');
@@ -239,10 +246,11 @@ function DriverPage() {
                         {currentCoords.lat.toFixed(5)}, {currentCoords.lng.toFixed(5)}
                       </span>
                     </div>
-                    {currentCoords.speed !== undefined && (
+                    {currentCoords.speed !== undefined && currentCoords.speed !== null && (
                       <div className="flex items-center gap-2">
                         <Gauge className="w-3.5 h-3.5" />
-                        <span className="font-black">{Math.round(currentCoords.speed)} km/s</span>
+                        {/* Geolocation API speed m/s cinsinden; km/h için 3.6 ile çarp. */}
+                        <span className="font-black">{Math.round(currentCoords.speed * 3.6)} km/h</span>
                       </div>
                     )}
                     {lastPushAt && (
