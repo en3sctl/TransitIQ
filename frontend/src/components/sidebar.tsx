@@ -42,6 +42,7 @@ import {
   MessageCircle,
   Mail,
   ShieldAlert,
+  Clipboard,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -65,6 +66,13 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: "feedback", icon: MessageSquare, label: 'Geri Bildirim' },
     { id: "waiting-list", icon: BellRing, label: 'Bekleme Listesi' },
     { id: "settlements", icon: Wallet, label: 'Hesap Özeti' },
+  ];
+
+  // Şoför operasyonları — gün içinde admin'in takip etmesi gereken aksiyonlar
+  const driverOpsItems = [
+    { id: "driver-expenses", icon: Wallet, label: 'Masraf Onayları' },
+    { id: "driver-sos", icon: AlertOctagon, label: 'SOS Olayları' },
+    { id: "pre-trip-checks", icon: Clipboard, label: 'Araç Kontrolleri' },
   ];
 
   const secondaryItems = [
@@ -130,6 +138,31 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             >
               <div className="flex items-center gap-3 text-[13px]">
                 <item.icon className={`w-[18px] h-[18px] transition-all ${activeTab === item.id ? 'text-indigo-600 dark:text-indigo-400 outline-offset-4 outline outline-indigo-500/10 rounded' : 'text-zinc-400 dark:text-zinc-600 group-hover:text-zinc-600 dark:group-hover:text-zinc-400'}`} />
+                {item.label}
+              </div>
+              {activeTab === item.id && <ChevronRight size={14} className="text-zinc-300 dark:text-zinc-700" />}
+            </button>
+          ))}
+        </nav>
+
+        {/* Şoför Operasyonları — masraf/sos/pre-trip */}
+        <nav className="space-y-1">
+          <p className="px-4 text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-1.5">
+            <AlertOctagon className="w-3 h-3" />
+            Şoför Ops
+          </p>
+          {driverOpsItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full group flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-200 ${
+                activeTab === item.id
+                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-900'
+              }`}
+            >
+              <div className="flex items-center gap-3 text-[13px]">
+                <item.icon className={`w-[18px] h-[18px] ${activeTab === item.id ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-400 group-hover:text-zinc-600'}`} />
                 {item.label}
               </div>
               {activeTab === item.id && <ChevronRight size={14} className="text-zinc-300 dark:text-zinc-700" />}

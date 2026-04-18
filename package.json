@@ -22,7 +22,8 @@
     "maintenance": "ts-node -r dotenv/config scripts/maintenance.ts",
     "tenants": "ts-node -r dotenv/config scripts/list-tenants.ts",
     "check-tenant": "ts-node -r dotenv/config scripts/check-tenant-data.ts",
-    "settle:backfill": "ts-node -r dotenv/config scripts/backfill-settlements.ts"
+    "settle:backfill": "ts-node -r dotenv/config scripts/backfill-settlements.ts",
+    "plans:backfill": "ts-node -r dotenv/config scripts/backfill-plans.ts"
   },
   "dependencies": {
     "@fontsource/roboto": "^5.2.10",

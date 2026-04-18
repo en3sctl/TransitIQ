@@ -69,17 +69,17 @@ export class OnboardingService {
     const existingEmail = await this.prisma.user.findFirst({ where: { email: dto.adminEmail.toLowerCase() } });
     if (existingEmail) throw new ConflictException('Bu e-posta zaten kayıtlı — başka bir hesap açın veya giriş yapın');
 
-    // Resolve plan
+    // Plan çözümle: seçilen planSlug yoksa "starter" fallback kullan.
+    // Her firmanın mutlaka bir plan'ı olmalı ki limit'ler çalışsın.
     let planId: string | null = null;
     let commissionRate = 0.08;
-    if (dto.planSlug) {
-      const plan = await this.prisma.subscriptionPlan.findUnique({ where: { slug: dto.planSlug } });
-      if (plan && plan.active) {
-        planId = plan.id;
-        commissionRate = Number(plan.commissionRate);
-      }
+    const requestedSlug = dto.planSlug || 'starter';
+    const plan = await this.prisma.subscriptionPlan.findUnique({ where: { slug: requestedSlug } });
+    if (plan && plan.active) {
+      planId = plan.id;
+      commissionRate = Number(plan.commissionRate);
     } else {
-      // Fallback to platform default
+      // Son çare: starter bulunamadı (seed edilmemiş). DEFAULT_COMMISSION_RATE kullan.
       const defaultRate = await this.operations.getSetting('DEFAULT_COMMISSION_RATE');
       if (typeof defaultRate === 'number') commissionRate = defaultRate;
     }

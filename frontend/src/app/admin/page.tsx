@@ -61,6 +61,9 @@ const PlatformFlagsPanel = lazyPanel(() => import("@/components/admin/platform-d
 const PlatformEmailTemplatesPanel = lazyPanel(() => import("@/components/admin/platform-devops-panels"), "PlatformEmailTemplatesPanel");
 const PlatformIncidentsPanel = lazyPanel(() => import("@/components/admin/platform-devops-panels"), "PlatformIncidentsPanel");
 const PlatformTicketsPanel = lazyPanel(() => import("@/components/admin/platform-devops-panels"), "PlatformTicketsPanel");
+const DriverExpensesPanel = lazyPanel(() => import("@/components/admin/driver-ops-panels"), "DriverExpensesPanel");
+const DriverSosPanel = lazyPanel(() => import("@/components/admin/driver-ops-panels"), "DriverSosPanel");
+const PreTripChecksPanel = lazyPanel(() => import("@/components/admin/driver-ops-panels"), "PreTripChecksPanel");
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -284,6 +287,9 @@ function AdminDashboardContent() {
                 <TabsContent value="platform-email-templates">{activeTab === 'platform-email-templates' && <PlatformEmailTemplatesPanel />}</TabsContent>
                 <TabsContent value="platform-incidents">{activeTab === 'platform-incidents' && <PlatformIncidentsPanel />}</TabsContent>
                 <TabsContent value="platform-tickets">{activeTab === 'platform-tickets' && <PlatformTicketsPanel />}</TabsContent>
+                <TabsContent value="driver-expenses">{activeTab === 'driver-expenses' && <DriverExpensesPanel />}</TabsContent>
+                <TabsContent value="driver-sos">{activeTab === 'driver-sos' && <DriverSosPanel />}</TabsContent>
+                <TabsContent value="pre-trip-checks">{activeTab === 'pre-trip-checks' && <PreTripChecksPanel />}</TabsContent>
               </Tabs>
             </div>
 

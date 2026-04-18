@@ -132,22 +132,24 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 - ✅ Araç bilgisi (plaka, model)
 - ✅ Otomatik sefer kapatma (cron her 10 dk → geçmiş PLANNED/ACTIVE → COMPLETED)
 
-**Yüksek öncelik — production için ŞART (Kamil personası):**
-- ⏳ **SOS / Acil durum butonu** — aktif sefer banner'ında tek tıkla admin'e WhatsApp/SMS
-- ⏳ **Sefer öncesi araç kontrol formu** — yakıt/lastik/AC/iç temizlik (sigorta + hukuki sorumluluk)
-- ⏳ **Gün sonu özet raporu** — otomatik: X yolcu bindi, Y no-show, sürede/geç, olaylar
-- ⏳ **Vardiya start/end tracking** — mesai kanıtı (labor law)
-- ⏳ **Expense logging** — yol/yemek/mola/otopark masrafı (model disabled şu an, aktif et)
-- ⏳ **Font + touch target'lar büyüt** — manifest-modal 9px-10px çok küçük (50+ yaş şoför, güneşte okunmuyor)
-- ⏳ **Optimistic UI** — check-in anında görünsün, backend yanıtı beklemeden
+**Production-critical (Kamil personası) — 2026-04-18 Driver Sprint'te bitti:**
+- ✅ **SOS / Acil durum butonu** — 5 kategori (kaza/sağlık/arıza/güvenlik/diğer), audit log kaydı + firma destek e-postasına kritik alert + tek tık arama
+- ✅ **Sefer öncesi araç kontrol formu** — 13 maddelik checklist + km/yakıt ölçüsü + sorun varsa zorunlu not + eksik varsa admin'e otomatik e-posta (sigorta/hukuki belge)
+- ✅ **Post-trip özet raporu** — sefer tamamlandığında firma admin'e otomatik e-posta: doluluk/masraf/no-show/SOS/pre-trip flag özeti
+- ✅ **Vardiya start/end tracking** — Trip.driverStartedAt + driverCompletedAt alanları + canlı süre göstergesi banner'da
+- ✅ **Expense logging** — 5 kategori (yakıt/otoyol/yemek/otopark/diğer), PENDING→APPROVED akışı, şoför kendi PENDING kaydını silebilir
+- ✅ **Font + touch target büyütüldü** — manifest-modal'da yolcu adı text-sm→base, buton 8×8→12×12 (48px Material std.), telefon artık tel: link, status badge daha okunur
+- ✅ **Optimistic UI check-in** — anında state değişir (backedStatus lokal set), backend hatası olursa geri alınır
 
-**Orta öncelik:**
+**Orta öncelik (sonraki iterasyon):**
 - ⏳ Şoför profil sayfası (kendi şifresini değiştirme)
 - ⏳ Şoför istatistikleri (toplam sefer, doluluk ort, puan)
 - ⏳ Rota sapma uyarısı (belirlenen rotadan çıktığında admin'e bildirim)
 - ⏳ İkinci şoför vardiya devri
 - ⏳ Offline mod göstergesi (tunnel/rural'da GPS push başarısız olduğunda kullanıcıya net bilgi)
 - ⏳ Battery saver modu (60s interval opsiyonu)
+- ⏳ Admin tarafında expense onay paneli (şu an backend hazır, UI gerek)
+- ⏳ Admin tarafında pre-trip eksikleri dashboard'u
 
 ### 3.3 Firma Admin Tarafı
 - ✅ Login (rol kontrolü ile)

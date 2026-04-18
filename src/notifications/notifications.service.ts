@@ -318,6 +318,174 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Şoför SOS tetiklediğinde firma admin'e gönderilen kritik alert e-postası.
+   * Konum, şoför adı, plaka, kategori ve not içerir + Maps linki.
+   */
+  async sendDriverSosAlert(to: string, args: {
+    driverName: string;
+    vehiclePlate: string;
+    route: string;
+    category: string;
+    note?: string;
+    lat?: number;
+    lng?: number;
+    tripId: string;
+  }) {
+    if (!this.enabled || !this.resend) {
+      this.logger.warn(`[EMAIL] SOS skipped — RESEND_API_KEY missing. Would have alerted: ${to} (${args.driverName}/${args.vehiclePlate})`);
+      return;
+    }
+    try {
+      const mapsLink = (args.lat != null && args.lng != null)
+        ? `https://www.google.com/maps?q=${args.lat},${args.lng}`
+        : null;
+      const locationBlock = mapsLink
+        ? `<a href="${mapsLink}" style="display:inline-block;background:#0f172a;color:white;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;margin-top:12px">📍 Haritada Aç (${args.lat!.toFixed(4)}, ${args.lng!.toFixed(4)})</a>`
+        : `<p style="color:#94a3b8;font-size:12px;margin:8px 0 0">Konum verisi yok — GPS kapalı olabilir.</p>`;
+
+      const noteBlock = args.note
+        ? `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin:12px 0"><p style="margin:0;color:#9a3412;font-size:13px;font-weight:600">"${escapeHtml(args.note)}"</p></div>`
+        : '';
+
+      const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f1f5f9;padding:40px 20px;margin:0"><div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.05);border-left:6px solid #dc2626">
+        <div style="display:inline-block;background:#fee2e2;color:#991b1b;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:0.04em;margin-bottom:16px">⚠ ŞOFÖR SOS</div>
+        <h1 style="font-size:22px;font-weight:900;margin:0 0 12px;color:#0f172a">${escapeHtml(args.category)} bildirimi</h1>
+        <p style="color:#475569;line-height:1.6;margin:0 0 20px"><strong>${escapeHtml(args.driverName)}</strong> şoför, <strong>${escapeHtml(args.vehiclePlate)}</strong> plakalı aracın direksiyonundan acil durum tetikledi. Hemen iletişime geçin.</p>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin:16px 0">
+          <p style="margin:0 0 4px;color:#94a3b8;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase">Sefer</p>
+          <p style="margin:0;color:#0f172a;font-size:15px;font-weight:800">${escapeHtml(args.route)}</p>
+        </div>
+        ${noteBlock}
+        ${locationBlock}
+        <hr style="border:0;border-top:1px solid #e2e8f0;margin:24px 0" />
+        <p style="color:#94a3b8;font-size:11px;margin:0">Bu otomatik bildirim TransitIQ platformu tarafından gönderildi. Acil durum kaydı denetim loguna işlendi.</p>
+      </div></body></html>`;
+
+      const result: any = await this.resend.emails.send({
+        from: this.fromAddress,
+        to,
+        subject: `🚨 ŞOFÖR SOS — ${args.category} · ${args.vehiclePlate} · ${args.route}`,
+        html,
+      });
+
+      if (result?.error) {
+        this.logger.error(`[EMAIL] SOS Resend error: ${JSON.stringify(result.error)}`);
+      } else {
+        this.logger.log(`[EMAIL] SOS alert sent to ${to} (driver=${args.driverName}, category=${args.category})`);
+      }
+    } catch (err) {
+      this.logger.error(`[EMAIL] sendDriverSosAlert threw: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  /**
+   * Şoför pre-trip kontrol formunda eksik raporlamışsa firma admin'e uyarı.
+   */
+  async sendPreTripIssueAlert(to: string, args: {
+    vehiclePlate: string;
+    route: string;
+    failedChecks: string[];
+    issueNote?: string;
+  }) {
+    if (!this.enabled || !this.resend) return;
+    try {
+      const items = args.failedChecks.map((c) => `<li style="color:#991b1b;font-weight:700;margin-bottom:4px">⚠ ${escapeHtml(c)}</li>`).join('');
+      const noteBlock = args.issueNote
+        ? `<p style="color:#475569;line-height:1.6;margin:12px 0"><strong>Şoför notu:</strong> "${escapeHtml(args.issueNote)}"</p>`
+        : '';
+
+      const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f1f5f9;padding:40px 20px;margin:0"><div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.05);border-left:6px solid #d97706">
+        <div style="display:inline-block;background:#fff7ed;color:#9a3412;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:0.04em;margin-bottom:16px">⚠ ARAÇ KONTROL SORUNU</div>
+        <h1 style="font-size:20px;font-weight:900;margin:0 0 12px;color:#0f172a">${escapeHtml(args.vehiclePlate)} — ${escapeHtml(args.route)}</h1>
+        <p style="color:#475569;line-height:1.6;margin:0 0 16px">Sefer öncesi kontrol formunda aşağıdaki eksikler raporlandı. Müdahale gerekebilir.</p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px;margin:12px 0">
+          <ul style="margin:0;padding-left:20px;list-style-type:none">${items}</ul>
+        </div>
+        ${noteBlock}
+      </div></body></html>`;
+
+      await this.resend.emails.send({
+        from: this.fromAddress,
+        to,
+        subject: `⚠ Araç kontrol eksiği — ${args.vehiclePlate} (${args.failedChecks.length} sorun)`,
+        html,
+      });
+      this.logger.log(`[EMAIL] Pre-trip issue alert sent to ${to}`);
+    } catch (err) {
+      this.logger.error(`[EMAIL] sendPreTripIssueAlert threw: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
+  /**
+   * Sefer tamamlandığında firma admin'e özet e-postası.
+   * Bilet/no-show/masraf/sos özeti.
+   */
+  async sendPostTripSummary(to: string, args: {
+    route: string;
+    vehiclePlate: string;
+    driverName: string;
+    departureTime: Date;
+    duration: string;
+    totalPassengers: number;
+    boarded: number;
+    noShow: number;
+    pending: number;
+    expenseTotal: number;
+    expenseCount: number;
+    sosCount: number;
+    preTripHadIssue: boolean;
+  }) {
+    if (!this.enabled || !this.resend) return;
+    try {
+      const dep = new Date(args.departureTime);
+      const dateStr = `${dep.getDate()} ${MONTHS_TR[dep.getMonth()]} ${dep.getFullYear()}`;
+      const timeStr = dep.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      const rate = args.totalPassengers > 0 ? Math.round((args.boarded / args.totalPassengers) * 100) : 0;
+
+      const flagsBlock = [
+        args.sosCount > 0 ? `<li style="color:#991b1b;font-weight:700">🚨 ${args.sosCount} SOS tetiklendi</li>` : '',
+        args.preTripHadIssue ? `<li style="color:#9a3412;font-weight:700">⚠ Sefer öncesi kontrolde eksik bildirildi</li>` : '',
+        args.noShow > 0 ? `<li style="color:#475569">👤 ${args.noShow} yolcu gelmedi</li>` : '',
+        args.pending > 0 ? `<li style="color:#475569">⏱ ${args.pending} yolcu check-in olmadı</li>` : '',
+      ].filter(Boolean).join('');
+      const flags = flagsBlock ? `<ul style="margin:12px 0;padding-left:20px;list-style-type:none">${flagsBlock}</ul>` : '';
+
+      const html = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;background:#f1f5f9;padding:40px 20px;margin:0"><div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.05)">
+        <div style="display:inline-block;background:#ecfdf5;color:#047857;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:0.04em;margin-bottom:16px">SEFER TAMAMLANDI</div>
+        <h1 style="font-size:22px;font-weight:900;margin:0 0 12px;color:#0f172a">${escapeHtml(args.route)}</h1>
+        <p style="color:#64748b;margin:0 0 20px;font-size:14px">${escapeHtml(args.vehiclePlate)} · ${escapeHtml(args.driverName)} · ${dateStr} ${timeStr} · Süre: ${args.duration}</p>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
+          <div style="flex:1;min-width:140px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px">
+            <p style="margin:0;color:#166534;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase">Doluluk</p>
+            <p style="margin:4px 0 0;color:#0f172a;font-size:22px;font-weight:900;letter-spacing:-0.02em">${args.boarded}/${args.totalPassengers}</p>
+            <p style="margin:0;color:#166534;font-size:12px;font-weight:700">%${rate}</p>
+          </div>
+          <div style="flex:1;min-width:140px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px">
+            <p style="margin:0;color:#1e40af;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase">Masraf</p>
+            <p style="margin:4px 0 0;color:#0f172a;font-size:22px;font-weight:900;letter-spacing:-0.02em">₺${args.expenseTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</p>
+            <p style="margin:0;color:#1e40af;font-size:12px;font-weight:700">${args.expenseCount} kayıt</p>
+          </div>
+        </div>
+
+        ${flags}
+        <hr style="border:0;border-top:1px solid #e2e8f0;margin:24px 0" />
+        <p style="color:#94a3b8;font-size:11px;margin:0">Bu otomatik özet sefer tamamlandığında gönderildi. Detaylar admin panelinde.</p>
+      </div></body></html>`;
+
+      await this.resend.emails.send({
+        from: this.fromAddress,
+        to,
+        subject: `Sefer özeti — ${args.route} (${args.boarded}/${args.totalPassengers} yolcu)`,
+        html,
+      });
+      this.logger.log(`[EMAIL] Post-trip summary sent to ${to} (${args.route})`);
+    } catch (err) {
+      this.logger.error(`[EMAIL] sendPostTripSummary threw: ${err instanceof Error ? err.message : err}`);
+    }
+  }
+
   async sendBookingConfirmation(pnrCodes: string[]) {
     if (!this.enabled || !this.resend || pnrCodes.length === 0) return;
 

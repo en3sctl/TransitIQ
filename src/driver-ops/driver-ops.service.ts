@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuditService } from '../common/audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateExpenseDto, UpdateTripStatusDto, LocationDto } from './dto/driver-ops.dto';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class DriverOpsService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private notifications: NotificationsService,
   ) {}
 
   /**
@@ -61,10 +63,291 @@ export class DriverOpsService {
       throw new NotFoundException(`Trip with ID ${tripId} not found or not assigned to you`);
     }
 
-    return this.prisma.trip.update({
+    // Vardiya takibi: şoför sefer başlatınca/bitirince zaman damgası yaz.
+    // İlk ACTIVE geçişte driverStartedAt, COMPLETED geçişte driverCompletedAt.
+    const data: any = { status: updateTripStatusDto.status };
+    if (updateTripStatusDto.status === 'ACTIVE' && !(trip as any).driverStartedAt) {
+      data.driverStartedAt = new Date();
+    }
+    if (updateTripStatusDto.status === 'COMPLETED' && !(trip as any).driverCompletedAt) {
+      data.driverCompletedAt = new Date();
+      data.actualArrival = new Date();
+    }
+
+    const updated = await this.prisma.trip.update({
       where: { id: tripId },
-      data: { status: updateTripStatusDto.status },
+      data,
     });
+
+    // COMPLETED'e geçtiyse post-trip özet e-postasını fire-and-forget gönder.
+    // (Cron'daki otomatik COMPLETED'te de no-show email ayrı gider — onunla çakışmaz.)
+    if (updateTripStatusDto.status === 'COMPLETED' && trip.status !== 'COMPLETED') {
+      this.sendPostTripSummary(tripId).catch((err: any) => {
+        console.error(`[PostTripSummary] ${tripId}: ${err?.message || err}`);
+      });
+    }
+
+    return updated;
+  }
+
+  /**
+   * Sefer tamamlandığında firma admin'e otomatik özet e-postası.
+   * İçerik: kaç yolcu bindi, kaç no-show, kaç masraf, vardiya süresi, varsa olay.
+   */
+  // ═════════════════════════════════════════════════════════════
+  // Admin: expense moderation + SOS log + pre-trip issues
+  // ═════════════════════════════════════════════════════════════
+
+  /**
+   * Firma admin için bekleyen + geçmiş masraflar listesi.
+   * Trip, şoför ve kategori bilgisiyle birlikte dönülür.
+   */
+  async adminListExpenses(tenantId: string, opts: { status?: string; take?: number; skip?: number } = {}) {
+    const { status, take = 100, skip = 0 } = opts;
+    const where: any = { tenantId };
+    if (status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status)) where.status = status;
+
+    const [items, total, stats] = await Promise.all([
+      (this.prisma as any).driverExpense.findMany({
+        where, orderBy: { createdAt: 'desc' }, skip, take,
+      }),
+      (this.prisma as any).driverExpense.count({ where }),
+      (this.prisma as any).driverExpense.groupBy({
+        by: ['status'],
+        where: { tenantId },
+        _count: { _all: true },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    // Batch-enrich: driver + trip route
+    const driverIds = Array.from(new Set(items.map((e: any) => e.driverId)));
+    const tripIds = Array.from(new Set(items.map((e: any) => e.tripId)));
+    const [drivers, trips] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { id: { in: driverIds } },
+        select: { id: true, name: true },
+      }),
+      this.prisma.trip.findMany({
+        where: { id: { in: tripIds } },
+        select: {
+          id: true, departureTime: true,
+          vehicle: { select: { registrationPlate: true } },
+          route: {
+            select: {
+              originStation: { select: { city: true } },
+              destinationStation: { select: { city: true } },
+            },
+          },
+        },
+      }),
+    ]);
+    const driverMap = new Map(drivers.map((d) => [d.id, d]));
+    const tripMap = new Map(trips.map((t) => [t.id, t]));
+
+    const statsMap = stats.reduce((acc: any, s: any) => {
+      acc[s.status] = { count: s._count._all, total: Number(s._sum.amount || 0) };
+      return acc;
+    }, {});
+
+    return {
+      items: items.map((e: any) => ({
+        ...e,
+        amount: Number(e.amount),
+        driver: driverMap.get(e.driverId) || null,
+        trip: tripMap.get(e.tripId) ? {
+          id: e.tripId,
+          departureTime: tripMap.get(e.tripId)!.departureTime,
+          plate: tripMap.get(e.tripId)!.vehicle.registrationPlate,
+          route: `${tripMap.get(e.tripId)!.route.originStation.city} → ${tripMap.get(e.tripId)!.route.destinationStation.city}`,
+        } : null,
+      })),
+      total,
+      stats: {
+        pending: statsMap.PENDING || { count: 0, total: 0 },
+        approved: statsMap.APPROVED || { count: 0, total: 0 },
+        rejected: statsMap.REJECTED || { count: 0, total: 0 },
+      },
+    };
+  }
+
+  /** Firma admin: masrafı onayla/reddet. Status PENDING'de olmalı. */
+  async adminReviewExpense(
+    tenantId: string,
+    reviewerId: string,
+    expenseId: string,
+    action: 'APPROVE' | 'REJECT',
+    note?: string,
+  ) {
+    const expense = await (this.prisma as any).driverExpense.findFirst({
+      where: { id: expenseId, tenantId },
+    });
+    if (!expense) throw new NotFoundException('Masraf bulunamadı');
+    if (expense.status !== 'PENDING') {
+      throw new ForbiddenException(`Bu masraf zaten ${expense.status === 'APPROVED' ? 'onaylanmış' : 'reddedilmiş'}`);
+    }
+
+    const updated = await (this.prisma as any).driverExpense.update({
+      where: { id: expenseId },
+      data: {
+        status: action === 'APPROVE' ? 'APPROVED' : 'REJECTED',
+        reviewedBy: reviewerId,
+        reviewedAt: new Date(),
+        reviewNote: note || null,
+      },
+    });
+
+    await this.audit.log({
+      tenantId, userId: reviewerId,
+      action: 'UPDATE' as any,
+      entityType: 'TRIP', entityId: expense.tripId,
+      newValues: { expenseId, status: updated.status, amount: Number(expense.amount), reviewNote: note },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Firma admin: son tetiklenen SOS olaylarının listesi (audit log üzerinden).
+   * Konum, kategori, not, şoför, sefer bilgisi derlenir.
+   */
+  async adminListSosEvents(tenantId: string, opts: { take?: number; skip?: number } = {}) {
+    const { take = 50, skip = 0 } = opts;
+    const events = await this.prisma.auditLog.findMany({
+      where: { tenantId, action: 'SOS_TRIGGER' as any },
+      orderBy: { timestamp: 'desc' },
+      take, skip,
+      select: {
+        id: true, entityId: true, timestamp: true, newValues: true,
+        user: { select: { id: true, name: true, phoneNumber: true } },
+      },
+    });
+    const total = await this.prisma.auditLog.count({
+      where: { tenantId, action: 'SOS_TRIGGER' as any },
+    });
+    return {
+      items: events.map((e) => ({
+        id: e.id,
+        tripId: e.entityId,
+        timestamp: e.timestamp,
+        driver: e.user,
+        details: e.newValues,
+      })),
+      total,
+    };
+  }
+
+  /**
+   * Firma admin: son pre-trip kontrol raporları (eksik raporlananlar öncelikli).
+   */
+  async adminListPreTripChecks(tenantId: string, opts: { hasIssue?: boolean; take?: number; skip?: number } = {}) {
+    const { hasIssue, take = 50, skip = 0 } = opts;
+    const where: any = {
+      trip: { tenantId },
+    };
+    if (hasIssue !== undefined) where.hasIssue = hasIssue;
+
+    const [items, total] = await Promise.all([
+      (this.prisma as any).preTripCheck.findMany({
+        where,
+        orderBy: [{ hasIssue: 'desc' }, { createdAt: 'desc' }],
+        skip, take,
+      }),
+      (this.prisma as any).preTripCheck.count({ where }),
+    ]);
+
+    // Batch enrich driver + trip
+    const driverIds = Array.from(new Set(items.map((c: any) => c.driverId)));
+    const tripIds = Array.from(new Set(items.map((c: any) => c.tripId)));
+    const [drivers, trips] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { id: { in: driverIds } },
+        select: { id: true, name: true },
+      }),
+      this.prisma.trip.findMany({
+        where: { id: { in: tripIds } },
+        select: {
+          id: true, departureTime: true,
+          vehicle: { select: { registrationPlate: true } },
+          route: {
+            select: {
+              originStation: { select: { city: true } },
+              destinationStation: { select: { city: true } },
+            },
+          },
+        },
+      }),
+    ]);
+    const driverMap = new Map(drivers.map((d) => [d.id, d]));
+    const tripMap = new Map(trips.map((t) => [t.id, t]));
+
+    return {
+      items: items.map((c: any) => ({
+        ...c,
+        driver: driverMap.get(c.driverId) || null,
+        trip: tripMap.get(c.tripId) ? {
+          id: c.tripId,
+          departureTime: tripMap.get(c.tripId)!.departureTime,
+          plate: tripMap.get(c.tripId)!.vehicle.registrationPlate,
+          route: `${tripMap.get(c.tripId)!.route.originStation.city} → ${tripMap.get(c.tripId)!.route.destinationStation.city}`,
+        } : null,
+      })),
+      total,
+    };
+  }
+
+  async sendPostTripSummary(tripId: string) {
+    const trip = await this.prisma.trip.findUnique({
+      where: { id: tripId },
+      include: {
+        route: { include: { originStation: true, destinationStation: true } },
+        vehicle: { select: { registrationPlate: true } },
+        driver: { select: { name: true } },
+        bookings: { select: { boardingStatus: true } },
+      },
+    });
+    if (!trip) return;
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: trip.tenantId },
+      select: { supportEmail: true, publicName: true, name: true },
+    });
+    if (!tenant?.supportEmail) return;
+
+    const boarded = trip.bookings.filter((b) => b.boardingStatus === 'BOARDED').length;
+    const noShow = trip.bookings.filter((b) => b.boardingStatus === 'NO_SHOW').length;
+    const pending = trip.bookings.filter((b) => b.boardingStatus === 'PENDING').length;
+    const total = trip.bookings.length;
+
+    const [expenses, sosEvents, preCheck] = await Promise.all([
+      (this.prisma as any).driverExpense.findMany({ where: { tripId }, select: { amount: true, category: true } }),
+      this.prisma.auditLog.count({
+        where: { entityType: 'TRIP', entityId: tripId, action: 'SOS_TRIGGER' as any },
+      }),
+      (this.prisma as any).preTripCheck.findUnique({ where: { tripId } }),
+    ]);
+    const expenseTotal = expenses.reduce((s: number, x: any) => s + Number(x.amount), 0);
+
+    const durationMs = (trip as any).driverCompletedAt && (trip as any).driverStartedAt
+      ? new Date((trip as any).driverCompletedAt).getTime() - new Date((trip as any).driverStartedAt).getTime()
+      : 0;
+    const durationStr = durationMs > 0
+      ? `${Math.floor(durationMs / 3600000)}s ${Math.floor((durationMs % 3600000) / 60000)}dk`
+      : 'Bilinmiyor';
+
+    await this.notifications.sendPostTripSummary(tenant.supportEmail, {
+      route: `${trip.route.originStation.city} → ${trip.route.destinationStation.city}`,
+      vehiclePlate: trip.vehicle.registrationPlate,
+      driverName: trip.driver?.name || 'Bilinmiyor',
+      departureTime: trip.departureTime,
+      duration: durationStr,
+      totalPassengers: total,
+      boarded, noShow, pending,
+      expenseTotal,
+      expenseCount: expenses.length,
+      sosCount: sosEvents,
+      preTripHadIssue: preCheck?.hasIssue || false,
+    }).catch((err: any) => console.error(`[PostTrip email] ${err?.message}`));
   }
 
   async logLocation(tenantId: string, driverId: string, tripId: string, locationDto: LocationDto) {
@@ -262,9 +545,249 @@ export class DriverOpsService {
       throw new ForbiddenException(`You are not authorized to submit expenses for trip ${tripId}`);
     }
 
-    // Expense model was removed in the enterprise overhaul.
-    // This feature is currently disabled or will be moved to a different billing module.
-    console.log(`[EXPENSE BLOCKED] Tenant: ${tenantId}, Trip: ${tripId}, Model no longer exists.`);
-    return { success: false, message: 'Expense tracking is temporarily disabled.' };
+    const { category, amount, description } = createExpenseDto;
+    const validCategories = ['FUEL', 'TOLL', 'FOOD', 'PARKING', 'OTHER'];
+    if (!validCategories.includes(category)) {
+      throw new ForbiddenException(`Geçersiz kategori. Geçerli: ${validCategories.join(', ')}`);
+    }
+    if (!amount || amount <= 0) {
+      throw new ForbiddenException('Tutar pozitif olmalı');
+    }
+
+    const expense = await (this.prisma as any).driverExpense.create({
+      data: {
+        tenantId, tripId, driverId,
+        category, amount, description: description || null,
+        status: 'PENDING',
+      },
+    });
+
+    await this.audit.log({
+      tenantId, userId: driverId,
+      action: 'EXPENSE_CREATE' as any,
+      entityType: 'TRIP', entityId: tripId,
+      newValues: { expenseId: expense.id, category, amount, description },
+    });
+
+    return expense;
+  }
+
+  async listExpensesForTrip(tenantId: string, driverId: string, tripId: string) {
+    const trip = await this.prisma.trip.findFirst({
+      where: { id: tripId, tenantId, driverId },
+    });
+    if (!trip) throw new ForbiddenException('Yetkisiz erişim');
+    return (this.prisma as any).driverExpense.findMany({
+      where: { tripId, tenantId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async deleteExpense(tenantId: string, driverId: string, expenseId: string) {
+    // Şoför sadece kendi kaydını ve PENDING durumunda silebilir
+    const expense = await (this.prisma as any).driverExpense.findFirst({
+      where: { id: expenseId, tenantId, driverId, status: 'PENDING' },
+    });
+    if (!expense) throw new ForbiddenException('Bu masrafı silme yetkin yok (onaylanmış ya da başkasının)');
+    await (this.prisma as any).driverExpense.delete({ where: { id: expenseId } });
+    await this.audit.log({
+      tenantId, userId: driverId,
+      action: 'EXPENSE_DELETE' as any,
+      entityType: 'TRIP', entityId: expense.tripId,
+      oldValues: { expenseId, category: expense.category, amount: expense.amount },
+    });
+    return { success: true };
+  }
+
+  /**
+   * SOS: şoför mid-trip acil durum (kaza/sağlık/arıza/güvenlik).
+   * Audit log'a kritik kayıt + firma destek telefonunu döner ki
+   * şoför tek tık arayabilsin. Mail ile admin'e de alert gönderilir.
+   */
+  async triggerSos(
+    tenantId: string,
+    driverId: string,
+    tripId: string,
+    payload: { category?: string; note?: string; lat?: number; lng?: number },
+  ) {
+    const trip = await this.prisma.trip.findFirst({
+      where: { id: tripId, tenantId, driverId },
+      include: {
+        route: { include: { originStation: true, destinationStation: true } },
+        vehicle: { select: { registrationPlate: true } },
+      },
+    });
+    if (!trip) throw new ForbiddenException('Bu sefere SOS tetikleme yetkin yok');
+
+    const driver = await this.prisma.user.findUnique({
+      where: { id: driverId },
+      select: { name: true, phoneNumber: true },
+    });
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { supportPhone: true, supportEmail: true, name: true, publicName: true },
+    });
+
+    const category = payload.category || 'OTHER';
+    const label: Record<string, string> = {
+      ACCIDENT: 'Kaza',
+      MEDICAL: 'Sağlık',
+      MECHANICAL: 'Arıza',
+      SECURITY: 'Güvenlik',
+      OTHER: 'Diğer',
+    };
+    const categoryLabel = label[category] || 'Diğer';
+
+    // Audit log — kritik kayıt
+    await this.audit.log({
+      tenantId,
+      userId: driverId,
+      action: 'SOS_TRIGGER' as any,
+      entityType: 'TRIP',
+      entityId: tripId,
+      newValues: {
+        category,
+        note: payload.note || null,
+        lat: payload.lat || null,
+        lng: payload.lng || null,
+        driver: driver?.name,
+        vehicle: trip.vehicle.registrationPlate,
+        route: `${trip.route.originStation.city} → ${trip.route.destinationStation.city}`,
+      },
+    });
+
+    // Admin'e e-posta at (fire-and-forget)
+    if (tenant?.supportEmail) {
+      this.notifications.sendDriverSosAlert(tenant.supportEmail, {
+        driverName: driver?.name || 'Bilinmiyor',
+        vehiclePlate: trip.vehicle.registrationPlate,
+        route: `${trip.route.originStation.city} → ${trip.route.destinationStation.city}`,
+        category: categoryLabel,
+        note: payload.note,
+        lat: payload.lat,
+        lng: payload.lng,
+        tripId,
+      }).catch((err: any) => {
+        console.error(`[SOS] Email failed: ${err?.message || err}`);
+      });
+    }
+
+    return {
+      success: true,
+      supportPhone: tenant?.supportPhone || null,
+      supportEmail: tenant?.supportEmail || null,
+      message: `${categoryLabel} bildirimi alındı. Destek ekibi bilgilendirildi.`,
+    };
+  }
+
+  /** Pre-trip inspection kaydı varsa dön, yoksa null. */
+  async getPreTripCheck(tenantId: string, driverId: string, tripId: string) {
+    const trip = await this.prisma.trip.findFirst({
+      where: { id: tripId, tenantId, driverId },
+    });
+    if (!trip) throw new ForbiddenException('Yetkisiz erişim');
+    return (this.prisma as any).preTripCheck.findUnique({ where: { tripId } });
+  }
+
+  /**
+   * Şoför sefer öncesi kontrol formunu doldurur.
+   * Herhangi bir kontrol FALSE ise hasIssue=true olur ve firma admin'e e-posta gider.
+   * Audit log'a da yazılır (sigorta/olay sonrası referans).
+   */
+  async submitPreTripCheck(
+    tenantId: string,
+    driverId: string,
+    tripId: string,
+    payload: {
+      fuelOk: boolean; tiresOk: boolean; brakesOk: boolean; lightsOk: boolean;
+      hornOk: boolean; wipersOk: boolean; mirrorsOk: boolean; seatbeltsOk: boolean;
+      acOk: boolean; cleanInside: boolean; extinguisherOk: boolean;
+      firstAidOk: boolean; emergencyHammerOk: boolean;
+      odometerKm?: number; fuelLevelPercent?: number; issueNote?: string;
+    },
+  ) {
+    const trip = await this.prisma.trip.findFirst({
+      where: { id: tripId, tenantId, driverId },
+      include: {
+        vehicle: { select: { registrationPlate: true } },
+        route: { include: { originStation: true, destinationStation: true } },
+      },
+    });
+    if (!trip) throw new ForbiddenException('Bu sefer için kontrol formu dolduramazsın');
+
+    // Kontrol listesindeki tüm boolean değerleri tara — herhangi biri false ise sorun var
+    const checks = [
+      payload.fuelOk, payload.tiresOk, payload.brakesOk, payload.lightsOk,
+      payload.hornOk, payload.wipersOk, payload.mirrorsOk, payload.seatbeltsOk,
+      payload.acOk, payload.cleanInside, payload.extinguisherOk,
+      payload.firstAidOk, payload.emergencyHammerOk,
+    ];
+    const hasIssue = checks.some((v) => v === false);
+
+    const saved = await (this.prisma as any).preTripCheck.upsert({
+      where: { tripId },
+      create: {
+        tripId, driverId,
+        fuelOk: payload.fuelOk, tiresOk: payload.tiresOk, brakesOk: payload.brakesOk,
+        lightsOk: payload.lightsOk, hornOk: payload.hornOk, wipersOk: payload.wipersOk,
+        mirrorsOk: payload.mirrorsOk, seatbeltsOk: payload.seatbeltsOk, acOk: payload.acOk,
+        cleanInside: payload.cleanInside, extinguisherOk: payload.extinguisherOk,
+        firstAidOk: payload.firstAidOk, emergencyHammerOk: payload.emergencyHammerOk,
+        odometerKm: payload.odometerKm ?? null,
+        fuelLevelPercent: payload.fuelLevelPercent ?? null,
+        issueNote: payload.issueNote ?? null,
+        hasIssue,
+      },
+      update: {
+        fuelOk: payload.fuelOk, tiresOk: payload.tiresOk, brakesOk: payload.brakesOk,
+        lightsOk: payload.lightsOk, hornOk: payload.hornOk, wipersOk: payload.wipersOk,
+        mirrorsOk: payload.mirrorsOk, seatbeltsOk: payload.seatbeltsOk, acOk: payload.acOk,
+        cleanInside: payload.cleanInside, extinguisherOk: payload.extinguisherOk,
+        firstAidOk: payload.firstAidOk, emergencyHammerOk: payload.emergencyHammerOk,
+        odometerKm: payload.odometerKm ?? null,
+        fuelLevelPercent: payload.fuelLevelPercent ?? null,
+        issueNote: payload.issueNote ?? null,
+        hasIssue,
+      },
+    });
+
+    await this.audit.log({
+      tenantId, userId: driverId,
+      action: 'PRE_TRIP_CHECK' as any,
+      entityType: 'TRIP', entityId: tripId,
+      newValues: { hasIssue, odometerKm: payload.odometerKm, fuelLevelPercent: payload.fuelLevelPercent },
+    });
+
+    // Sorun varsa admin'e e-posta uyarısı
+    if (hasIssue) {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { supportEmail: true },
+      });
+      if (tenant?.supportEmail) {
+        this.notifications.sendPreTripIssueAlert(tenant.supportEmail, {
+          vehiclePlate: trip.vehicle.registrationPlate,
+          route: `${trip.route.originStation.city} → ${trip.route.destinationStation.city}`,
+          issueNote: payload.issueNote,
+          failedChecks: [
+            !payload.fuelOk && 'Yakıt',
+            !payload.tiresOk && 'Lastik',
+            !payload.brakesOk && 'Fren',
+            !payload.lightsOk && 'Farlar',
+            !payload.hornOk && 'Korna',
+            !payload.wipersOk && 'Silecek',
+            !payload.mirrorsOk && 'Ayna',
+            !payload.seatbeltsOk && 'Emniyet kemeri',
+            !payload.acOk && 'Klima',
+            !payload.cleanInside && 'İç temizlik',
+            !payload.extinguisherOk && 'Yangın söndürücü',
+            !payload.firstAidOk && 'İlk yardım çantası',
+            !payload.emergencyHammerOk && 'Cam kırıcı çekiç',
+          ].filter(Boolean) as string[],
+        }).catch((err: any) => console.error(`[PreTripCheck] Email failed: ${err?.message}`));
+      }
+    }
+
+    return saved;
   }
 }

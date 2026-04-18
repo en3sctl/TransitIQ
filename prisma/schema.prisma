@@ -354,6 +354,9 @@ model Trip {
   currentLng        Float?     @map("current_lng")
   currentSpeed      Float?     @map("current_speed")
   lastLocationAt    DateTime?  @map("last_location_at")
+  // Vardiya takibi
+  driverStartedAt   DateTime?  @map("driver_started_at")
+  driverCompletedAt DateTime?  @map("driver_completed_at")
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -364,8 +367,71 @@ model Trip {
   assistantDriver User?    @relation("AssistantDriver", fields: [assistantDriverId], references: [id])
   hostess         User?    @relation("Hostess", fields: [hostessId], references: [id])
   bookings        Booking[]
+  preTripCheck    PreTripCheck?
+  driverExpenses  DriverExpense[]
 
   @@map("trips")
+}
+
+/**
+ * Sefer öncesi araç kontrol formu — şoför seferi başlatmadan doldurur.
+ * Sigorta/hukuki belge, bakım/kaza sonrası hakem için referans.
+ */
+model PreTripCheck {
+  id                  String   @id @default(uuid())
+  tripId              String   @unique @map("trip_id")
+  driverId            String   @map("driver_id")
+  // Temel kontroller (tüm Boolean)
+  fuelOk              Boolean  @map("fuel_ok")
+  tiresOk             Boolean  @map("tires_ok")
+  brakesOk            Boolean  @map("brakes_ok")
+  lightsOk            Boolean  @map("lights_ok")
+  hornOk              Boolean  @map("horn_ok")
+  wipersOk            Boolean  @map("wipers_ok")
+  mirrorsOk           Boolean  @map("mirrors_ok")
+  seatbeltsOk         Boolean  @map("seatbelts_ok")
+  acOk                Boolean  @map("ac_ok")
+  cleanInside         Boolean  @map("clean_inside")
+  extinguisherOk      Boolean  @map("extinguisher_ok")  // yangın söndürücü
+  firstAidOk          Boolean  @map("first_aid_ok")     // ilk yardım çantası
+  emergencyHammerOk   Boolean  @map("emergency_hammer_ok")
+  // Metrikler
+  odometerKm          Int?     @map("odometer_km")
+  fuelLevelPercent    Int?     @map("fuel_level_percent")
+  issueNote           String?  @map("issue_note")  // eksik varsa açıklama
+  hasIssue            Boolean  @default(false) @map("has_issue")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([driverId, createdAt])
+  @@map("pre_trip_checks")
+}
+
+/**
+ * Şoförün sefer sırasında girdiği masraflar: yakıt, otoyol, yemek, mola, otopark.
+ * Makbuz URL opsiyonel (ileride upload eklenince). Admin tarafında onaylanır/reddedilir.
+ */
+model DriverExpense {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tripId      String   @map("trip_id")
+  driverId    String   @map("driver_id")
+  category    String   // FUEL, TOLL, FOOD, PARKING, OTHER
+  amount      Decimal  @db.Decimal(10, 2)
+  description String?
+  receiptUrl  String?  @map("receipt_url")
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewedBy  String?  @map("reviewed_by")
+  reviewedAt  DateTime? @map("reviewed_at")
+  reviewNote  String?  @map("review_note")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
+  @@index([driverId, createdAt])
+  @@map("driver_expenses")
 }
 
 model Booking {

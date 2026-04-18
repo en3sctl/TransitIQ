@@ -238,12 +238,16 @@ export class AnalyticsService {
     const tomorrowStart = new Date(todayStart.getTime() + 86400000);
     const in30days = new Date(now.getTime() + 30 * 86400000);
 
+    // Son 24 saat — driver ops sinyalleri için
+    const last24h = new Date(Date.now() - 24 * 3600 * 1000);
+
     const [
       todayBookings, todayRevenue,
       activeTrips, plannedToday,
       failedRefunds, expiredVehicles, expiringVehicles,
       upcomingTrips, recentLogs,
       openComplaints, urgentComplaints, totalOpenComplaints,
+      pendingExpensesCount, recentSosCount, preTripIssuesCount,
     ] = await Promise.all([
       this.prisma.booking.count({
         where: { trip: { tenantId }, status: 'CONFIRMED', bookingTime: { gte: todayStart } },
@@ -328,6 +332,16 @@ export class AnalyticsService {
       this.prisma.complaint.count({
         where: { tenantId, status: { in: ['OPEN', 'IN_PROGRESS'] } },
       }),
+      // Şoför operasyonları — son 24 saat driver ops sinyalleri
+      (this.prisma as any).driverExpense.count({
+        where: { tenantId, status: 'PENDING' },
+      }),
+      this.prisma.auditLog.count({
+        where: { tenantId, action: 'SOS_TRIGGER' as any, timestamp: { gte: last24h } },
+      }),
+      (this.prisma as any).preTripCheck.count({
+        where: { trip: { tenantId }, hasIssue: true, createdAt: { gte: last24h } },
+      }),
     ]);
 
     return {
@@ -361,6 +375,10 @@ export class AnalyticsService {
           contactName: c.contactName,
           createdAt: c.createdAt,
         })),
+        // Şoför operasyonları — admin takip ekranı
+        pendingExpensesCount,
+        recentSosCount,
+        preTripIssuesCount,
       },
       upcomingTrips: upcomingTrips.map(t => ({
         id: t.id,

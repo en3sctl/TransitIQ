@@ -250,19 +250,34 @@ export function TenantSettingsPanel() {
         </div>
       </motion.div>
 
-      {/* Plan kullanımı */}
-      {usage && usage.plan && (
+      {/* Plan kullanımı — plan atanmamışsa bile göster, aksiyon CTA'sı ile */}
+      {usage && (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-3xl p-6">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-indigo-600" />
               <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">Plan Kullanımı</h4>
             </div>
             <div className="text-right">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Aktif plan</p>
-              <p className="text-sm font-black text-indigo-600 dark:text-indigo-400">{usage.plan.name} · %{(usage.plan.commissionRate * 100).toFixed(1)} komisyon{usage.plan.monthlyFee > 0 ? ` + ₺${usage.plan.monthlyFee}/ay` : ''}</p>
+              {usage.plan ? (
+                <p className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+                  {usage.plan.name} · %{(usage.plan.commissionRate * 100).toFixed(1)} komisyon
+                  {usage.plan.monthlyFee > 0 ? ` + ₺${usage.plan.monthlyFee}/ay` : ''}
+                </p>
+              ) : (
+                <p className="text-sm font-black text-amber-600 dark:text-amber-400">Plan atanmamış — sınırsız varsayılıyor</p>
+              )}
             </div>
           </div>
+          {!usage.plan && (
+            <div className="mb-3 rounded-xl bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 p-3 flex gap-2 text-xs">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-amber-800 dark:text-amber-300 font-medium leading-snug">
+                Firmanıza aktif abonelik planı atanmamış. Super admin ile iletişime geçip Başlangıç / Profesyonel / Kurumsal planlarından birini seçin. Şimdilik limit uygulanmıyor.
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <UsageBar label="Araç" current={usage.usage.vehicles.current} limit={usage.usage.vehicles.limit} />
             <UsageBar label="Rota" current={usage.usage.routes.current} limit={usage.usage.routes.limit} />

@@ -77,7 +77,25 @@ export function ManifestModal({ tripId, onClose }: Props) {
     if (tripId) load();
   }, [tripId, load]);
 
+  /**
+   * Optimistic state güncellemesi: anında UI'da değişiklik göster,
+   * backend hata verirse eski haline geri dön. Manifest'i güncelle.
+   */
+  const optimisticUpdate = useCallback((pnr: string, newStatus: 'BOARDED' | 'NO_SHOW' | 'PENDING') => {
+    setManifest((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        passengers: prev.passengers.map((p) =>
+          p.pnrCode === pnr ? { ...p, boardingStatus: newStatus, boardedAt: newStatus === 'BOARDED' ? new Date().toISOString() : null } : p,
+        ),
+      };
+    });
+  }, []);
+
   async function checkIn(pnr: string) {
+    const before = manifest?.passengers.find((p) => p.pnrCode === pnr);
+    optimisticUpdate(pnr, 'BOARDED'); // anında görsün
     try {
       const res = await api.post(`/driver-ops/check-in/${pnr}`);
       if (res.data.alreadyBoarded) {
@@ -85,8 +103,11 @@ export function ManifestModal({ tripId, onClose }: Props) {
       } else {
         toast.success(`${res.data.passengerName} — Koltuk ${res.data.seatNumber} — Bindi ✓`);
       }
+      // Sunucudan gelen güncel veriyle senkronla (boardedAt/boardedBy gibi alanlar)
       load();
     } catch (e: any) {
+      // Hata: eski durumuna döndür
+      if (before) optimisticUpdate(pnr, before.boardingStatus);
       toast.error(e.response?.data?.message || 'Check-in başarısız');
     }
   }
@@ -99,21 +120,27 @@ export function ManifestModal({ tripId, onClose }: Props) {
       confirmLabel: 'Gelmedi İşaretle',
     });
     if (!ok) return;
+    const before = manifest?.passengers.find((p) => p.pnrCode === pnr);
+    optimisticUpdate(pnr, 'NO_SHOW');
     try {
       await api.post(`/driver-ops/no-show/${pnr}`);
       toast.success('Gelmedi olarak işaretlendi');
       load();
     } catch {
+      if (before) optimisticUpdate(pnr, before.boardingStatus);
       toast.error('İşlem başarısız');
     }
   }
 
   async function reset(pnr: string) {
+    const before = manifest?.passengers.find((p) => p.pnrCode === pnr);
+    optimisticUpdate(pnr, 'PENDING');
     try {
       await api.post(`/driver-ops/reset-boarding/${pnr}`);
       toast.success('Durum sıfırlandı');
       load();
     } catch {
+      if (before) optimisticUpdate(pnr, before.boardingStatus);
       toast.error('İşlem başarısız');
     }
   }
@@ -249,23 +276,30 @@ export function ManifestModal({ tripId, onClose }: Props) {
                           p.boardingStatus === 'NO_SHOW' ? 'border-rose-100 dark:border-rose-500/20 opacity-70' : 'border-slate-200/80 dark:border-zinc-800'
                         }`}
                       >
-                        <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex flex-col items-center justify-center shrink-0">
-                          <Armchair className="w-3 h-3 text-indigo-500" />
-                          <span className="text-sm font-black text-indigo-700 dark:text-indigo-400 leading-none">{p.seatNumber}</span>
+                        <div className="w-14 h-14 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex flex-col items-center justify-center shrink-0">
+                          <Armchair className="w-3.5 h-3.5 text-indigo-500" />
+                          <span className="text-lg font-black text-indigo-700 dark:text-indigo-400 leading-none">{p.seatNumber}</span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-black tracking-tight text-slate-900 dark:text-white truncate">{p.passengerName}</p>
-                            <span className="font-mono text-[10px] font-bold text-indigo-600 dark:text-indigo-400">{p.pnrCode}</span>
+                            <p className="text-base font-black tracking-tight text-slate-900 dark:text-white truncate">{p.passengerName}</p>
+                            <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">{p.pnrCode}</span>
                           </div>
-                          <div className="flex items-center gap-3 text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-1 flex-wrap">
+                          <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 dark:text-zinc-400 mt-1 flex-wrap">
                             <span>TC: •••• {p.passengerTcNo.slice(-4)}</span>
-                            {p.contactPhone && <span className="inline-flex items-center gap-1"><Phone className="w-2.5 h-2.5" /> {p.contactPhone}</span>}
+                            {p.contactPhone && (
+                              <a
+                                href={`tel:${p.contactPhone}`}
+                                className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline"
+                              >
+                                <Phone className="w-3 h-3" /> {p.contactPhone}
+                              </a>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${STATUS_COLORS[meta.color]}`}>
-                            <StatusIcon className="w-2.5 h-2.5" />
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-widest ${STATUS_COLORS[meta.color]}`}>
+                            <StatusIcon className="w-3 h-3" />
                             {meta.label}
                           </span>
                           {p.boardingStatus === 'PENDING' && (
@@ -273,16 +307,18 @@ export function ManifestModal({ tripId, onClose }: Props) {
                               <button
                                 onClick={() => checkIn(p.pnrCode)}
                                 aria-label="Bindi işaretle"
-                                className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 flex items-center justify-center"
+                                title="Bindi"
+                                className="w-12 h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm flex items-center justify-center active:scale-95 transition-transform"
                               >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <CheckCircle2 className="w-5 h-5" />
                               </button>
                               <button
                                 onClick={() => markNoShow(p.pnrCode)}
                                 aria-label="Gelmedi işaretle"
-                                className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-500/20 flex items-center justify-center"
+                                title="Gelmedi"
+                                className="w-12 h-12 rounded-xl bg-rose-500 hover:bg-rose-600 text-white shadow-sm flex items-center justify-center active:scale-95 transition-transform"
                               >
-                                <XCircle className="w-3.5 h-3.5" />
+                                <XCircle className="w-5 h-5" />
                               </button>
                             </>
                           )}
@@ -290,9 +326,10 @@ export function ManifestModal({ tripId, onClose }: Props) {
                             <button
                               onClick={() => reset(p.pnrCode)}
                               aria-label="Durumu sıfırla"
-                              className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-zinc-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-700 flex items-center justify-center"
+                              title="Geri al"
+                              className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 flex items-center justify-center active:scale-95 transition-transform"
                             >
-                              <RotateCcw className="w-3.5 h-3.5" />
+                              <RotateCcw className="w-5 h-5" />
                             </button>
                           )}
                         </div>

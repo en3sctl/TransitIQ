@@ -20,14 +20,15 @@ export class LocationDto {
 
 export class CreateExpenseDto {
   @IsNumber()
-  @Min(0)
+  @Min(0.01)
   amount: number;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  description: string;
+  description?: string;
 
   @IsString()
   @IsNotEmpty()
-  category: string; // e.g., TOLL, FUEL, OTHER
+  @IsEnum(['FUEL', 'TOLL', 'FOOD', 'PARKING', 'OTHER'])
+  category: 'FUEL' | 'TOLL' | 'FOOD' | 'PARKING' | 'OTHER';
 }

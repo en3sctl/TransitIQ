@@ -4,13 +4,16 @@ import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Bus, Clock, MapPin, User, Play, CheckCircle2, Navigation, AlertCircle,
-  Loader2, LogOut, Radio, Gauge, Pause, Users, ScanLine,
+  Loader2, LogOut, Radio, Gauge, Pause, Users, ScanLine, Wallet,
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import ProtectedRoute from "@/components/protected-route";
 import { BrandLogo } from "@/components/brand-logo";
 import { ModeToggle } from "@/components/mode-toggle";
 import { ManifestModal } from "@/components/driver/manifest-modal";
+import { SosModal } from "@/components/driver/sos-modal";
+import { PreTripModal } from "@/components/driver/pre-trip-modal";
+import { ExpenseModal } from "@/components/driver/expense-modal";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialogs";
@@ -20,6 +23,8 @@ interface DriverTrip {
   status: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
   departureTime: string;
   estimatedArrival: string | null;
+  driverStartedAt: string | null;
+  driverCompletedAt: string | null;
   route: {
     title: string;
     originStationId: string;
@@ -29,6 +34,15 @@ interface DriverTrip {
     registrationPlate: string;
     model: string | null;
   };
+}
+
+/** ms farkını "2s 15dk" tarzı insan okunur biçimde döndürür. */
+function formatDuration(ms: number) {
+  const totalMin = Math.max(0, Math.floor(ms / 60000));
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h === 0) return `${m}dk`;
+  return `${h}s ${m}dk`;
 }
 
 function fTime(s: string) {
@@ -49,6 +63,9 @@ function DriverPage() {
   const watchIdRef = useRef<number | null>(null);
   const pushIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [manifestTripId, setManifestTripId] = useState<string | null>(null);
+  const [sosTripId, setSosTripId] = useState<string | null>(null);
+  const [preTripTripId, setPreTripTripId] = useState<string | null>(null);
+  const [expenseTripId, setExpenseTripId] = useState<string | null>(null);
 
   useEffect(() => {
     loadTrips();
@@ -80,14 +97,10 @@ function DriverPage() {
     }
   }
 
-  async function startTrip(tripId: string) {
-    try {
-      await api.patch(`/driver-ops/trips/${tripId}/status`, { status: 'ACTIVE' });
-      toast.success('Sefer başlatıldı. GPS takibi aktif.');
-      loadTrips();
-    } catch {
-      toast.error('Sefer başlatılamadı');
-    }
+  // Seferi başlat = pre-trip kontrol formu aç. Form kaydedilince modal
+  // içeride status=ACTIVE'e çekilir, sonra loadTrips tetiklenir.
+  function startTrip(tripId: string) {
+    setPreTripTripId(tripId);
   }
 
   async function completeTrip(tripId: string) {
@@ -259,22 +272,41 @@ function DriverPage() {
                         <span>Son gönderim {fTime(lastPushAt.toISOString())}</span>
                       </div>
                     )}
+                    {activeTrip.driverStartedAt && (
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <Clock className="w-3 h-3" />
+                        <span>Vardiya: {formatDuration(Date.now() - new Date(activeTrip.driverStartedAt).getTime())}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   onClick={() => setManifestTripId(activeTrip.id)}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 text-white font-bold text-sm hover:bg-white/25 transition-colors"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 text-white font-bold text-sm hover:bg-white/25 transition-colors"
                 >
-                  <Users className="w-4 h-4" /> Yolcu Manifestosu
+                  <Users className="w-4 h-4" /> Yolcular
+                </button>
+                <button
+                  onClick={() => setExpenseTripId(activeTrip.id)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 text-white font-bold text-sm hover:bg-white/25 transition-colors"
+                >
+                  <Wallet className="w-4 h-4" /> Masraf
+                </button>
+                <button
+                  onClick={() => setSosTripId(activeTrip.id)}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-sm shadow-xl shadow-red-500/30 transition-all"
+                  aria-label="Acil durum"
+                >
+                  <AlertCircle className="w-5 h-5" /> SOS
                 </button>
                 <button
                   onClick={() => completeTrip(activeTrip.id)}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-white text-emerald-700 font-black text-base hover:scale-[1.01] active:scale-100 transition-transform shadow-xl"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-4 rounded-2xl bg-white text-emerald-700 font-black text-sm hover:scale-[1.01] active:scale-100 transition-transform shadow-xl"
                 >
-                  <CheckCircle2 className="w-5 h-5" /> Seferi Tamamla
+                  <CheckCircle2 className="w-5 h-5" /> Tamamla
                 </button>
               </div>
             </div>
@@ -385,6 +417,20 @@ function DriverPage() {
 
       {/* Manifest modal */}
       <ManifestModal tripId={manifestTripId} onClose={() => setManifestTripId(null)} />
+      <SosModal
+        tripId={sosTripId}
+        onClose={() => setSosTripId(null)}
+        coords={currentCoords ? { lat: currentCoords.lat, lng: currentCoords.lng } : null}
+      />
+      <PreTripModal
+        tripId={preTripTripId}
+        onClose={() => setPreTripTripId(null)}
+        onCompleted={() => loadTrips()}
+      />
+      <ExpenseModal
+        tripId={expenseTripId}
+        onClose={() => setExpenseTripId(null)}
+      />
     </div>
   );
 }

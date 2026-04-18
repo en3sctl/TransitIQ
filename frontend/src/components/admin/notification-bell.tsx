@@ -7,7 +7,7 @@ import api from "@/lib/api";
 import { useVisibleInterval } from "@/lib/use-visible-interval";
 
 type NotifType = 'CRITICAL' | 'WARNING' | 'INFO';
-type NotifCategory = 'COMPLAINTS' | 'VEHICLES' | 'PAYMENTS' | 'OTHER';
+type NotifCategory = 'COMPLAINTS' | 'VEHICLES' | 'PAYMENTS' | 'DRIVER_OPS' | 'OTHER';
 
 interface Notif {
   id: string;
@@ -21,14 +21,17 @@ interface Notif {
 
 const CATEGORY_META: Record<NotifCategory, { label: string; icon: any; tone: string }> = {
   COMPLAINTS: { label: 'Şikayetler', icon: ShieldAlert, tone: 'rose' },
+  DRIVER_OPS: { label: 'Şoför Operasyonları', icon: AlertTriangle, tone: 'pink' },
   VEHICLES: { label: 'Araç Uyarıları', icon: Bus, tone: 'amber' },
   PAYMENTS: { label: 'Ödeme / İade', icon: RotateCcw, tone: 'indigo' },
   OTHER: { label: 'Diğer', icon: AlertTriangle, tone: 'slate' },
 };
 
-const CATEGORY_ORDER: NotifCategory[] = ['COMPLAINTS', 'PAYMENTS', 'VEHICLES', 'OTHER'];
+// DRIVER_OPS ön sırada — SOS en kritik, masraf/pre-trip da admin aksiyonu bekliyor
+const CATEGORY_ORDER: NotifCategory[] = ['DRIVER_OPS', 'COMPLAINTS', 'PAYMENTS', 'VEHICLES', 'OTHER'];
 const TONE_CLASS: Record<string, string> = {
   rose: 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400',
+  pink: 'bg-pink-50 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400',
   amber: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400',
   indigo: 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
   slate: 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400',
@@ -138,6 +141,44 @@ export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) =>
           icon: isUrgent ? ShieldAlert : MessageSquareWarning,
         });
       });
+
+      // Şoför operasyonları (DRIVER_OPS) — SOS/masraf/pre-trip
+      const sosCount = data.alerts.recentSosCount || 0;
+      if (sosCount > 0) {
+        list.push({
+          id: `sos-${sosCount}`,
+          type: 'CRITICAL',
+          category: 'DRIVER_OPS',
+          title: `${sosCount} SOS olayı (24 saat)`,
+          description: 'Şoförler acil durum tetikledi — konum ve detay için panele bak.',
+          tab: 'driver-sos',
+          icon: AlertTriangle,
+        });
+      }
+      const pendingExp = data.alerts.pendingExpensesCount || 0;
+      if (pendingExp > 0) {
+        list.push({
+          id: `expense-${pendingExp}`,
+          type: 'WARNING',
+          category: 'DRIVER_OPS',
+          title: `${pendingExp} bekleyen masraf`,
+          description: 'Şoför yol masraflarını onayla / reddet.',
+          tab: 'driver-expenses',
+          icon: AlertTriangle,
+        });
+      }
+      const preTripIssues = data.alerts.preTripIssuesCount || 0;
+      if (preTripIssues > 0) {
+        list.push({
+          id: `pretrip-${preTripIssues}`,
+          type: 'WARNING',
+          category: 'DRIVER_OPS',
+          title: `${preTripIssues} araç kontrol eksiği (24 saat)`,
+          description: 'Sefer öncesi kontrolde sorun raporlandı — bakım gerekebilir.',
+          tab: 'pre-trip-checks',
+          icon: AlertTriangle,
+        });
+      }
 
       const openCount = data.alerts.openComplaintsCount || 0;
       const shownCount = (data.alerts.recentComplaints || []).length;
