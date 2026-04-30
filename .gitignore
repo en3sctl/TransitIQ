@@ -1,5 +1,79 @@
-node_modules
-# Keep environment variables out of version control
-.env
+# ─── Dependencies ───
+node_modules/
+.pnp
+.pnp.*
 
+# ─── Build output ───
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# ─── Environment & Secrets ───
+# Asla commit edilmemeli — .env.example'da template var
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.test
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# ─── Runtime / Logs ───
+*.log
+output.log
+run.log
+test.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+
+# ─── Test coverage ───
+coverage/
+.nyc_output/
+
+# ─── User uploads (KVKK — kişisel veri içerir) ───
+# Driver belgeleri (ehliyet/SRC fotoğrafları), faturalar, avatar'lar, tenant logoları
+# Production'da S3/object storage'a taşınmalı; lokal dev için klasör yapısı .gitkeep ile korunur
+uploads/*
+!uploads/.gitkeep
+
+# ─── Prisma generated ───
 /generated/prisma
+prisma/migrations/dev/
+
+# ─── IDE / Editor ───
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+
+# ─── Claude Code (kişisel dev tool config — fork edenler kendi permission'larını yapar) ───
+.claude/
+
+# ─── OS ───
+.DS_Store
+Thumbs.db
+desktop.ini
+*.bak
+*.orig
+
+# ─── Misc ───
+.cache/
+.tmp/
+.temp/
+*.tgz
+.eslintcache
