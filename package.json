@@ -23,7 +23,8 @@
     "tenants": "ts-node -r dotenv/config scripts/list-tenants.ts",
     "check-tenant": "ts-node -r dotenv/config scripts/check-tenant-data.ts",
     "settle:backfill": "ts-node -r dotenv/config scripts/backfill-settlements.ts",
-    "plans:backfill": "ts-node -r dotenv/config scripts/backfill-plans.ts"
+    "plans:backfill": "ts-node -r dotenv/config scripts/backfill-plans.ts",
+    "optimize:images": "ts-node scripts/optimize-public-images.ts"
   },
   "dependencies": {
     "@fontsource/roboto": "^5.2.10",
@@ -44,6 +45,8 @@
     "@prisma/config": "^7.5.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.6",
+    "@sentry/nestjs": "^10.51.0",
+    "@sentry/profiling-node": "^10.51.0",
     "@types/multer": "^2.1.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",

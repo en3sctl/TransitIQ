@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# image optimization yedekleri (npm run optimize:images yedek alır)
+public/.originals/

@@ -9,24 +9,16 @@ import { AnimatePresence, motion } from "framer-motion";
  * Cross-fades between iconic Turkish landmarks every 6 seconds.
  */
 
+// 8 ikonik destinasyon — Türkiye'nin coğrafi çeşitliliğini temsil eder.
+// Daha az slide = daha az fetch+decode, daha az ana iş parçacığı meşguliyeti.
 const SLIDES = [
   { src: '/kapadokya.png', alt: 'Kapadokya' },
   { src: '/bogaz_kopru.jpg', alt: 'İstanbul Boğazı' },
   { src: '/uzungol.webp', alt: 'Uzungöl, Trabzon' },
-  { src: '/traverten.jpg', alt: 'Pamukkale' },
-  { src: '/nemrut.jpg', alt: 'Nemrut Dağı' },
-  { src: '/ortakoy.jpg', alt: 'Ortaköy, İstanbul' },
-  { src: '/ortakoy2.jpg', alt: 'Ortaköy, İstanbul' },
-  { src: '/halic.jpg', alt: 'Haliç, İstanbul' },
-  { src: '/anitkabir.jpg', alt: 'Anıtkabir, Ankara' },
-  { src: '/anit.jpg', alt: 'Anıtkabir, Ankara' },
+  { src: '/traverten.jpg', alt: 'Pamukkale, Denizli' },
+  { src: '/nemrut.jpg', alt: 'Nemrut Dağı, Adıyaman' },
   { src: '/ayasofya.webp', alt: 'Ayasofya, İstanbul' },
-  { src: '/kiz_kulesi.jpg', alt: 'Kız Kulesi, İstanbul' },
-  { src: '/kiz_kulesi2.jpg', alt: 'Kız Kulesi, İstanbul' },
-  { src: '/camlica.png', alt: 'Çamlıca, İstanbul' },
-  { src: '/yss.jpg', alt: 'Yavuz Sultan Selim Köprüsü' },
-  { src: '/efes.jpg', alt: 'Efes Antik Kenti' },
-  { src: '/harabeler.jpg', alt: 'Efes harabeleri' },
+  { src: '/efes.jpg', alt: 'Efes Antik Kenti, İzmir' },
   { src: '/balikligol.webp', alt: 'Balıklıgöl, Şanlıurfa' },
 ];
 

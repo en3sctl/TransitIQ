@@ -4,7 +4,8 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER } from '@nestjs/core';
+import { SentryModule, SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CommonModule } from './common/common.module';
@@ -44,6 +45,7 @@ import { MiddlewareConsumer, NestModule } from '@nestjs/common';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     ServeStaticModule.forRoot({
@@ -107,6 +109,11 @@ import { MiddlewareConsumer, NestModule } from '@nestjs/common';
   controllers: [AppController],
   providers: [
     AppService,
+    // Sentry filter MUTLAKA önce — exception'ları capture eder, sonra HttpExceptionFilter çalışır
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

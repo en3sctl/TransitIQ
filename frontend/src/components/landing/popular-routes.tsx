@@ -19,12 +19,13 @@ interface PopularRoute {
   nextDeparture: string | null;
 }
 
-export function PopularRoutes() {
-  const [routes, setRoutes] = useState<PopularRoute[]>([]);
-  const [loading, setLoading] = useState(true);
+export function PopularRoutes({ initialRoutes = [] }: { initialRoutes?: PopularRoute[] } = {}) {
+  const [routes, setRoutes] = useState<PopularRoute[]>(initialRoutes);
+  const [loading, setLoading] = useState(initialRoutes.length === 0);
   const [imageMap, setImageMap] = useState<Record<string, CityImage>>({});
 
   useEffect(() => {
+    if (initialRoutes.length > 0) return; // Server'dan veri geldiyse fetch'e gerek yok
     (async () => {
       try {
         const res = await api.get('/routes/public/popular', { params: { limit: 8 } });
@@ -35,6 +36,7 @@ export function PopularRoutes() {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Resolve images for cities without curated photos (async Wikipedia fallback)

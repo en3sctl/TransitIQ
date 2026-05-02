@@ -42,12 +42,13 @@ function duration(dep: string, arr: string | null) {
   return `${h}sa ${m > 0 ? m + 'dk' : ''}`.trim();
 }
 
-export function CheapTrips() {
-  const [trips, setTrips] = useState<CheapTrip[]>([]);
-  const [loading, setLoading] = useState(true);
+export function CheapTrips({ initialTrips = [] }: { initialTrips?: CheapTrip[] } = {}) {
+  const [trips, setTrips] = useState<CheapTrip[]>(initialTrips);
+  const [loading, setLoading] = useState(initialTrips.length === 0);
   const [imageMap, setImageMap] = useState<Record<string, CityImage>>({});
 
   useEffect(() => {
+    if (initialTrips.length > 0) return; // Server'dan veri geldiyse fetch'e gerek yok
     (async () => {
       try {
         const res = await api.get('/trips/public/cheap', { params: { limit: 6 } });
@@ -58,6 +59,7 @@ export function CheapTrips() {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Async resolve images for ORIGIN cities (kalkış yeri) — where the passenger boards.

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, Route, Users, Building2, MapPin, Activity } from "lucide-react";
-import api from "@/lib/api";
+import { Route, Users, Building2, MapPin, Activity } from "lucide-react";
 
 interface Stats {
   routes: number;
@@ -33,19 +32,8 @@ function AnimatedNumber({ value, duration = 1500 }: { value: number; duration?: 
   return <span>{display.toLocaleString('tr-TR')}</span>;
 }
 
-export function LiveTicker() {
-  const [stats, setStats] = useState<Stats | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.get('/routes/public/stats');
-        setStats(res.data);
-      } catch {
-        // fail silent
-      }
-    })();
-  }, []);
+export function LiveTicker({ initialStats }: { initialStats?: Stats | null }) {
+  const stats = initialStats ?? null;
 
   if (!stats) return null;
 

@@ -301,8 +301,8 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 - ⏳ Rate limit genel polish — tüm endpoint'lerde değil (default seviyede)
 
 ### A05 — Security Misconfiguration
-- ✅ `.env` gitignore'da
-- ⏳ Helmet.js (CSP, HSTS, X-Frame-Options)
+- ✅ `.env` gitignore'da (.env, .env.local, .env.*.local; uploads/dist/log da kapsamlı ignore'da, public history filter-repo ile temizlendi 2026-04-18)
+- ✅ Helmet.js — CSP prod'da aktif, dev'de devre dışı
 - ⏳ Prod'da stack trace gizlenmeli
 - ⏳ Debug mode off
 
@@ -311,13 +311,16 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 - ⏳ Dependabot aktif değil
 
 ### A07 — Identification & Authentication
-- ✅ Güçlü şifre (min 6, kontrol UI'da)
+- ✅ Güçlü şifre (min 8, bcrypt 12 rounds)
 - ✅ JWT expiration (1 gün default)
-- ⏳ 2FA (SMS/TOTP) — admin için şart
-- ⏳ Şifre sıfırlama akışı
-- ⏳ Email doğrulama kayıtta
-- ⏳ Session revocation (logout all devices)
-- ⏳ Refresh token (1gün çok kısa, session middle-click kaybedersin)
+- ✅ Şifre sıfırlama akışı (Resend + token)
+- ✅ Email doğrulama kayıtta
+- ✅ 2FA (TOTP) — admin için (Phase 3 mega sprint, otplib + QR + 10 backup code)
+- ✅ Session revocation — UserSession model, SHA-256 hashed token, revoke one / revoke all (Phase 3 mega sprint)
+- ✅ Brute-force koruması (5 deneme/15dk in-memory tracker)
+- ✅ Google OAuth (passport-google-oauth20, auto user create/link)
+- ⏳ 2FA driver için (admin yapıldı, driver opsiyonel)
+- ⏳ Refresh token akışı (1gün → access 15dk + refresh 30g, JWT'yi httpOnly cookie'ye taşı — XSS hardening)
 
 ### A08 — Software & Data Integrity
 - ✅ Prisma migrations versiyon kontrollü
@@ -326,9 +329,9 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 ### A09 — Logging & Monitoring
 - ✅ Audit log (kritik mutasyonlar)
 - ✅ **Finansal audit genişletmesi (2026-04-18):** `SETTLEMENT_SETTLE`, `SETTLEMENT_BULK_SETTLE` (super admin finansal aksiyonlar tenant-bazlı kaydediliyor), `PAYMENT_SETTLEMENT_FAILED` + `PAYMENT_BOOKING_FAILED` + `PAYMENT_CALLBACK_ORPHAN` (Iyzico callback hataları reconciliation için)
-- ⏳ Sentry error tracking
-- ⏳ Access log (kimin ne zaman giriş yaptığı)
-- ⏳ Suspicious activity detection
+- ✅ **Sentry error tracking (2026-04-18)** — backend (NestJS) + frontend (Next.js) entegre. DSN yokken no-op. PII redaction beforeSend hook'unda. Throttle/Validation/Auth hataları gürültü olmasın diye ignoreErrors'ta.
+- ⏳ Access log (kimin ne zaman giriş yaptığı — UserSession.lastActiveAt'te kısmi var, daha detaylı access log ek)
+- ⏳ Suspicious activity detection (rate anomaly, başka geo'dan login, vs.)
 
 ### A10 — SSRF
 - ✅ Wikipedia/OSM fetch'leri User-Agent ile identified
@@ -337,10 +340,12 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 ### KVKK Compliance
 - ✅ KVKK aydınlatma metni sayfası
 - ✅ Çerez politikası sayfası
-- ⏳ Kullanıcı kendi verisini indirme (JSON export)
-- ⏳ Kullanıcı kendi hesabını silme (soft delete + 30 gün sonra hard delete)
-- ⏳ Consent management (çerez banner)
-- ⏳ Veri işleme kayıt defteri (DPO için)
+- ✅ Kullanıcı kendi verisini indirme (JSON export — `/hesap/kvkk` EXPORT request, super admin queue ile 30 gün yasal süre)
+- ✅ Kullanıcı kendi hesabını silme (DELETE/CORRECT/RESTRICT request flow, anonimizasyon: bilet maskelenir, ad "Silinmiş Kullanıcı")
+- ✅ Consent management (Cookie Consent Banner — necessary/analytics/marketing 3 kategori, localStorage + ConsentLog DB)
+- ✅ Terms versions + ConsentLog (versiyonlanmış kullanım şartları, IP+UA+timestamp ile her onay kaydı)
+- ⏳ VERBİS resmi kayıt (KVKK Kurumu — şirket kurulunca, ücretsiz)
+- ⏳ DPO veri işleme kayıt defteri (manuel doc, post-launch)
 
 ---
 
@@ -774,15 +779,19 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [x] Google OAuth (passport-google-oauth20, auto user create/link)
 - [x] **Güvenlik denetimi** — WebSocket CORS lockdown, PNR PII redaction, Docker JWT_SECRET, MockAuthMiddleware silindi, payment/initialize JWT+server-side price, bcrypt 10→12, password min 8
 - [x] Helmet.js + CSP headers (prod'da CSP aktif, dev'de devre dışı)
-- [ ] 2FA (TOTP) admin + driver için
-- [ ] Session revocation (aktif device listesi + logout all)
-- [ ] Refresh token akışı
-- [ ] Sentry entegrasyonu (free tier 5k events/ay)
-- [ ] KVKK self-servis: veri indirme + hesap silme
-- [ ] Çerez consent banner
+- [x] 2FA (TOTP) admin için — otplib, QR kod, 6 hane verify, 10 backup code (bcrypt hashed)
+- [x] Session revocation (UserSession + SHA-256 hashed token, revoke one / revoke all except current, super admin force-logout)
+- [x] KVKK self-servis: veri indirme (JSON export) + hesap silme (anonimizasyon + 30 gün yasal süre uyarısı)
+- [x] Çerez consent banner (3 kategori: necessary/analytics/marketing, localStorage + ConsentLog DB)
+- [x] **Driver-ops audit fix paketi (2026-04-18):** deleteDocument tenantId scope, SOS @Throttle 3/5dk, lost-item auth zorunlu + 5/saat, settlement markSettled audit log, payment callback PAYMENT_SETTLEMENT_FAILED/PAYMENT_BOOKING_FAILED/PAYMENT_CALLBACK_ORPHAN
+- [x] **Repo public hazırlığı (2026-04-18):** uploads/dist/log/.claude tracking'den çıkarıldı + filter-repo ile tüm git history'den temizlendi (force push), kapsamlı .gitignore
+- [ ] Refresh token akışı (1gün → access 15dk + refresh 30g, JWT'yi httpOnly cookie'ye — XSS hardening)
+- [x] **Sentry entegrasyonu (2026-04-18)** — `@sentry/nestjs` (instrument.ts + AppModule SentryGlobalFilter) + `@sentry/nextjs` (client/server/edge config + withSentryConfig wrapper). DSN yokken no-op. PII redaction (token/password/cardNumber/cvv/iban/tcKimlik). Throttle/Validation hataları ignore. Free tier 5K event/ay. Source map upload SENTRY_AUTH_TOKEN ile opsiyonel.
+- [ ] 2FA driver için (admin yapıldı, opsiyonel)
 - [ ] Bot koruması — Cloudflare Turnstile (ücretsiz, reCAPTCHA alternatifi)
 - [ ] Untyped `@Body()` parametrelerini DTO'ya dönüştür (auth reset endpoints, ai, passenger-features, booking admin cancel)
-- [ ] File upload validation (ileride server-side upload açılırsa)
+- [ ] File upload validation polish (sharp re-encode + path traversal hardening)
+- [ ] Prod'da stack trace gizleme + debug mode off
 - [ ] VERBİS kayıt (KVKK Kurumu — ücretsiz, şirket kurulunca)
 
 ### Faz 5 — Operasyon Gücü
@@ -843,6 +852,12 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [ ] Affiliate programı
 
 ### Faz 6.5 — Büyüme & UX Geliştirmeleri (yeni eklendi)
+- [x] **Landing perf optimizasyonu (2026-04-18)** — yolcu ana sayfasında "kasma" şikayeti çözüldü:
+  - `app/page.tsx` async RSC'ye çevrildi → `getLandingData()` ile 3 endpoint (`/routes/public/stats`, `/routes/public/popular`, `/trips/public/cheap`) tek `Promise.all`'da paralel server-side fetch + 60sn ISR
+  - `LiveTicker` + `HeroBadge` aynı endpoint'i 2 kez çağırıyordu → ikisi de `initialStats` prop'u ile besleniyor (duplicate request kalktı)
+  - `PopularRoutes` + `CheapTrips` initial veriyi prop'tan alıyor, useEffect sadece fallback olarak duruyor
+  - HeroCarousel slide sayısı 18 → 8 (duplicate'ler ve en büyük JPG'ler `harabeler.jpg` 5MB, `halic.jpg` 3.4MB elendi)
+  - `npm run optimize:images` script'i eklendi (sharp ile public/ taraması, >1920px landscape image'ları 1920px max + quality 80'e re-encode, orijinaller `.originals/` yedekli)
 - [ ] **Kurumsal/B2B yolcu hesabı** — şirketler çalışanları için bilet alır (fatura + tek onay)
 - [x] **Bekleme listesi** — dolu seferlere kayıt → koltuk boşalınca ilk 5 kişiye otomatik e-posta; guest+auth; yolcu/admin panelleri; cancel flow'una fire-and-forget hook; 24sa re-notify limit
 - [ ] **Bilet devretme / hediye** — başkasına PNR transfer

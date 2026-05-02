@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-
 interface Stats {
   newRoutes30d?: number;
   newCities30d?: number;
@@ -9,16 +7,8 @@ interface Stats {
   upcomingTrips?: number;
 }
 
-export function HeroBadge() {
-  const [stats, setStats] = useState<Stats | null>(null);
-
-  useEffect(() => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    fetch(`${baseUrl}/routes/public/stats`, { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => data && setStats(data))
-      .catch(() => {});
-  }, []);
+export function HeroBadge({ initialStats }: { initialStats?: Stats | null }) {
+  const stats = initialStats ?? null;
 
   const newRoutes = stats?.newRoutes30d ?? 0;
   const newCities = stats?.newCities30d ?? 0;

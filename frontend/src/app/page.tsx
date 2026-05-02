@@ -12,8 +12,11 @@ import { DiscoverTurkey } from "@/components/landing/discover-turkey";
 import { HeroBadge } from "@/components/landing/hero-badge";
 import { AnnouncementBanner } from "@/components/announcement-banner";
 import { CookieConsent } from "@/components/cookie-consent";
+import { getLandingData } from "@/lib/landing-data";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const { stats, popularRoutes, cheapTrips } = await getLandingData();
+
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 overflow-hidden relative">
       <AnnouncementBanner audience="PASSENGERS" />
@@ -25,7 +28,7 @@ export default function LandingPage() {
         <HeroSpotlight />
 
         <div className="relative z-20 flex flex-col items-center w-full">
-          <HeroBadge />
+          <HeroBadge initialStats={stats} />
 
           <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-[1.05] max-w-4xl text-zinc-900 dark:text-white mb-6 drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)] dark:drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
             Türkiye'nin Her Yerine <br />
@@ -44,10 +47,10 @@ export default function LandingPage() {
       </section>
 
       {/* Sections */}
-      <LiveTicker />
-      <PopularRoutes />
+      <LiveTicker initialStats={stats} />
+      <PopularRoutes initialRoutes={popularRoutes} />
       <DiscoverTurkey />
-      <CheapTrips />
+      <CheapTrips initialTrips={cheapTrips} />
       <Features />
       <B2BCta />
 
