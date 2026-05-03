@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import api from '@/lib/api';
 
 interface User {
   id: string;
@@ -70,10 +71,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Initial load
+  // Initial load: localStorage'dan optimistic render → API'den freshen
+  // (localStorage'daki user objesi geçmiş bir bug ile bozulmuş olabilir;
+  //  /auth/refresh hem token rotation hem de güncel user verisini döner)
   useEffect(() => {
-    setUser(readStoredUser());
-    setLoading(false);
+    const stored = readStoredUser();
+    setUser(stored);
+
+    if (!stored) {
+      setLoading(false);
+      return;
+    }
+
+    // Cookie ile refresh → güncel access_token + güncel user
+    api.post('/auth/refresh')
+      .then((res) => {
+        if (res.data?.access_token) {
+          localStorage.setItem('token', res.data.access_token);
+        }
+        if (res.data?.user) {
+          localStorage.setItem('user', JSON.stringify(res.data.user));
+          setUser(res.data.user);
+        }
+      })
+      .catch(() => {
+        // Refresh başarısızsa stale user'la devam — sonraki 401'de api.ts interceptor handle eder
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   // Cross-tab sync: when another tab logs in/out, pick it up here
@@ -116,6 +140,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     const wasPassenger = user?.role === 'PASSENGER';
+    // Backend'e logout sinyali → refresh token revoke + cookie clear
+    // Fire-and-forget: ağ hatası UX'i bloklamasın
+    api.post('/auth/logout').catch(() => { /* zaten çıkıyoruz */ });
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);

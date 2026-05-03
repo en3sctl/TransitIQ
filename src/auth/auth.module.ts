@@ -11,6 +11,7 @@ import { PaymentModule } from '../payment/payment.module';
 import { PassengerFeaturesModule } from '../passenger-features/passenger-features.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { WaitingListModule } from '../waiting-list/waiting-list.module';
+import { SessionsService } from '../security/sessions.service';
 
 @Module({
   imports: [
@@ -20,7 +21,8 @@ import { WaitingListModule } from '../waiting-list/waiting-list.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.getOrThrow<string>('JWT_SECRET'),
-        signOptions: { expiresIn: config.get('JWT_EXPIRES_IN', '1d') },
+        // Geriye uyumluluk: JWT_EXPIRES_IN eski single-token davranışı; yeni access için 15dk varsayılan
+        signOptions: { expiresIn: config.get('JWT_ACCESS_EXPIRES_IN') || config.get('JWT_EXPIRES_IN', '15m') },
       }),
     }),
     forwardRef(() => PaymentModule),
@@ -28,7 +30,7 @@ import { WaitingListModule } from '../waiting-list/waiting-list.module';
     forwardRef(() => NotificationsModule),
     forwardRef(() => WaitingListModule),
   ],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, PrismaService],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, PrismaService, SessionsService],
   controllers: [AuthController],
   exports: [AuthService],
 })

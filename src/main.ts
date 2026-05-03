@@ -9,6 +9,7 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import * as cookieParser from 'cookie-parser';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
@@ -24,6 +25,9 @@ async function bootstrap() {
       crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
+
+  // ─── Cookie Parser (refresh token cookie için zorunlu) ───
+  app.use((cookieParser as any).default ? (cookieParser as any).default() : (cookieParser as any)());
 
   // ─── CORS ───
   const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3001')

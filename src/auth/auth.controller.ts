@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Patch, Body, Param, UseGuards, Request, Req, Ip, Res, Query } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
-import type { Response } from 'express';
+import type { Response, Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto, UpdateProfileDto, ChangePasswordDto } from './dto/customer-auth.dto';
@@ -15,6 +15,30 @@ function resolveClientIp(req: any): string {
   return req.ip || req.socket?.remoteAddress || '';
 }
 
+function resolveUserAgent(req: any): string {
+  return (req.headers?.['user-agent'] || '').toString().slice(0, 500);
+}
+
+const REFRESH_COOKIE_NAME = 'tiq_rt';
+
+/**
+ * Refresh token cookie ayarları:
+ * - httpOnly: JS erişemez (XSS hardening)
+ * - secure: HTTPS-only (prod)
+ * - sameSite: 'lax' — same-origin POST'larda gönderilir, third-party'den gönderilmez (CSRF hardening)
+ * - path: '/auth' — sadece auth endpoint'lerine gönderilir (genel istek trafiğine bulaşmaz)
+ * - maxAge: 30 gün
+ */
+function refreshCookieOptions(prod: boolean) {
+  return {
+    httpOnly: true,
+    secure: prod,
+    sameSite: 'lax' as const,
+    path: '/auth',
+    maxAge: 30 * 24 * 3600 * 1000,
+  };
+}
+
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
@@ -25,18 +49,44 @@ export class AuthController {
 
   // ─── B2B (Company Admin) ───
 
+  /**
+   * Refresh token'ı response body'den çıkarıp httpOnly cookie'ye yazar.
+   * Body'de `access_token` + `user` döndürülür (eski client uyumlu).
+   */
+  private writeRefreshCookie(res: Response, refreshToken: string) {
+    const prod = this.config.get<string>('NODE_ENV') === 'production';
+    res.cookie(REFRESH_COOKIE_NAME, refreshToken, refreshCookieOptions(prod));
+  }
+
+  private clearRefreshCookie(res: Response) {
+    const prod = this.config.get<string>('NODE_ENV') === 'production';
+    res.clearCookie(REFRESH_COOKIE_NAME, { ...refreshCookieOptions(prod), maxAge: 0 });
+  }
+
   @Post('register')
   @Throttle({ short: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Register a new company and admin user' })
-  async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+  async register(
+    @Body() registerDto: RegisterDto,
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.register(registerDto, resolveClientIp(req), resolveUserAgent(req));
+    this.writeRefreshCookie(res, result.refresh_token);
+    return { access_token: result.access_token, user: result.user };
   }
 
   @Post('login')
   @Throttle({ short: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Login with company credentials' })
-  async login(@Body() loginDto: LoginDto, @Req() req: any) {
-    return this.authService.login(loginDto, resolveClientIp(req));
+  async login(
+    @Body() loginDto: LoginDto,
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(loginDto, resolveClientIp(req), resolveUserAgent(req));
+    this.writeRefreshCookie(res, result.refresh_token);
+    return { access_token: result.access_token, user: result.user };
   }
 
   // ─── B2C (Passenger / Customer) ───
@@ -44,15 +94,56 @@ export class AuthController {
   @Post('customer/register')
   @Throttle({ short: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Register a new passenger account' })
-  async customerRegister(@Body() dto: CustomerRegisterDto) {
-    return this.authService.customerRegister(dto);
+  async customerRegister(
+    @Body() dto: CustomerRegisterDto,
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.customerRegister(dto, resolveClientIp(req), resolveUserAgent(req));
+    this.writeRefreshCookie(res, result.refresh_token);
+    return { access_token: result.access_token, user: result.user };
   }
 
   @Post('customer/login')
   @Throttle({ short: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Login as a passenger' })
-  async customerLogin(@Body() dto: CustomerLoginDto, @Req() req: any) {
-    return this.authService.customerLogin(dto, resolveClientIp(req));
+  async customerLogin(
+    @Body() dto: CustomerLoginDto,
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.customerLogin(dto, resolveClientIp(req), resolveUserAgent(req));
+    this.writeRefreshCookie(res, result.refresh_token);
+    return { access_token: result.access_token, user: result.user };
+  }
+
+  // ─── Refresh + Logout ───
+
+  @Post('refresh')
+  @SkipThrottle() // sık çağrılır (her access expire'da), throttle UX'i bozar
+  @ApiOperation({ summary: 'Rotate refresh token, return fresh access token' })
+  async refresh(
+    @Req() req: ExpressRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const cookies = (req as any).cookies || {};
+    const refreshToken = cookies[REFRESH_COOKIE_NAME];
+    const result = await this.authService.refreshTokens(refreshToken, {
+      ip: resolveClientIp(req),
+      ua: resolveUserAgent(req),
+    });
+    this.writeRefreshCookie(res, result.refresh_token);
+    return { access_token: result.access_token, user: result.user };
+  }
+
+  @Post('logout')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Revoke refresh token + clear cookie' })
+  async logout(@Req() req: ExpressRequest, @Res({ passthrough: true }) res: Response) {
+    const cookies = (req as any).cookies || {};
+    await this.authService.logout(cookies[REFRESH_COOKIE_NAME]);
+    this.clearRefreshCookie(res);
+    return { ok: true };
   }
 
   // ─── Google OAuth ───
@@ -84,7 +175,14 @@ export class AuthController {
         }
       }
 
-      const result = await this.authService.loginWithGoogle(req.user, referralCode);
+      const result = await this.authService.loginWithGoogle(
+        req.user,
+        referralCode,
+        resolveClientIp(req),
+        resolveUserAgent(req),
+      );
+      // Refresh token redirect ile birlikte set-cookie olarak browser'a düşer (URL'de görünmez)
+      this.writeRefreshCookie(res, result.refresh_token);
       const payload = Buffer.from(JSON.stringify({ token: result.access_token, user: result.user })).toString('base64url');
       return res.redirect(`${frontend}/google-callback#d=${payload}`);
     } catch (e: any) {

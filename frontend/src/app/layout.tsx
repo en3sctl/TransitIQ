@@ -3,7 +3,8 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
+  // latin-ext: Türkçe karakterler (Ç, Ğ, İ, Ö, Ş, Ü) için zorunlu — yoksa fallback font'a düşer ve avatar/başlıklarda bozuk render olur
+  subsets: ["latin", "latin-ext"],
   variable: "--font-jakarta",
 });
 

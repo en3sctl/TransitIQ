@@ -11,6 +11,7 @@ import { PaymentService } from '../payment/payment.service';
 import { WaitingListService } from '../waiting-list/waiting-list.service';
 import { ReferralService } from '../passenger-features/referral.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SessionsService } from '../security/sessions.service';
 
 const PUBLIC_TENANT_SLUG = 'public-passengers';
 
@@ -61,6 +62,7 @@ export class AuthService {
     private notifications: NotificationsService,
     @Inject(forwardRef(() => WaitingListService))
     private waitingList: WaitingListService,
+    private sessions: SessionsService,
   ) {}
 
   private getFrontendUrl(): string {
@@ -114,7 +116,7 @@ export class AuthService {
     return tenant;
   }
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, ip = '', ua = '') {
     // Check if company domain or email already exists
     const existingTenant = await (this.prisma as any).tenant.findUnique({
       where: { domain: dto.companyDomain },
@@ -154,10 +156,10 @@ export class AuthService {
     });
 
     const user = tenant.users[0];
-    return this.generateToken(user);
+    return this.generateTokenPair(user, { ip, ua });
   }
 
-  async login(dto: LoginDto, ip = '') {
+  async login(dto: LoginDto, ip = '', ua = '') {
     this.assertNotBlocked(ip, dto.email);
 
     const user = await (this.prisma as any).user.findFirst({
@@ -177,11 +179,11 @@ export class AuthService {
     }
 
     this.clearLoginAttempts(ip, dto.email);
-    return this.generateToken(user);
+    return this.generateTokenPair(user, { ip, ua });
   }
 
   // ─── B2C: Customer Registration ───
-  async customerRegister(dto: CustomerRegisterDto) {
+  async customerRegister(dto: CustomerRegisterDto, ip = '', ua = '') {
     const publicTenant = await this.getOrCreatePublicTenant();
 
     const existingUser = await (this.prisma as any).user.findFirst({
@@ -221,11 +223,11 @@ export class AuthService {
       //
     }
 
-    return this.generateToken(user);
+    return this.generateTokenPair(user, { ip, ua });
   }
 
   // ─── B2C: Customer Login ───
-  async customerLogin(dto: CustomerLoginDto, ip = '') {
+  async customerLogin(dto: CustomerLoginDto, ip = '', ua = '') {
     this.assertNotBlocked(ip, dto.email);
 
     const publicTenant = await this.getOrCreatePublicTenant();
@@ -251,7 +253,7 @@ export class AuthService {
     }
 
     this.clearLoginAttempts(ip, dto.email);
-    return this.generateToken(user);
+    return this.generateTokenPair(user, { ip, ua });
   }
 
   // ─── Password Reset (request) ───
@@ -662,7 +664,7 @@ export class AuthService {
   }
 
   // ─── B2C: Google OAuth login / signup ───
-  async loginWithGoogle(profile: { googleId: string; email: string; name: string; avatarUrl: string | null }, referralCode?: string) {
+  async loginWithGoogle(profile: { googleId: string; email: string; name: string; avatarUrl: string | null }, referralCode?: string, ip = '', ua = '') {
     const publicTenant = await this.getOrCreatePublicTenant();
     const email = profile.email.toLowerCase();
 
@@ -723,25 +725,94 @@ export class AuthService {
       }
     }
 
-    return this.generateToken(user);
+    return this.generateTokenPair(user, { ip, ua });
   }
 
-  private generateToken(user: any) {
-    const payload = { 
-      sub: user.id, 
-      email: user.email, 
+  /**
+   * Yeni token akışı (2026-04-18):
+   *  - access_token: kısa ömürlü JWT (15dk varsayılan, JWT_ACCESS_EXPIRES_IN ile değişir)
+   *  - refresh_token: 32-byte hex random, UserSession'a SHA-256 hash'lenmiş kayıtlı (30g)
+   *
+   * Controller refresh_token'ı response body'den alıp httpOnly cookie'ye yazar.
+   * Eski client'lar `access_token` field'ını kullanabilmeye devam eder (geriye uyumlu).
+   */
+  private async generateTokenPair(
+    user: any,
+    meta: { ip?: string; ua?: string } = {},
+  ) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
       tenantId: user.tenantId,
-      role: user.role 
+      role: user.role,
     };
+    const access_token = this.jwtService.sign(payload);
+
+    const refresh_token = crypto.randomBytes(32).toString('hex');
+    const refreshTtlDays = parseInt(this.config.get('JWT_REFRESH_EXPIRES_DAYS') || '30', 10);
+    await this.sessions.register(user.id, refresh_token, {
+      userAgent: meta.ua,
+      ipAddress: meta.ip,
+      ttlHours: refreshTtlDays * 24,
+    });
+
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token,
+      refresh_token,
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
         role: user.role,
         tenantId: user.tenantId,
-      }
+      },
     };
+  }
+
+  /**
+   * Refresh akışı: cookie'den gelen ham refresh token'ı doğrular,
+   * eski session'ı revoke eder (rotation), yeni access+refresh döner.
+   * Token rotation = çalınmış token tespiti için en iyi uygulama.
+   */
+  async refreshTokens(rawRefreshToken: string, meta: { ip?: string; ua?: string } = {}) {
+    if (!rawRefreshToken || typeof rawRefreshToken !== 'string') {
+      throw new UnauthorizedException('Geçersiz oturum');
+    }
+    const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+    const session = await this.prisma.userSession.findUnique({
+      where: { tokenHash },
+      include: {
+        user: {
+          select: { id: true, email: true, name: true, role: true, tenantId: true, deletedAt: true, suspendedAt: true },
+        },
+      },
+    });
+    if (!session || session.revokedAt || session.expiresAt < new Date()) {
+      throw new UnauthorizedException('Oturum süresi doldu — yeniden giriş yap');
+    }
+    if (!session.user || session.user.deletedAt) {
+      throw new UnauthorizedException('Hesap kapatıldı');
+    }
+    if (session.user.suspendedAt) {
+      throw new UnauthorizedException('Hesap askıya alındı');
+    }
+
+    // Rotate: eski session'ı revoke et, yenisini oluştur
+    await this.prisma.userSession.update({
+      where: { id: session.id },
+      data: { revokedAt: new Date() },
+    });
+
+    return this.generateTokenPair(session.user, meta);
+  }
+
+  /** Logout: refresh token'a karşılık gelen UserSession'ı revoke eder. */
+  async logout(rawRefreshToken: string | undefined): Promise<void> {
+    if (!rawRefreshToken) return;
+    const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+    await this.prisma.userSession.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 }

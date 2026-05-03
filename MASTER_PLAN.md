@@ -319,8 +319,9 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 - ✅ Session revocation — UserSession model, SHA-256 hashed token, revoke one / revoke all (Phase 3 mega sprint)
 - ✅ Brute-force koruması (5 deneme/15dk in-memory tracker)
 - ✅ Google OAuth (passport-google-oauth20, auto user create/link)
+- ✅ **Refresh token akışı (2026-04-18)** — access 15dk + refresh 30g, refresh token httpOnly secure cookie ('tiq_rt'), token rotation, /auth/refresh + /auth/logout endpoint'leri, axios interceptor 401 → refresh → retry
 - ⏳ 2FA driver için (admin yapıldı, driver opsiyonel)
-- ⏳ Refresh token akışı (1gün → access 15dk + refresh 30g, JWT'yi httpOnly cookie'ye taşı — XSS hardening)
+- ⏳ JWT'yi tamamen httpOnly cookie'ye taşı (access token şu an localStorage'da — büyük refactor, mobile flow ile aynı anda yapılacak)
 
 ### A08 — Software & Data Integrity
 - ✅ Prisma migrations versiyon kontrollü
@@ -777,6 +778,7 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [x] Email doğrulama kayıtta
 - [x] Login brute-force koruması (in-memory tracker, 5 deneme/15dk)
 - [x] Google OAuth (passport-google-oauth20, auto user create/link)
+- [ ] **Apple Sign In — ERTELENDİ (domain alındığında)** — User'ın Apple Developer Programı var ama domain yok. Apple Service ID public HTTPS domain ZORUNLU kılıyor (localhost kabul etmiyor). **Yapılacak:** domain alındığında (Faz 5 mobile pre-launch) → Apple Developer'da Service ID + Key (.p8) oluştur → passport-apple ile `/auth/apple` + `/auth/apple/callback` endpoint'leri (Google pattern'inin aynısı) → frontend "Apple ile devam et" butonu. Tahmini iş: 30 dk implementation + Apple console setup. iOS App Store yayınında zorunlu.
 - [x] **Güvenlik denetimi** — WebSocket CORS lockdown, PNR PII redaction, Docker JWT_SECRET, MockAuthMiddleware silindi, payment/initialize JWT+server-side price, bcrypt 10→12, password min 8
 - [x] Helmet.js + CSP headers (prod'da CSP aktif, dev'de devre dışı)
 - [x] 2FA (TOTP) admin için — otplib, QR kod, 6 hane verify, 10 backup code (bcrypt hashed)
@@ -785,7 +787,7 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [x] Çerez consent banner (3 kategori: necessary/analytics/marketing, localStorage + ConsentLog DB)
 - [x] **Driver-ops audit fix paketi (2026-04-18):** deleteDocument tenantId scope, SOS @Throttle 3/5dk, lost-item auth zorunlu + 5/saat, settlement markSettled audit log, payment callback PAYMENT_SETTLEMENT_FAILED/PAYMENT_BOOKING_FAILED/PAYMENT_CALLBACK_ORPHAN
 - [x] **Repo public hazırlığı (2026-04-18):** uploads/dist/log/.claude tracking'den çıkarıldı + filter-repo ile tüm git history'den temizlendi (force push), kapsamlı .gitignore
-- [ ] Refresh token akışı (1gün → access 15dk + refresh 30g, JWT'yi httpOnly cookie'ye — XSS hardening)
+- [x] **Refresh token akışı (2026-04-18)** — Access (15dk JWT, header) + refresh (30g hex random, httpOnly secure SameSite=lax cookie 'tiq_rt' path=/auth). UserSession SHA-256 hash'lenmiş kayıt. `/auth/refresh` endpoint token rotation yapar (eski revoke + yeni üret). `/auth/logout` cookie clear + DB revoke. Frontend axios interceptor: 401 → tek bir paylaşılan refresh promise → retry. Concurrent 401 fırtınası tek refresh'e düşer. Google OAuth callback'i de cookie set ediyor.
 - [x] **Sentry entegrasyonu (2026-04-18)** — `@sentry/nestjs` (instrument.ts + AppModule SentryGlobalFilter) + `@sentry/nextjs` (client/server/edge config + withSentryConfig wrapper). DSN yokken no-op. PII redaction (token/password/cardNumber/cvv/iban/tcKimlik). Throttle/Validation hataları ignore. Free tier 5K event/ay. Source map upload SENTRY_AUTH_TOKEN ile opsiyonel.
 - [ ] 2FA driver için (admin yapıldı, opsiyonel)
 - [ ] Bot koruması — Cloudflare Turnstile (ücretsiz, reCAPTCHA alternatifi)

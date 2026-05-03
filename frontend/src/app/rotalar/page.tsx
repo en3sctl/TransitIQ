@@ -84,7 +84,7 @@ export default function RoutesListingPage() {
             <span className="text-indigo-600 dark:text-indigo-400">otobüs biletin</span>
           </h1>
           <p className="text-lg text-slate-600 dark:text-zinc-400 font-medium max-w-2xl">
-            {filtered.length > 0 ? `Uygun fiyat ₺${minPrice}&apos;den başlıyor. ` : ''}
+            {filtered.length > 0 ? `Uygun fiyat ₺${minPrice}'den başlıyor. ` : ''}
             İstediğin şehri bul, yola çık.
           </p>
 
