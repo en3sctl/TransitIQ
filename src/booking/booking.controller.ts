@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Query, Param, Request, Headers, UseGuards, Inject, forwardRef } from '@nestjs/common';
 import { BookingService } from './booking.service';
-import { SearchTripsDto, CreateReservationDto, LockSeatsDto } from './dto/booking.dto';
+import { SearchTripsDto, CreateReservationDto, LockSeatsDto, CancelBookingDto } from './dto/booking.dto';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Throttle } from '@nestjs/throttler';
@@ -154,16 +154,16 @@ export class BookingController {
   async cancelAdmin(
     @Request() req: any,
     @Param('id') id: string,
-    @Body() body: { refund?: boolean },
+    @Body() dto: CancelBookingDto,
   ) {
     const tenantId = req.user.tenantId;
     const result = await this.bookingService.cancelBooking(tenantId, id, {
-      refund: body.refund,
+      refund: dto.refund,
       actorId: req.user.id,
     });
 
     // If admin requested refund AND we have a transactionId, call Iyzico
-    if (body.refund && result.paymentTransactionId) {
+    if (dto.refund && result.paymentTransactionId) {
       const refund = await this.paymentService.refundPayment(
         result.paymentTransactionId,
         result.pricePaid,

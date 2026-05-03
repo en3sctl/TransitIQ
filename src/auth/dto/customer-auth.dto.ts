@@ -26,6 +26,10 @@ export class CustomerRegisterDto {
   @IsOptional()
   @IsString()
   referralCode?: string;
+
+  @IsOptional()
+  @IsString()
+  turnstileToken?: string;
 }
 
 export class CustomerLoginDto {
@@ -36,6 +40,10 @@ export class CustomerLoginDto {
   @IsString()
   @IsNotEmpty({ message: 'Şifre gereklidir' })
   password: string;
+
+  @IsOptional()
+  @IsString()
+  turnstileToken?: string;
 }
 
 export class GuestTicketLookupDto {

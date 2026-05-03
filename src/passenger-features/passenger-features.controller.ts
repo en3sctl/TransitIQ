@@ -7,6 +7,7 @@ import { PriceAlertService } from './price-alert.service';
 import { PriceHistoryService } from './price-history.service';
 import { BadgesService } from './badges.service';
 import { CarbonService } from '../shared/carbon/carbon.service';
+import { ApplyReferralDto, CreatePriceAlertDto } from './dto/passenger-features.dto';
 
 @ApiTags('Passenger Features')
 @Controller()
@@ -54,8 +55,8 @@ export class PassengerFeaturesController {
   @Post('referral/apply')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  async applyReferral(@Request() req: any, @Body() body: { code: string }) {
-    await this.referral.attachReferrer(req.user.id, body.code);
+  async applyReferral(@Request() req: any, @Body() dto: ApplyReferralDto) {
+    await this.referral.attachReferrer(req.user.id, dto.code);
     return { ok: true };
   }
 
@@ -65,9 +66,9 @@ export class PassengerFeaturesController {
   @ApiBearerAuth()
   async createAlert(
     @Request() req: any,
-    @Body() body: { originCity: string; destinationCity: string; maxPrice: number; notifyEmail?: boolean; notifySms?: boolean },
+    @Body() dto: CreatePriceAlertDto,
   ) {
-    return this.priceAlert.create(req.user.id, body);
+    return this.priceAlert.create(req.user.id, dto);
   }
 
   @Get('price-alerts')

@@ -12,6 +12,7 @@ import { PassengerFeaturesModule } from '../passenger-features/passenger-feature
 import { NotificationsModule } from '../notifications/notifications.module';
 import { WaitingListModule } from '../waiting-list/waiting-list.module';
 import { SessionsService } from '../security/sessions.service';
+import { TurnstileService } from './turnstile.service';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { SessionsService } from '../security/sessions.service';
     forwardRef(() => NotificationsModule),
     forwardRef(() => WaitingListModule),
   ],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, PrismaService, SessionsService],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, PrismaService, SessionsService, TurnstileService],
   controllers: [AuthController],
   exports: [AuthService],
 })

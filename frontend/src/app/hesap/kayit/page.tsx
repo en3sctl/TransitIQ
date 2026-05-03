@@ -10,6 +10,7 @@ import { Loader2, ChevronRight, Eye, EyeOff, Sparkles, CheckCircle2, Ticket, Shi
 import { motion, AnimatePresence } from "framer-motion";
 import { GoogleAuthButton } from "@/components/google-auth-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 export default function CustomerRegisterPage() {
   const { login } = useAuth();
@@ -25,6 +26,7 @@ export default function CustomerRegisterPage() {
     password: "",
     referralCode: "",
   });
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   // Auto-fill referral code from ?ref= URL param
   useEffect(() => {
@@ -74,6 +76,7 @@ export default function CustomerRegisterPage() {
 
       const cleanRef = formData.referralCode.trim().toUpperCase();
       if (cleanRef) payload.referralCode = cleanRef;
+      if (turnstileToken) payload.turnstileToken = turnstileToken;
 
       const res = await api.post("/auth/customer/register", payload);
       // Auto-login after successful registration
@@ -306,6 +309,8 @@ export default function CustomerRegisterPage() {
                     <Sparkles size={12} /> Kayıt olunca ikinize de 50₺ kredi
                   </p>
                 )}
+
+                <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
 
                 <button
                   type="submit"

@@ -3,7 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import type { Response, Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { TurnstileService } from './turnstile.service';
+import { LoginDto, RegisterDto, PasswordResetRequestDto, PasswordResetConfirmDto, EmailVerifyConfirmDto } from './dto/auth.dto';
 import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto, UpdateProfileDto, ChangePasswordDto } from './dto/customer-auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { GoogleAuthGuard } from './google-auth.guard';
@@ -45,6 +46,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly config: ConfigService,
+    private readonly turnstile: TurnstileService,
   ) {}
 
   // ─── B2B (Company Admin) ───
@@ -71,6 +73,7 @@ export class AuthController {
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,
   ) {
+    await this.turnstile.verify(registerDto.turnstileToken, resolveClientIp(req));
     const result = await this.authService.register(registerDto, resolveClientIp(req), resolveUserAgent(req));
     this.writeRefreshCookie(res, result.refresh_token);
     return { access_token: result.access_token, user: result.user };
@@ -84,6 +87,7 @@ export class AuthController {
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,
   ) {
+    await this.turnstile.verify(loginDto.turnstileToken, resolveClientIp(req));
     const result = await this.authService.login(loginDto, resolveClientIp(req), resolveUserAgent(req));
     this.writeRefreshCookie(res, result.refresh_token);
     return { access_token: result.access_token, user: result.user };
@@ -99,6 +103,7 @@ export class AuthController {
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,
   ) {
+    await this.turnstile.verify(dto.turnstileToken, resolveClientIp(req));
     const result = await this.authService.customerRegister(dto, resolveClientIp(req), resolveUserAgent(req));
     this.writeRefreshCookie(res, result.refresh_token);
     return { access_token: result.access_token, user: result.user };
@@ -112,6 +117,7 @@ export class AuthController {
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,
   ) {
+    await this.turnstile.verify(dto.turnstileToken, resolveClientIp(req));
     const result = await this.authService.customerLogin(dto, resolveClientIp(req), resolveUserAgent(req));
     this.writeRefreshCookie(res, result.refresh_token);
     return { access_token: result.access_token, user: result.user };
@@ -196,15 +202,15 @@ export class AuthController {
   @Post('password-reset/request')
   @Throttle({ short: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Request a password reset email' })
-  async requestPasswordReset(@Body() body: { email: string }) {
-    return this.authService.requestPasswordReset(body?.email || '');
+  async requestPasswordReset(@Body() dto: PasswordResetRequestDto) {
+    return this.authService.requestPasswordReset(dto.email);
   }
 
   @Post('password-reset/confirm')
   @Throttle({ short: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Confirm password reset with token' })
-  async confirmPasswordReset(@Body() body: { token: string; newPassword: string }) {
-    return this.authService.confirmPasswordReset(body?.token || '', body?.newPassword || '');
+  async confirmPasswordReset(@Body() dto: PasswordResetConfirmDto) {
+    return this.authService.confirmPasswordReset(dto.token, dto.newPassword);
   }
 
   // ─── Email Verification ───
@@ -219,8 +225,8 @@ export class AuthController {
 
   @Post('verify-email/confirm')
   @Throttle({ short: { limit: 5, ttl: 60000 } })
-  async confirmEmailVerification(@Body() body: { token: string }) {
-    return this.authService.confirmEmailVerification(body?.token || '');
+  async confirmEmailVerification(@Body() dto: EmailVerifyConfirmDto) {
+    return this.authService.confirmEmailVerification(dto.token);
   }
 
   @Post('customer/lookup')

@@ -7,6 +7,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { Loader2, ChevronRight, Eye, EyeOff, Sparkles, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
@@ -20,6 +21,7 @@ export default function RegisterPage() {
     companyName: "",
     companyDomain: ""
   });
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const [passwordStrength, setPasswordStrength] = useState(0);
 
@@ -54,7 +56,8 @@ export default function RegisterPage() {
       await api.post("/auth/register", {
         ...formData,
         email: formData.email.toLowerCase(),
-        companyDomain: formData.companyDomain.toLowerCase()
+        companyDomain: formData.companyDomain.toLowerCase(),
+        turnstileToken: turnstileToken || undefined,
       });
       setIsSuccess(true);
       setError(null);
@@ -280,7 +283,9 @@ export default function RegisterPage() {
                     )}
                   </div>
 
-                  <button 
+                  <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+
+                  <button
                     type="submit"
                     disabled={loading}
                     className="w-full h-16 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 hover:bg-black dark:hover:bg-white text-white font-black text-lg py-4 px-8 rounded-[24px] shadow-2xl shadow-zinc-300 dark:shadow-none transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-3 group border border-zinc-900 dark:border-white mt-4"

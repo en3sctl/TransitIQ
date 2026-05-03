@@ -3,6 +3,7 @@ import { AiService } from './ai.service';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Throttle } from '@nestjs/throttler';
+import { ChatDto, SuggestPriceDto } from './dto/ai.dto';
 
 @ApiTags('AI Features')
 @Controller('ai')
@@ -12,8 +13,8 @@ export class AiController {
   /** Public chatbot for passenger-facing assistant widget. */
   @Post('chat')
   @Throttle({ default: { limit: 20, ttl: 60000 } })
-  async chat(@Body() body: { message: string }) {
-    return this.aiService.chat(body?.message || '');
+  async chat(@Body() dto: ChatDto) {
+    return this.aiService.chat(dto.message);
   }
 
   @Post('suggest-price')
@@ -21,10 +22,10 @@ export class AiController {
   @ApiBearerAuth()
   async suggestPrice(
     @Request() req: any,
-    @Body() body: { routeId: string; vehicleId: string },
+    @Body() dto: SuggestPriceDto,
   ) {
     const tenantId = req.user.tenantId;
-    return this.aiService.suggestTicketPrice(tenantId, body.routeId, body.vehicleId);
+    return this.aiService.suggestTicketPrice(tenantId, dto.routeId, dto.vehicleId);
   }
 
   @Get('optimize-route')

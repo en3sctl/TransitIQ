@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsDateString, IsUUID, IsArray, ArrayMinSize, ArrayMaxSize, ValidateNested, IsEmail, Matches, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsDateString, IsUUID, IsArray, ArrayMinSize, ArrayMaxSize, ValidateNested, IsEmail, Matches, IsOptional, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class SearchTripsDto {
@@ -70,4 +70,10 @@ export class LockSeatsDto {
   @ArrayMaxSize(5)
   @IsUUID('4', { each: true })
   seatIds: string[];
+}
+
+export class CancelBookingDto {
+  @IsOptional()
+  @IsBoolean()
+  refund?: boolean;
 }

@@ -9,6 +9,7 @@ import { Loader2, LogIn, ChevronRight, Eye, EyeOff, Sparkles, Ticket, ShieldChec
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GoogleAuthButton } from "@/components/google-auth-button";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 export default function CustomerLoginPage() {
   const { login } = useAuth();
@@ -16,6 +17,7 @@ export default function CustomerLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({ email: "", password: "" });
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +27,7 @@ export default function CustomerLoginPage() {
       const res = await api.post("/auth/customer/login", {
         email: formData.email.toLowerCase(),
         password: formData.password,
+        turnstileToken: turnstileToken || undefined,
       });
       login(res.data.access_token, res.data.user, '/hesap/biletlerim');
     } catch (err: any) {
@@ -165,6 +168,8 @@ export default function CustomerLoginPage() {
                     Şifremi unuttum?
                   </Link>
                 </div>
+
+                <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
 
                 <button
                   type="submit"

@@ -8,6 +8,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { Loader2, LogIn, ChevronRight, Eye, EyeOff, Sparkles, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -20,17 +21,19 @@ export default function LoginPage() {
     email: "",
     password: "",
   });
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setError(null);
-    
+
     try {
       const res = await api.post("/auth/login", {
         ...formData,
-        email: formData.email.toLowerCase()
+        email: formData.email.toLowerCase(),
+        turnstileToken: turnstileToken || undefined,
       });
       
       setIsSuccess(true);
@@ -190,7 +193,9 @@ export default function LoginPage() {
                     </Link>
                   </div>
 
-                  <button 
+                  <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+
+                  <button
                     type="submit"
                     disabled={loading}
                     className="w-full h-16 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 hover:bg-black dark:hover:bg-white text-white font-black text-lg py-4 px-8 rounded-[24px] shadow-2xl shadow-zinc-300 dark:shadow-none transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-3 group border border-zinc-900 dark:border-white"

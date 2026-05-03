@@ -298,6 +298,7 @@ Her özellik için: ✅ tamamlandı · 🟡 kısmen · ⏳ planlı · ❌ henüz
 - ✅ Audit log (denetim izi)
 - ✅ Brute force login koruması — max 5 başarısız/15dk/IP (in-memory tracker)
 - ✅ **Spam-sensitive endpoint throttle (2026-04-18):** SOS `3/5dk`, lost-item `5/saat`, driver-wallet `30/dk`, payment/initialize `3/10sn`
+- ✅ **Bot koruması — Cloudflare Turnstile (2026-04-18):** 4 auth endpoint (login/register + customer-login/customer-register) + frontend widget. No-op fallback dev için. Free tier 1M/ay.
 - ⏳ Rate limit genel polish — tüm endpoint'lerde değil (default seviyede)
 
 ### A05 — Security Misconfiguration
@@ -790,8 +791,8 @@ WebSocket koltuklar, canlı sefer takibi, aktarmalı, grup koltuk, AI chatbot, r
 - [x] **Refresh token akışı (2026-04-18)** — Access (15dk JWT, header) + refresh (30g hex random, httpOnly secure SameSite=lax cookie 'tiq_rt' path=/auth). UserSession SHA-256 hash'lenmiş kayıt. `/auth/refresh` endpoint token rotation yapar (eski revoke + yeni üret). `/auth/logout` cookie clear + DB revoke. Frontend axios interceptor: 401 → tek bir paylaşılan refresh promise → retry. Concurrent 401 fırtınası tek refresh'e düşer. Google OAuth callback'i de cookie set ediyor.
 - [x] **Sentry entegrasyonu (2026-04-18)** — `@sentry/nestjs` (instrument.ts + AppModule SentryGlobalFilter) + `@sentry/nextjs` (client/server/edge config + withSentryConfig wrapper). DSN yokken no-op. PII redaction (token/password/cardNumber/cvv/iban/tcKimlik). Throttle/Validation hataları ignore. Free tier 5K event/ay. Source map upload SENTRY_AUTH_TOKEN ile opsiyonel.
 - [ ] 2FA driver için (admin yapıldı, opsiyonel)
-- [ ] Bot koruması — Cloudflare Turnstile (ücretsiz, reCAPTCHA alternatifi)
-- [ ] Untyped `@Body()` parametrelerini DTO'ya dönüştür (auth reset endpoints, ai, passenger-features, booking admin cancel)
+- [x] **Bot koruması — Cloudflare Turnstile (2026-04-18)** — `TurnstileService` siteverify entegrasyonu, 4 auth endpoint'inde verify (login/register + customer-login/customer-register), DTO'lara `turnstileToken?` opsiyonel alan, frontend `@marsidev/react-turnstile` widget component (theme-aware, interaction-only mode, en az UX gürültüsü). Anahtarlar yokken **no-op modda çalışır** (dev'de form'a takılmazsın). Free tier 1M doğrulama/ay. Cloudflare unreachable olursa fail-open (login'i kilitleme).
+- [x] **Untyped `@Body()` → DTO refactor — Faz 1 (2026-04-18)** — Public ve security-critical endpoint'lere validation: `PasswordResetRequestDto` (IsEmail), `PasswordResetConfirmDto` (token + minLength 8), `EmailVerifyConfirmDto`, `ChatDto` (max 2000 char), `SuggestPriceDto` (UUID validation), `ApplyReferralDto` (regex `[A-Z0-9]{4-20}`), `CreatePriceAlertDto` (price 1-10000 TL), `CancelBookingDto`. Diğer admin endpoint'leri (driver-ops/operations/commerce/devops/platform) zaten role-guard'lı, sonraki sprint'e bırakıldı.
 - [ ] File upload validation polish (sharp re-encode + path traversal hardening)
 - [ ] Prod'da stack trace gizleme + debug mode off
 - [ ] VERBİS kayıt (KVKK Kurumu — ücretsiz, şirket kurulunca)
