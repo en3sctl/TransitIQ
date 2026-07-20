@@ -27,6 +27,8 @@ export default withSentryConfig(nextConfig, {
 
   // Otomatik instrumentation
   widenClientFileUpload: true,
-  hideSourceMaps: true,
-  disableLogger: true,
+
+  // Source map'ler upload'dan sonra silinir — public olarak servis edilmezler.
+  // (Sentry v10'da `hideSourceMaps` kaldırıldı, karşılığı bu.)
+  sourcemaps: { deleteSourcemapsAfterUpload: true },
 });

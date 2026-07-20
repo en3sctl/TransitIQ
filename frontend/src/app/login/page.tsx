@@ -9,6 +9,7 @@ import { Loader2, LogIn, ChevronRight, Eye, EyeOff, Sparkles, CheckCircle2 } fro
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TurnstileWidget } from "@/components/turnstile-widget";
+import { TwoFactorChallenge } from "@/components/two-factor-challenge";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -22,6 +23,16 @@ export default function LoginPage() {
     password: "",
   });
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  // Turnstile token'ı tek kullanımlık — iptal sonrası widget'ı remount etmek için
+  const [turnstileNonce, setTurnstileNonce] = useState(0);
+  const [twoFactor, setTwoFactor] = useState<{ challengeToken: string; expiresInSec: number } | null>(null);
+
+  const resetToPasswordStep = () => {
+    setTwoFactor(null);
+    setFormData({ email: "", password: "" });
+    setTurnstileToken(null);
+    setTurnstileNonce((n) => n + 1);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,15 +46,25 @@ export default function LoginPage() {
         email: formData.email.toLowerCase(),
         turnstileToken: turnstileToken || undefined,
       });
-      
+
+      // Hesapta 2FA açıksa oturum henüz açılmadı — kod adımına geç
+      if (res.data?.requires2FA) {
+        setTwoFactor({
+          challengeToken: res.data.challengeToken,
+          expiresInSec: res.data.expiresInSec ?? 300,
+        });
+        setError(null);
+        return;
+      }
+
       setIsSuccess(true);
       setError(null);
-      
+
       // Delay to let user admire the success animation
       setTimeout(() => {
         login(res.data.access_token, res.data.user);
       }, 1000);
-      
+
     } catch (err: any) {
       const msg = err.response?.data?.message || "Giriş yapılamadı. Şifre veya e-posta yanlış.";
       setError(Array.isArray(msg) ? msg[0] : msg);
@@ -116,8 +137,19 @@ export default function LoginPage() {
       <div className="flex items-center justify-center p-8 lg:p-24 bg-zinc-50/30 dark:bg-zinc-900/10 h-full w-full">
         <div className="w-full max-w-[420px] space-y-10">
           <AnimatePresence mode="wait">
-            {!isSuccess ? (
-              <motion.div 
+            {twoFactor ? (
+              <TwoFactorChallenge
+                challengeToken={twoFactor.challengeToken}
+                expiresInSec={twoFactor.expiresInSec}
+                onVerified={(token, user) => {
+                  setTwoFactor(null);
+                  setIsSuccess(true);
+                  setTimeout(() => login(token, user), 1000);
+                }}
+                onCancel={resetToPasswordStep}
+              />
+            ) : !isSuccess ? (
+              <motion.div
                 key="login-form"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -193,7 +225,7 @@ export default function LoginPage() {
                     </Link>
                   </div>
 
-                  <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+                  <TurnstileWidget key={turnstileNonce} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
 
                   <button
                     type="submit"

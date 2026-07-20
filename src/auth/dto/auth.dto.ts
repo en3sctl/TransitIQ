@@ -48,6 +48,19 @@ export class RegisterDto {
   turnstileToken?: string;
 }
 
+/** Login'in ikinci adımı — parola doğrulandıktan sonra gelen 2FA kodu. */
+export class TwoFactorLoginDto {
+  @ApiProperty({ description: 'Parola adımından dönen kısa ömürlü challenge token' })
+  @IsString()
+  @IsNotEmpty({ message: 'Doğrulama oturumu bulunamadı — tekrar giriş yap' })
+  challengeToken: string;
+
+  @ApiProperty({ description: '6 haneli TOTP kodu veya 10 karakterlik yedek kod' })
+  @IsString()
+  @IsNotEmpty({ message: 'Doğrulama kodu gerekli' })
+  code: string;
+}
+
 // ─── Password Reset / Email Verification ───
 
 export class PasswordResetRequestDto {

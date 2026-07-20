@@ -80,7 +80,7 @@ export function NotificationBell({ onNavigate }: { onNavigate?: (tab: string) =>
   const [loading, setLoading] = useState(true);
   const [dismissed, setDismissed] = useState<Record<string, number>>({});
   const [collapsed, setCollapsed] = useState<Record<NotifCategory, boolean>>({
-    COMPLAINTS: false, VEHICLES: false, PAYMENTS: false, OTHER: false,
+    DRIVER_OPS: false, COMPLAINTS: false, VEHICLES: false, PAYMENTS: false, OTHER: false,
   });
   const dropdownRef = useRef<HTMLDivElement>(null);
 

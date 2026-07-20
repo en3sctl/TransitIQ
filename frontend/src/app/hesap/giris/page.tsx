@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import api from "@/lib/api";
 import Link from "next/link";
@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GoogleAuthButton } from "@/components/google-auth-button";
 import { TurnstileWidget } from "@/components/turnstile-widget";
+import { TwoFactorChallenge } from "@/components/two-factor-challenge";
 
 export default function CustomerLoginPage() {
   const { login } = useAuth();
@@ -18,6 +19,27 @@ export default function CustomerLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  // Turnstile token'ı tek kullanımlık — iptal sonrası widget'ı remount etmek için
+  const [turnstileNonce, setTurnstileNonce] = useState(0);
+  const [twoFactor, setTwoFactor] = useState<{ challengeToken: string; expiresInSec: number } | null>(null);
+
+  // Google ile giriş 2FA'ya takılırsa backend buraya ?challenge= ile yollar.
+  // useSearchParams yerine window kullanıyoruz — sayfa Suspense sınırı istemesin.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const challenge = params.get("challenge");
+    if (!challenge) return;
+    setTwoFactor({ challengeToken: challenge, expiresInSec: 300 });
+    // Token URL'de ve geçmişte kalmasın
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
+  const resetToPasswordStep = () => {
+    setTwoFactor(null);
+    setFormData({ email: "", password: "" });
+    setTurnstileToken(null);
+    setTurnstileNonce((n) => n + 1);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +51,16 @@ export default function CustomerLoginPage() {
         password: formData.password,
         turnstileToken: turnstileToken || undefined,
       });
+
+      // Hesapta 2FA açıksa oturum henüz açılmadı — kod adımına geç
+      if (res.data?.requires2FA) {
+        setTwoFactor({
+          challengeToken: res.data.challengeToken,
+          expiresInSec: res.data.expiresInSec ?? 300,
+        });
+        return;
+      }
+
       login(res.data.access_token, res.data.user, '/hesap/biletlerim');
     } catch (err: any) {
       const msg = err.response?.data?.message || "Giriş başarısız.";
@@ -103,6 +135,17 @@ export default function CustomerLoginPage() {
       <div className="flex items-center justify-center p-8 lg:p-24 bg-zinc-50/30 dark:bg-zinc-900/10 h-full overflow-y-auto">
         <div className="w-full max-w-[480px] space-y-10 py-12">
           <AnimatePresence mode="wait">
+            {twoFactor ? (
+              <TwoFactorChallenge
+                challengeToken={twoFactor.challengeToken}
+                expiresInSec={twoFactor.expiresInSec}
+                onVerified={(token, user) => {
+                  setTwoFactor(null);
+                  login(token, user, '/hesap/biletlerim');
+                }}
+                onCancel={resetToPasswordStep}
+              />
+            ) : (
             <motion.div
               key="customer-login-form"
               initial={{ opacity: 0, y: 10 }}
@@ -169,7 +212,7 @@ export default function CustomerLoginPage() {
                   </Link>
                 </div>
 
-                <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+                <TurnstileWidget key={turnstileNonce} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
 
                 <button
                   type="submit"
@@ -214,6 +257,7 @@ export default function CustomerLoginPage() {
                 </p>
               </div>
             </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </div>

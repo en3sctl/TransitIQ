@@ -12,8 +12,16 @@ import { WaitingListService } from '../waiting-list/waiting-list.service';
 import { ReferralService } from '../passenger-features/referral.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SessionsService } from '../security/sessions.service';
+import { TwoFactorService } from '../security/two-factor.service';
 
 const PUBLIC_TENANT_SLUG = 'public-passengers';
+
+/**
+ * 2FA challenge token TTL. Kısa tutulur — parola doğrulandı ama kimlik
+ * henüz tamamlanmadı; bu pencerede token çalınırsa saldırgan yalnızca
+ * kodu bilirse ilerleyebilir.
+ */
+const TWOFA_CHALLENGE_TTL_SEC = 5 * 60;
 
 /**
  * In-memory login attempt tracker.
@@ -63,6 +71,7 @@ export class AuthService {
     @Inject(forwardRef(() => WaitingListService))
     private waitingList: WaitingListService,
     private sessions: SessionsService,
+    private twoFactor: TwoFactorService,
   ) {}
 
   private getFrontendUrl(): string {
@@ -179,7 +188,7 @@ export class AuthService {
     }
 
     this.clearLoginAttempts(ip, dto.email);
-    return this.generateTokenPair(user, { ip, ua });
+    return this.completeLogin(user, { ip, ua });
   }
 
   // ─── B2C: Customer Registration ───
@@ -253,7 +262,7 @@ export class AuthService {
     }
 
     this.clearLoginAttempts(ip, dto.email);
-    return this.generateTokenPair(user, { ip, ua });
+    return this.completeLogin(user, { ip, ua });
   }
 
   // ─── Password Reset (request) ───
@@ -725,7 +734,7 @@ export class AuthService {
       }
     }
 
-    return this.generateTokenPair(user, { ip, ua });
+    return this.completeLogin(user, { ip, ua });
   }
 
   /**
@@ -736,6 +745,72 @@ export class AuthService {
    * Controller refresh_token'ı response body'den alıp httpOnly cookie'ye yazar.
    * Eski client'lar `access_token` field'ını kullanabilmeye devam eder (geriye uyumlu).
    */
+  /**
+   * Challenge token'ı erişim tokenından ayrı bir secret ile imzalarız.
+   * JwtStrategy yalnızca JWT_SECRET ile doğrular, dolayısıyla challenge
+   * token'ı Authorization header'ında kullanılamaz.
+   */
+  private twoFactorChallengeSecret(): string {
+    return `${this.config.getOrThrow<string>('JWT_SECRET')}::2fa-challenge`;
+  }
+
+  /**
+   * Parola doğrulandıktan sonraki son adım. Hesapta 2FA açıksa oturum
+   * açılmaz; yalnızca kod adımını yetkilendiren kısa ömürlü bir challenge
+   * döner. Kapalıysa normal token çifti üretilir.
+   */
+  private async completeLogin(user: any, meta: { ip?: string; ua?: string } = {}) {
+    if (await this.twoFactor.isEnabled(user.id)) {
+      const challengeToken = this.jwtService.sign(
+        { sub: user.id, purpose: '2fa' },
+        { secret: this.twoFactorChallengeSecret(), expiresIn: TWOFA_CHALLENGE_TTL_SEC },
+      );
+      return {
+        requires2FA: true as const,
+        challengeToken,
+        expiresInSec: TWOFA_CHALLENGE_TTL_SEC,
+      };
+    }
+    return this.generateTokenPair(user, meta);
+  }
+
+  /**
+   * Login'in ikinci adımı: challenge token + TOTP (veya yedek) kodu.
+   * Başarısız kod denemeleri de parola denemeleriyle aynı brute-force
+   * sayacına yazılır — aksi halde kod adımı sınırsız denenebilirdi.
+   */
+  async verifyTwoFactorLogin(challengeToken: string, code: string, ip = '', ua = '') {
+    let userId: string;
+    try {
+      const payload = this.jwtService.verify<{ sub?: string; purpose?: string }>(challengeToken, {
+        secret: this.twoFactorChallengeSecret(),
+      });
+      if (payload?.purpose !== '2fa' || !payload.sub) {
+        throw new Error('Beklenmeyen challenge payload');
+      }
+      userId = payload.sub;
+    } catch {
+      throw new UnauthorizedException('Doğrulama süresi doldu — tekrar giriş yap');
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      include: { tenant: true },
+    });
+    if (!user) throw new UnauthorizedException('Hesap bulunamadı');
+
+    this.assertNotBlocked(ip, user.email);
+
+    const ok = await this.twoFactor.verifyCode(userId, code);
+    if (!ok) {
+      this.recordFailedLogin(ip, user.email);
+      throw new UnauthorizedException('Doğrulama kodu hatalı');
+    }
+
+    this.clearLoginAttempts(ip, user.email);
+    return this.generateTokenPair(user, { ip, ua });
+  }
+
   private async generateTokenPair(
     user: any,
     meta: { ip?: string; ua?: string } = {},

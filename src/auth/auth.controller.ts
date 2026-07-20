@@ -4,7 +4,7 @@ import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import type { Response, Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
 import { TurnstileService } from './turnstile.service';
-import { LoginDto, RegisterDto, PasswordResetRequestDto, PasswordResetConfirmDto, EmailVerifyConfirmDto } from './dto/auth.dto';
+import { LoginDto, RegisterDto, PasswordResetRequestDto, PasswordResetConfirmDto, EmailVerifyConfirmDto, TwoFactorLoginDto } from './dto/auth.dto';
 import { CustomerRegisterDto, CustomerLoginDto, GuestTicketLookupDto, UpdateProfileDto, ChangePasswordDto } from './dto/customer-auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { GoogleAuthGuard } from './google-auth.guard';
@@ -65,6 +65,23 @@ export class AuthController {
     res.clearCookie(REFRESH_COOKIE_NAME, { ...refreshCookieOptions(prod), maxAge: 0 });
   }
 
+  /**
+   * Login sonucunu response'a yazar. Hesapta 2FA açıksa oturum HENÜZ
+   * açılmaz: refresh cookie yazılmaz, access token dönmez — sadece kod
+   * adımını yetkilendiren challenge döner.
+   */
+  private finishLogin(res: Response, result: Awaited<ReturnType<AuthService['login']>>) {
+    if ('requires2FA' in result) {
+      return {
+        requires2FA: true,
+        challengeToken: result.challengeToken,
+        expiresInSec: result.expiresInSec,
+      };
+    }
+    this.writeRefreshCookie(res, result.refresh_token);
+    return { access_token: result.access_token, user: result.user };
+  }
+
   @Post('register')
   @Throttle({ short: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Register a new company and admin user' })
@@ -89,6 +106,27 @@ export class AuthController {
   ) {
     await this.turnstile.verify(loginDto.turnstileToken, resolveClientIp(req));
     const result = await this.authService.login(loginDto, resolveClientIp(req), resolveUserAgent(req));
+    return this.finishLogin(res, result);
+  }
+
+  /**
+   * Login'in ikinci adımı. Parola adımı 2FA açık bir hesapta durduysa
+   * client buraya challenge token + kod gönderir; oturum burada açılır.
+   */
+  @Post('2fa/login')
+  @Throttle({ short: { limit: 10, ttl: 60000 } })
+  @ApiOperation({ summary: 'Complete login by verifying a 2FA code' })
+  async twoFactorLogin(
+    @Body() dto: TwoFactorLoginDto,
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.verifyTwoFactorLogin(
+      dto.challengeToken,
+      dto.code,
+      resolveClientIp(req),
+      resolveUserAgent(req),
+    );
     this.writeRefreshCookie(res, result.refresh_token);
     return { access_token: result.access_token, user: result.user };
   }
@@ -119,8 +157,7 @@ export class AuthController {
   ) {
     await this.turnstile.verify(dto.turnstileToken, resolveClientIp(req));
     const result = await this.authService.customerLogin(dto, resolveClientIp(req), resolveUserAgent(req));
-    this.writeRefreshCookie(res, result.refresh_token);
-    return { access_token: result.access_token, user: result.user };
+    return this.finishLogin(res, result);
   }
 
   // ─── Refresh + Logout ───
@@ -187,6 +224,12 @@ export class AuthController {
         resolveClientIp(req),
         resolveUserAgent(req),
       );
+      // 2FA açıksa Google doğrulaması tek başına yetmez — kod adımına yolla
+      if ('requires2FA' in result) {
+        return res.redirect(
+          `${frontend}/hesap/giris?challenge=${encodeURIComponent(result.challengeToken)}`,
+        );
+      }
       // Refresh token redirect ile birlikte set-cookie olarak browser'a düşer (URL'de görünmez)
       this.writeRefreshCookie(res, result.refresh_token);
       const payload = Buffer.from(JSON.stringify({ token: result.access_token, user: result.user })).toString('base64url');

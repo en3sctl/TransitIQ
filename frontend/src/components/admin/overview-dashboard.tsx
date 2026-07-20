@@ -351,7 +351,7 @@ function TaxReportCard() {
         toast.info('Bu ay için kayıt yok');
         return;
       }
-      const rows = list.map((b: any) => {
+      const rows: string[][] = list.map((b: any) => {
         const gross = Number(b.pricePaid);
         const net = gross / 1.20;
         const vat = gross - net;

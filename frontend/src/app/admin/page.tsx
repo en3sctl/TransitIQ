@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/context/auth-context";
 import ProtectedRoute from "@/components/protected-route";
@@ -21,11 +21,13 @@ const PanelSkeleton = () => (
 
 // Lazy-loaded paneller — sadece ilgili tab seçilince yüklenir.
 // named export'ları wrapping için `.then(m => ({ default: m.X }))` kullanıyoruz.
-const lazyPanel = <T,>(loader: () => Promise<Record<string, T>>, key: string) =>
+// Dönüş tipi M[K]'ye daraltılır; aksi halde dynamic() panellerin prop tiplerini
+// silip her paneli "props almaz" gibi gösteriyor (onNavigate sessizce kaybolur).
+const lazyPanel = <M, K extends keyof M>(loader: () => Promise<M>, key: K) =>
   dynamic(
-    () => loader().then((m) => ({ default: (m as any)[key] })) as any,
+    () => loader().then((m) => ({ default: m[key] as ComponentType<any> })),
     { ssr: false, loading: PanelSkeleton },
-  );
+  ) as M[K];
 
 const OverviewDashboard = lazyPanel(() => import("@/components/admin/overview-dashboard"), "OverviewDashboard");
 const AdminBookingsPanel = lazyPanel(() => import("@/components/admin/bookings-panel"), "AdminBookingsPanel");
